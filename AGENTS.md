@@ -142,7 +142,7 @@ tested something you did not run.
   Run `make check`, which bundles the page first.
 - **Running a suite file directly** (`node test/browser/tree.mjs`). It stops with "MTHUB_BIN
   is not set". Go through `node test/browser/run.mjs tree`.
-- **Reading "41 suites" as all of them.** `previews` is skipped unless you pass `--all`
+- **Reading "42 suites" as all of them.** `previews` is skipped unless you pass `--all`
   (it fetches real sites). Naming suites prints the rest as "skipped": that is normal.
 - **`voice` or `stream` failing on a Mac or ARM machine.** They run a Linux x86-64 LiveKit
   binary. Run the other suites and say so.

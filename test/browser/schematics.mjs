@@ -54,7 +54,7 @@ await ev(`document.querySelector('#main-schems .schem-card').click()`);
 await settle(300);
 check('post', [await hash(), await ev(`document.querySelector('.schem-post h1').textContent`), await ev(`document.querySelector('.schem-bar').hidden`),
   await ev(`[...document.querySelectorAll('#main-schems .single-bar .vtool')].map((v) => v.title)`), await ev(`[...document.querySelectorAll('#main-schems .single-bar > button, #main-schems .single-actions > button')].map((b) => b.textContent)`)],
-  ['#schem=Build 6', 'Build 6', true, ['Previous (←)', 'Next (→)', 'Full window', 'Forward', 'Download', 'Edit', 'Delete', 'More'], ['← All schematics', 'Open folder']]);
+  ['#schem=Build 6', 'Build 6', true, ['Previous (←)', 'Next (→)', 'Full window', 'Forward', 'Download', 'Edit', 'Delete'], ['← All schematics', 'Open folder']]);
 await shot('post');
 await key('ArrowRight');
 await settle(200);

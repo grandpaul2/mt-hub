@@ -83,7 +83,7 @@ the guide first, with the reason.
   - **Single-item bar** (one file, picture or post), shared everywhere: back, name, details,
     then the buttons grouped on the right. The icon buttons, in order: full window,
     forward, download, open in new tab, edit, **Delete** (grey, red only on hover, like the
-    chat toolbar's), then **⋯**, a menu of the same actions with Delete last in red.
+    chat toolbar's). No **⋯** on a bar: every action is a button on it.
   - **Narrow panels:** the details shorten first, then the buttons drop to their own line.
   - **Folder and board bars** wrap rather than clip.
 - **Phones (under 700 px):** chat only, with the chat picker in the panel header.

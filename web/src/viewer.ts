@@ -4,7 +4,7 @@
 // name) top left; zoom, forward, download, open in a new tab and close top right, plus
 // "open folder" when it was opened from a chat. ←/→ step through the set, Esc closes,
 // clicking the dark area closes, clicking the picture zooms (drag to pan).
-import { glyphs, dateTime, h, showMenu, type MenuItem } from './util';
+import { glyphs, dateTime, h } from './util';
 
 export type ViewItem = {
   src: string; // what to show (and download, and open in a new tab)
@@ -27,7 +27,6 @@ export const ICON = {
   download: svg('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>'),
   newTab: svg('<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>'),
   save: svg('<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/><path d="M12 10v6"/><path d="m15 13-3 3-3-3"/>'),
-  more: svg('<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>'),
   folder: svg('<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>'),
   close: svg('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>'),
   edit: svg('<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/>'),
@@ -70,8 +69,8 @@ export function openViewer(items: ViewItem[], index = 0, zoomed = false) {
 // SingleBar describes the bar over one item shown on its own in the main panel: a picture or
 // video, a text file, a schematic post. One look everywhere: back on the left, then the name
 // and details; previous/next and the icon buttons on the right: full window, forward,
-// download, open in new tab, edit, then Delete (red only on hover, as in chat) and ⋯, which
-// lists the same actions. Each view turns on what applies.
+// download, open in new tab, edit, then Delete (red only on hover, as in chat). Each view
+// turns on what applies.
 export type SingleBar = {
   back?: { label: string; title: string; go: () => void };
   name: string;
@@ -118,29 +117,6 @@ export function singleBar(o: SingleBar) {
   }
   if (o.edit) tools.append(tool(ICON.edit, 'Edit', o.edit));
   if (o.del) tools.append(tool(ICON.trash, 'Delete', o.del, 'del'));
-  // ⋯: the same actions as a list, like a chat message's.
-  const items: MenuItem[] = [];
-  if (o.zoom) items.push(['Full Window', o.zoom]);
-  if (o.forward) items.push(['Forward…', o.forward]);
-  if (o.download) {
-    const { href, name } = o.download;
-    items.push(['Download', () => h('a', { href, download: name }).click()]);
-  }
-  if (o.newTab) {
-    const url = o.newTab;
-    items.push(['Open in New Tab', () => window.open(url, '_blank', 'noopener')]);
-  }
-  if (o.edit) items.push(['Edit', o.edit]);
-  if (o.del) items.push(null, ['Delete', o.del, undefined, undefined, { danger: true }]);
-  if (items.length > 1) {
-    const more = tool(ICON.more, 'More', null);
-    more.disabled = false;
-    more.onclick = () => {
-      const r = more.getBoundingClientRect();
-      showMenu({ clientX: r.left, clientY: r.bottom + 2 } as MouseEvent, items, more);
-    };
-    tools.append(more);
-  }
   if (tools.children.length) actions.append(tools);
   return bar;
 }

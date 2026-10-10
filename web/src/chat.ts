@@ -2119,7 +2119,11 @@ function setDraft(name: string, text: string) {
 
 // grow fits a message box to its text (up to 200 px). A box that isn't on screen can't be
 // measured: it's left at its natural height, and layoutChanged fits it once it shows.
+// Measuring takes the box down to one line for a moment. An edit box is inside the feed, which
+// is shorter for that moment and, near its bottom, scrolls up to fit: put it back after.
 function grow(t: HTMLTextAreaElement) {
+  const feed = t.closest('.messages');
+  const top = feed?.scrollTop;
   t.style.height = 'auto';
   if (!t.offsetParent) {
     t.style.height = '';
@@ -2127,6 +2131,7 @@ function grow(t: HTMLTextAreaElement) {
   }
   const border = t.offsetHeight - t.clientHeight; // scrollHeight leaves it out
   t.style.height = Math.min(t.scrollHeight + border, 200) + 'px';
+  if (feed && feed.scrollTop !== top) feed.scrollTop = top!;
 }
 
 function insert(t: HTMLTextAreaElement, s: string) {
