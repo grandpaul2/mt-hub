@@ -1,5 +1,9 @@
 # Voice rooms: the audio chain apart from the denoise model
 
+**Status:** research record. The built chain differs in one place: the browser's echo
+cancellation is off by default, because the lab found it chops up voices in Firefox (see
+[`README.md`](README.md)).
+
 Researched 2026-10-03. Scope: VAD gate, echo cancellation and gain, Opus over WebRTC.
 Tags: [V] = read in a primary source this session. [S] = search snippet only. [U] = unverified, from memory, or inferred. Test every [U] item before relying on it.
 

@@ -1,5 +1,7 @@
 # Simple Voice Chat: plugins, Discord bridge, and a cross-server link
 
+**Status:** research record. The link built from it is specified in [`link-spec.md`](link-spec.md).
+
 Research date 2026-10-09. Read-only research; nothing installed or touched.
 Items marked **(unverified)** came from search summaries or reasoning, not from source I read.
 
@@ -13,7 +15,7 @@ Items marked **(unverified)** came from search summaries or reasoning, not from 
   - `bind_address` blank = use `server-ip`; `voice_host` = the host(:port) clients are told to use (needed when the public UDP port differs from the internal one).
   - `codec=VOIP` (alternatives `AUDIO`, `RESTRICTED_LOWDELAY`), `mtu_size=1275`, `keep_alive=1000` ms, `enable_groups=true`, `max_voice_distance=48`, `allow_recording`, `force_voice_chat`.
   - There is **no bitrate setting**. Source shows fixed 48 kHz, mono, 20 ms frames (960 samples), max Opus payload 1275 bytes ([AudioUtils](https://github.com/henkelmax/simple-voice-chat/blob/master/common/src/main/java/de/maxhenkel/voicechat/voice/common/AudioUtils.java), [OpusManager](https://github.com/henkelmax/simple-voice-chat/blob/master/common/src/main/java/de/maxhenkel/voicechat/natives/OpusManager.java)). The codec setting only picks the libopus "application" (VOIP / AUDIO / LOW_DELAY).
-- **Hosting caveat for DatHost:** SVC needs an extra public UDP port per server. I found no DatHost-specific guide; generic advice is "ask the host for an extra UDP allocation, or use `port=-1`" ([general guide](https://physgun.com/help/game-hosting/minecraft/how-to-use-simple-voice-chat-in-minecraft/)). **Open question to settle with DatHost first:** can each server get a UDP port (then set `port`, maybe `voice_host`)? If not, `port=-1` is the fallback and has crash risk. Since you said voice already works elsewhere, check what the panel offers.
+- **Hosting caveat:** SVC needs an extra public UDP port per server. No host-specific guide was found; generic advice is "ask the host for an extra UDP allocation, or use `port=-1`" ([general guide](https://physgun.com/help/game-hosting/minecraft/how-to-use-simple-voice-chat-in-minecraft/)). **Open question to settle with DatHost first:** can each server get a UDP port (then set `port`, maybe `voice_host`)? If not, `port=-1` is the fallback and has crash risk. Since you said voice already works elsewhere, check what the panel offers.
 - **Proxy support:** an official Velocity/BungeeCord plugin gives one public UDP port for many backends and detects each backend's voice port ([proxy config](https://modrepo.de/minecraft/voicechat/wiki/proxy_config), [proxy setup](https://modrepo.de/minecraft/voicechat/wiki/proxy_setup)). It is networking only: each player is on one backend at a time. We have no proxy, so this is irrelevant unless you add one.
 - **Groups:** players create/join groups in the GUI (name, optional password). Types: `NORMAL` (group members also hear nearby non-group players, not vice versa), `OPEN` (both ways), `ISOLATED` (only group members). Groups can be persistent (survive empty) and hidden, via the API ([Group.java](https://github.com/henkelmax/simple-voice-chat/blob/master/api/src/main/java/de/maxhenkel/voicechat/api/Group.java)). Groups are per server; there is no built-in cross-server group.
 
@@ -70,7 +72,7 @@ Main one: **Simple Voice Chat Discord Bridge** by amsam0 (formerly naturecodevoi
 ### Shape
 ```
 Survival (Fabric+SVC)                               Creative (Fabric+SVC)
- link-plugin  <--- WebSocket/TCP (TLS) --->  relay (VPS)  <--- WebSocket/TCP (TLS) ---> link-plugin
+ link-plugin  <--- WebSocket/TCP (TLS) --->  relay  <--- WebSocket/TCP (TLS) ---> link-plugin
 ```
 The relay is a plain network service, **not** an SVC server. Players only ever talk SVC to their own game server.
 
@@ -85,7 +87,7 @@ The relay is a plain network service, **not** an SVC server. Players only ever t
 - Only needed if bridging to something that wants one mixed stream (Discord-style): decode via `api.createDecoder()` per sender, sum PCM with clipping, re-encode (`createEncoder`). Not needed for SVC-to-SVC.
 
 ### Latency
-- DatHost Dallas to Vultr Dallas is a few ms. Expect +20 to 60 ms total (one 20 ms frame, jitter buffering, relay hop). Fine for speech. (estimate)
+- Game host to relay in the same city is a few ms. Expect +20 to 60 ms total (one 20 ms frame, jitter buffering, relay hop). Fine for speech. (estimate)
 - Keep it UDP-like: TCP/WebSocket head-of-line blocking can cause bursts after packet loss. A small relay-side UDP or QUIC channel with a sequence number is better; start with WebSocket for simplicity since both ends are in one datacenter region (unverified how much loss there is).
 - Test: whether `AudioChannel.send(byte[])` assigns sequence numbers and how the client jitter buffer reacts to bursty arrival (I did not read this code path).
 
@@ -95,15 +97,15 @@ The relay is a plain network service, **not** an SVC server. Players only ever t
 - [Discord bridge](https://gitlab.com/amsam0/voicechat-discord) (MIT): `PlayerAudioListener`/`AudioSender` pattern, group management, per-sender decoder and mixing code if we ever need a mixed output. Its Rust parts are not needed.
 - Our own: the mt hub and MT Hub mod already have a server credential model (the server holds one hub token and does every hub call for its players); the relay can reuse the same single-server-token approach, and the plugin could ride the MT Hub mod rather than being a new mod (decide later).
 
-### Relay (VPS)
+### Relay
 - Small service (Node or Go): authenticates each game server with a token, keeps the room, forwards each frame from one server to the others (and, later, to web clients). No audio processing. A few hundred lines.
 
 ### Later: web/phone users via LiveKit (feasibility only)
 - Feasible. The relay would act as a LiveKit participant per remote Minecraft speaker (publish) and subscribe to the room for incoming browser audio. LiveKit's server SDKs (Go, Node `@livekit/rtc-node`) deal in PCM frames, so this path needs decode (Opus to PCM) outbound and encode (PCM to Opus, one mixed or per-speaker stream) inbound: the first place we do need `OpusDecoder`/`OpusEncoder` equivalents (libopus in Go/Node). Browser audio into SVC would arrive as a static channel the same way as remote players. CrossTalk is a precedent for browser <-> SVC ([repo](https://github.com/craftedkind54-netizen/crosstalk-bedrock-voice-bridge)). Audio rate matches (LiveKit Opus is 48 kHz, mono is fine).
 
 ### Risks and open items
-1. DatHost extra UDP port for SVC on both servers (blocker if refused).
+1. An extra public UDP port for SVC on both servers (blocker if refused).
 2. Players must have SVC installed: replaces the browser voice for in-game users; hub voice stays as a separate option.
 3. Mod licensing: depend on the API only.
-4. Verify on a throwaway server (recipe: `reference_throwaway_test_server` in project memory): jitter/sequence behavior, speaker end-of-stream, 2+ simultaneous remote speakers, group joins/leaves, plugin restart while players are in the group.
+4. Verify on a throwaway server (a throwaway Fabric server with the mods under test): jitter/sequence behavior, speaker end-of-stream, 2+ simultaneous remote speakers, group joins/leaves, plugin restart while players are in the group.
 5. Spoofing: only the relay-authenticated game server may inject; per-player mute/permissions go through the Link group's password or an op-gated join (SVC fabric-permissions-api is "suggested").

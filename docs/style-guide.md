@@ -4,18 +4,10 @@ How the hub looks, behaves and talks, and why. New UI is built to this guide. Wh
 the guide disagree, the guide wins and the code is fixed, unless the guide is wrong. Then change
 the guide first, with the reason.
 
-**Status: agreed (S43).**
-- Paul accepted every recommendation in the draft, except that phones stay chat-only with no
-  mobile work.
-- Each rule is either a decision on record (session given) or plain description of what's
-  built.
-- The last section lists where today's code breaks the guide; that list is the conformance
-  pass.
-
-Sources:
-- every session handoff from S35 to S43;
-- `docs/discord-replacement.md` and `docs/hub-backlog.md`;
-- a full read of `web/src`.
+**Status: agreed by the maintainers.**
+- Each rule is either a decision on record or plain description of what's built.
+- Phones stay chat-only, with no mobile work.
+- Section 15 is where gaps between the code and the guide are listed as they are found.
 
 ---
 
@@ -34,82 +26,76 @@ Sources:
    - A non-technical member needs only the address. They never see git, a terminal, a security
      warning or a code-editor feature they didn't ask for.
    - When a Discord or VS Code feature only makes sense to programmers, leave it out (the plain
-     editor: S37).
+     editor).
 3. **Files are the truth.**
    - Galleries, the Schematic Manager and search are views of folders and file names, not
-     separate stores (S40).
-   - Every folder opens the same folder view (S40).
-   - The one exception: files posted in a chat live with the chat (S44 for private chats and
-     DMs, so they stay private; every chat since S56). Save to Files… copies one into Files.
-4. **Fewest layers.** No feature, setting or abstraction before there's a real need (S35). A
+     separate stores.
+   - Every folder opens the same folder view.
+   - The one exception: files posted in a chat live with the chat (in every chat, so private
+     chats and DMs stay private). Save to Files… copies one into Files.
+4. **Fewest layers.** No feature, setting or abstraction before there's a real need. A
    simple rule beats a configurable one.
 5. **Nothing moves under the pointer.**
-   - Controls keep their place when something appears or changes: reserved space for Save
-     (S42), the fixed-width count on the board (S39).
-   - The chat holds its scroll place when panels resize (S42).
+   - Controls keep their place when something appears or changes: reserved space for Save, the fixed-width count on the board.
+   - The chat holds its scroll place when panels resize.
 6. **Never let the system decide how it looks.**
-   - The hub ships its own fonts (Noto Sans, JetBrains Mono) and its own emoji (Twemoji)
-     (S38, S42).
+   - The hub ships its own fonts (Noto Sans, JetBrains Mono) and its own emoji (Twemoji).
    - Nothing depends on what's installed on the viewer's machine.
 7. **What you see on screen is the test.**
-   - Styling is checked on a real screen (`make firefox-check`) as well as in tests (S42).
-   - Paul's on-screen observations beat theories.
-8. **Not in scope:** notifications, pings, presence, typing indicators, sounds (Paul: "probably
-   never", S38/S43). Read markers (unread dots, the NEW line) are fine: they're about what you've
+   - Styling is checked on a real screen (`make firefox-check`) as well as in tests.
+   - What the maintainer sees on screen beats theories.
+8. **Not in scope:** notifications, pings, presence and typing indicators. Sounds are not a
+   feature to grow: a new-message sound exists and is optional (see Message sound and Sound
+   Settings in 8). Read markers (unread dots, the NEW line) are fine: they're about what you've
    read, not about pulling you back.
-   - **No avatars** (S51). They were built (Minecraft faces, or initials) and tried live; Paul:
-     they made the chat and voice lists too busy, and the hub's quieter, more focused look than
-     Discord's is worth keeping. The work is on the `archive/avatars` branch.
+   - **No avatars.** They were tried (Minecraft faces, or initials) and made the chat and voice
+     lists too busy; the hub's quieter, more focused look than Discord's is worth keeping.
 
 ---
 
 ## 2. Layout
 
-- **Desktop grid** (S35):
+- **Desktop grid**:
   - top bar (34 px) over three columns: left sidebar, main panel, right chat panel.
-  - **Sidebar:** FILES tree, then CHATS (DMs included, S44). VOICE and LIVE appear only
-    while in use (S55, Paul): VOICE while there's a voice chat, LIVE while someone's sharing
+  - **Sidebar:** FILES tree, then CHATS (DMs included). VOICE and LIVE appear only
+    while in use: VOICE while there's a voice chat, LIVE while someone's sharing
     their screen. Both sit under CHATS. The bottom holds only the voice and sharing bars,
     while in use. The Schematic Manager button is in `schematics/`' folder bar, where a
-    screenshots folder has its filters (S56, Paul; it was pinned to the sidebar's bottom
-    from S40). The Manager's board has **← Back to schematics/** first in its bar, back to
-    that folder (Esc too), like every folder's Back (S62, Paul).
+    screenshots folder has its filters. The Manager's board has **← Back to schematics/** first in its bar, back to
+    that folder (Esc too), like every folder's Back.
   - **Main panel:** shows one thing at a time: a file, a chat, a folder, the Schematic
-    Manager, or a screen being watched (S55).
+    Manager, or a screen being watched.
   - **Right panel:** a second chat with its own picker. It collapses to a thin strip; » flips
-    to « in the same spot (S36).
-- **Sizes** (S39):
+    to « in the same spot.
+- **Sizes**:
   - **Sidebar:** 260 px by default, at least 160 px.
   - **Chat panel:** 340 px by default, at least 240 px.
   - **Main panel:** keeps at least 320 px.
   - Both side panels resize by dragging their inner edge; a double-click resets them. Widths are
     remembered per browser.
 - **Top bar:**
-  - **The logo** on the left (S51): the red pixel M from map art MA-001 and the pixel
+  - **The logo** on the left: the red pixel M from map art MA-001 and the pixel
     MACROTECH lettering in MA-003's broken frame, redrawn as an inline SVG on whole pixels
     (`index.html`). No end ticks on the frame. The bar stays `--top` grey.
-  - On the right: search (S43), then your name, which opens the account menu.
-  - The tab title and login heading say **MacroTech** (S43).
+  - On the right: search, then your name, which opens the account menu.
+  - The tab title and login heading say **MacroTech**.
 - **Bars** (the strip at the top of a panel): one height (35 px minimum) and one padding.
   - **Single-item bar** (one file, picture or post), shared everywhere: back, name, details,
-    then the buttons grouped on the right (S39). The icon buttons, in order: full window,
+    then the buttons grouped on the right. The icon buttons, in order: full window,
     forward, download, open in new tab, edit, **Delete** (grey, red only on hover, like the
-    chat toolbar's), then **⋯**, a menu of the same actions with Delete last in red (S56,
-    Paul; Delete was a red-filled button on its own).
-  - **Narrow panels:** the details shorten first, then the buttons drop to their own line (S42).
-  - **Folder and board bars** wrap rather than clip (S40).
-- **Phones (under 700 px):** chat only, with the chat picker in the panel header (S35).
+    chat toolbar's), then **⋯**, a menu of the same actions with Delete last in red.
+  - **Narrow panels:** the details shorten first, then the buttons drop to their own line.
+  - **Folder and board bars** wrap rather than clip.
+- **Phones (under 700 px):** chat only, with the chat picker in the panel header.
   - A file link downloads the file or opens the picture in a new tab.
-  - Folder views and the Schematic Manager aren't reachable on a phone, **on purpose**. Paul
-    (S43): chat on phones works fine, and there's no mobile development work ("I don't want to
-    do mobile dev work"). New features are desktop-only unless they're chat.
+  - Folder views and the Schematic Manager aren't reachable on a phone, **on purpose**. Chat on phones works fine, and there's no mobile development work. New features are desktop-only unless they're chat.
 
 ---
 
 ## 3. Colour
 
 Dark theme only. Every colour is a token in `:root`; no colours are hard-coded in rules.
-The token set below (S43) is today's values merged: the many near-same greys collapse into the
+The token set below is today's values merged: the many near-same greys collapse into the
 nearest token, and the three reds and four blues become one role each.
 
 ### 3.1 Tokens
@@ -126,7 +112,7 @@ nearest token, and the three reds and four blues become one role each.
 | `--active` | #04395e | menu item under the pointer, picked item in a list |
 | `--text` | #cccccc | file-side text |
 | `--muted` | #8a8a8a | secondary file-side text |
-| `--chat-text` | #e0e0e0 | chat and sidebar text (brighter, S36/S37) |
+| `--chat-text` | #e0e0e0 | chat and sidebar text (brighter than first tried) |
 | `--chat-muted` | #9d9d9d | chat secondary text, sliders |
 | `--chat-name` | #ffffff | names, titles |
 | `--accent` | #0e639c | primary buttons (see 3.2) |
@@ -137,21 +123,21 @@ nearest token, and the three reds and four blues become one role each.
 | `--danger-fill` | #a1260d | red buttons (destructive confirm) |
 | `--ok` | #73c991 | "online", success marks |
 | `--warn` | #5a4a14 | banners, notes to read |
-| `--mention` | #5865f2 | @mentions (Discord's blurple, S38) |
+| `--mention` | #5865f2 | @mentions (Discord's blurple) |
 | `--flash` | rgba(250,200,60,.25) | a message or block you were sent to, search highlights |
-| `--tag-purple` `-gold` `-blue` `-teal` `-green` `-orange` `-red` `-pink` `-grey` | #8a3ffc #9c7a32 #2f6fd0 #1f8a7a #3d8b37 #c0601a #b8323f #c2407f #5f6670 | admin tags (the "op" badge): each admin picks one (S51); purple by default, gold for the owner. `--tag-gold-text` #f2e3bf is gold's text. Were `--admin` and `--owner` (S41) |
-| `--border-hi` | #585858 | hovered edges, tree guides, reply and forward bars (added S44) |
-| `--danger-fill-hi` | #be2f12 | red button hover (S44) |
-| `--logo-text` | #c6d2dd | the logo's MACROTECH lettering (S51) |
-| `--logo-frame` | #929eae | the logo's frame (S51) |
-| `--logo-red` · `-hi` · `-lo` | #c8161a · #e0393c · #8e0d10 | the logo's red M: middle, top and bottom rows (S51) |
-| `--mention-tint` | rgba(88,101,242,.25) | mention pill, your reactions (S44) |
-| `--mention-text` | #c9cdfb | mention pill text (S44) |
-| `--media-bg` | #000000 | behind videos and pictures (S44) |
-| `--scrim` / `--scrim-soft` | rgba(0,0,0,.86) / .65 | behind the viewer / behind dialogs (S44) |
-| `--pill` | rgba(30,31,34,.92) | the viewer's tool pills (S44) |
+| `--tag-purple` `-gold` `-blue` `-teal` `-green` `-orange` `-red` `-pink` `-grey` | #8a3ffc #9c7a32 #2f6fd0 #1f8a7a #3d8b37 #c0601a #b8323f #c2407f #5f6670 | admin tags (the "op" badge): each admin picks one; purple by default, gold for the owner. `--tag-gold-text` #f2e3bf is gold's text. Were `--admin` and `--owner` |
+| `--border-hi` | #585858 | hovered edges, tree guides, reply and forward bars |
+| `--danger-fill-hi` | #be2f12 | red button hover |
+| `--logo-text` | #c6d2dd | the logo's MACROTECH lettering |
+| `--logo-frame` | #929eae | the logo's frame |
+| `--logo-red` · `-hi` · `-lo` | #c8161a · #e0393c · #8e0d10 | the logo's red M: middle, top and bottom rows |
+| `--mention-tint` | rgba(88,101,242,.25) | mention pill, your reactions |
+| `--mention-text` | #c9cdfb | mention pill text |
+| `--media-bg` | #000000 | behind videos and pictures |
+| `--scrim` / `--scrim-soft` | rgba(0,0,0,.86) / .65 | behind the viewer / behind dialogs |
+| `--pill` | rgba(30,31,34,.92) | the viewer's tool pills |
 
-- **Added in the conformance pass (S44):** the rows after the admin tags. The guide's set had no
+- **Added in the conformance pass:** the rows after the admin tags. The guide's set had no
   token for these roles, so they got one instead of merging into a colour that would change
   the look. `--shadow-near` and `--shadow-float` (5) are in `:root` too.
 
@@ -163,25 +149,22 @@ nearest token, and the three reds and four blues become one role each.
   - Replaces about 15 one-off alphas.
 - **Badge colours stay as they are:** they're identity, not UI.
 
-### 3.2 When something is blue (S43)
+### 3.2 When something is blue
 
-- **History:**
-  - S39: "no blue buttons in the main UI".
-  - S42: one blue Edit button, and Save turns blue when there's something to save (Paul's
-    design).
-  - Dialog buttons have stayed blue, flagged in four handoffs and never decided.
-- **The rule (S43): blue marks the one thing to do next, and only while there is one.**
+- **Where it came from:** first "no blue buttons in the main UI", then one blue Edit button
+  with Save turning blue when there's something to save. Dialog buttons stayed blue.
+- **The rule: blue marks the one thing to do next, and only while there is one.**
   - **A dialog's confirm button** (Log in, Send, Add account, Post): blue.
   - **A bar's single primary action** (Edit, which becomes View, or Cancel once there are unsaved changes): blue. **Save:** blue only
-    with unsaved changes (S42).
+    with unsaved changes.
   - **Everything else is grey,** including New post and Upload: buttons that are always
     there.
   - **Destructive confirms** (Delete, Ban, Discard) are **red** (`--danger-fill`), never blue.
     Today the Delete in "Delete this message?" is blue.
-  - **A switch that's on is blue** (S49, Paul): that's state, not a call to action, and
+  - **A switch that's on is blue**: that's state, not a call to action, and
     Discord, Windows and Apple all draw it that way.
   - **Settings dialogs that apply at once** have no confirm, so no blue button. Admin's
-    one is Add account; Make admin is grey (S49).
+    one is Add account; Make admin is grey.
 
 ### 3.3 Red
 
@@ -189,9 +172,9 @@ Red means "this destroys something" or "this went wrong", and nothing else.
 - **Text:** errors under a form, failed toasts.
 - **Fills:** destructive confirms, and a destructive menu item while it asks for its second
   click.
-- **Text:** destructive menu items (Ban, Delete in Admin's "⋯", S49).
+- **Text:** destructive menu items (Ban, Delete in Admin's "⋯").
 - **Hover:** danger icons (trash).
-- **The NEW line (planned item 5, S43):** Discord draws it red, but by the rule above that
+- **The NEW line:** Discord draws it red, but by the rule above that
   would make it read as an error. So it's drawn in `--mention` blurple instead. It's still
   unmistakable, and it keeps red's meaning.
 
@@ -201,17 +184,17 @@ Red means "this destroys something" or "this went wrong", and nothing else.
 
 - **Fonts:**
   - **Noto Sans** for everything, and **JetBrains Mono** for code, paths, the editor and code
-    blocks. Both are bundled (S42).
+    blocks. Both are bundled.
   - No `system-ui`, no system fallbacks except for the moment before load.
-  - **Emoji** are Twemoji images, never a font (S38).
+  - **Emoji** are Twemoji images, never a font.
   - **← → ↑ ↓ ●** are icons (`glyphs()` in `util.ts`), never text: neither bundled font has
     them (Noto Sans' CSS claims ↑ ↓, the file doesn't), and the system font standing in made
-    buttons taller with their text lower in Firefox (S56). Any other symbol in the page's own
-    text gets checked the same way (S56: a font measurement over every view).
+    buttons taller with their text lower in Firefox. Any other symbol in the page's own
+    text gets checked the same way (a font measurement over every view).
 - **Sizes:**
   - **File side:** 13 px (VS Code density).
-  - **Chat side:** chat, sidebar and composer at 14 to 15 px (Discord comfort, S36/S37).
-  - **Scale (S43):** 11 · 12 · 13 · 14 · 15 · 16 · 22.
+  - **Chat side:** chat, sidebar and composer at 14 to 15 px (Discord comfort).
+  - **Scale:** 11 · 12 · 13 · 14 · 15 · 16 · 22.
   - **Small labels:** section heads and times are 11 to 12 px, section heads in uppercase with
     letter-spacing (FILES, CHATS, MESSAGES · 3).
   - Drops the one-off 12.5 and 13.5 px sizes.
@@ -223,24 +206,24 @@ Red means "this destroys something" or "this went wrong", and nothing else.
   - Text that can be cut short with "…" gets a **whole-pixel line-height**, with negative
     margins if the layout would grow.
   - Reason: Firefox on the GPU path clips such text to its box, and a half-pixel edge drops
-    the bottom row of g, p and y (S42, `89c5b94`).
+    the bottom row of g, p and y.
   - **New code prefers wrapping to cutting text short** (the search dropdown does: the server
     shortens long text instead).
 - **Markdown** (files and chat):
-  - Single line breaks are kept, as in Discord and GitHub comments (S37).
+  - Single line breaks are kept, as in Discord and GitHub comments.
   - Code is in the mono font on `--panel-2`.
 
 ---
 
 ## 5. Shape and depth
 
-- **Corner radius (S43), three sizes:**
+- **Corner radius, three sizes:**
   - **4 px:** controls (buttons, inputs, chips, small icons).
   - **6 px:** surfaces (cards, menus, dialogs, popups, dropdowns, tiles).
   - **8 px:** the big rounded Discord pieces (composer, viewer tool pills, toast).
   - Today it's 3, 4, 5, 6 and 8 px for the same roles.
   - **Exception:** the tree's inline rename box stays square (VS Code).
-- **Shadows (S43), two:**
+- **Shadows, two:**
   - `--shadow-near`: the message hover toolbar.
   - `--shadow-float`: menus, popups, dropdowns, toasts, dialogs.
   - Today there are six.
@@ -268,7 +251,7 @@ Red means "this destroys something" or "this went wrong", and nothing else.
 | Viewer pill | icons in a rounded pill (8 px) | single-item bar, full-window viewer |
 
 - **Disabled:** 45% opacity. Never hidden, if it stops something moving (Save in View is
-  reserved, not removed: S42).
+  reserved, not removed).
 - **Icons:**
   - One stroke icon set, the SVGs in `chat.ts` `ICON` and the sidebar heads.
   - Material icons only in the file tree and file rows (VS Code).
@@ -284,13 +267,13 @@ Red means "this destroys something" or "this went wrong", and nothing else.
   - **Focus:** 1 px `--focus` outline plus border.
   - All search boxes use it: top bar, folder bar, board (today there are three looks).
 - **Exceptions, each from its source app:**
-  - **The chat composer** (Discord): roomy, 8 px radius, lighter fill, no focus ring (S37).
+  - **The chat composer** (Discord): roomy, 8 px radius, lighter fill, no focus ring.
   - **The tree's inline rename** (VS Code): square, `--focus` border.
 - **Placeholders** end with "…" when they're an invitation to type ("Search…",
   "Message #general" is a label, so no "…").
-- **Sliders are grey,** never the browser's blue (S39). In settings a slider has a fixed
-  52 px readout beside it ("+0 dB", "70%"), so the value never wraps (S49).
-- **Switch or checkbox (S49):** a **switch** (36×20, off grey, on `--accent`) for an on/off
+- **Sliders are grey,** never the browser's blue. In settings a slider has a fixed
+  52 px readout beside it ("+0 dB", "70%"), so the value never wraps.
+- **Switch or checkbox:** a **switch** (36×20, off grey, on `--accent`) for an on/off
   that applies at once; a **checkbox** only for picking from a list before a confirm button
   (the private chat member picker).
 
@@ -299,21 +282,21 @@ Red means "this destroys something" or "this went wrong", and nothing else.
 - **Look:** `--panel`, `--border`, 6 px radius, float shadow, minimum width 200 px. The item
   under the pointer is `--active` with white text. Shortcuts are shown on the right, muted.
 - **Behaviour:**
-  - The opener toggles the menu (a second click closes it, S39).
+  - The opener toggles the menu (a second click closes it).
   - It closes on a click elsewhere, a resize, the window losing focus, or Esc. Esc with a menu
-    open only closes the menu (S40).
+    open only closes the menu.
 - **Order:** open/act first, then edit (Rename…, Delete), then copy (Copy Path, Copy Link).
   Separators between the groups.
 - **Destructive items** are red text after a separator. An item can ask for a second click:
   the first turns it into "Ban? Click again" (red fill) and the menu stays open; a second
-  click within 3 s acts (S49, `MenuItem` extras in util.ts).
+  click within 3 s acts (`MenuItem` extras in util.ts).
 - **A choice** (the folder view's sort): the item in use has a tick on the right (`checked`).
-- **Keyboard (S43):** ↑/↓ move, Enter picks (VS Code and Discord both do this). Today menus
+- **Keyboard:** ↑/↓ move, Enter picks (VS Code and Discord both do this). Today menus
   are mouse only; it's added in the conformance pass.
 
 ### 6.4 Popups (pickers, autocomplete, dropdowns)
 
-The search dropdown (S43) is the model. The new pieces must follow it: @mention and emoji
+The search dropdown is the model. The new pieces must follow it: @mention and emoji
 autocomplete, the emoji picker, the member picker for private chats and DMs.
 - **Placement:** anchored to what opened it; it stays on screen, flipping above or growing
   leftwards as needed.
@@ -337,12 +320,12 @@ autocomplete, the emoji picker, the member picker for private chats and DMs.
     at the bottom right: **Cancel on the left, confirm on the right**.
 - **Opening:** focus goes to the first input, or to the confirm button when there's nothing to
   type.
-- **Closing (S43):** **Esc closes every dialog except login.** A click on the overlay does
+- **Closing:** **Esc closes every dialog except login.** A click on the overlay does
   nothing, so typed input isn't lost by a stray click. Today dialogs ignore Esc.
 - **No browser dialogs:** no `confirm()`, `alert()` or `prompt()`. They don't follow the theme
   or these rules (nine `confirm()` calls are left today).
 
-### 6.6 Confirming and destroying (S43)
+### 6.6 Confirming and destroying
 
 Today there are five ways: browser `confirm()`, a dialog with a checkbox, a custom "ask"
 dialog, click-twice in Admin, and Shift+click. The rule:
@@ -351,14 +334,14 @@ dialog, click-twice in Admin, and Shift+click. The rule:
   saying what's lost and what stays, and a red confirm button named for the action ("Delete",
   not "OK").
 - **Two allowed shortcuts:**
-  - **Shift+click** on a message's trash icon skips the question (Discord, S38).
+  - **Shift+click** on a message's trash icon skips the question (Discord).
   - **Admin row actions** (Reset Password, Ban, Delete) keep click-twice-within-3-s, now
-    inside each person's "⋯" menu (S49). Admin is used by admins only, and the second click
-    is the confirmation (S42).
+    inside each person's "⋯" menu. Admin is used by admins only, and the second click
+    is the confirmation.
 - **Ask only when something is really lost:**
   - Overwriting something versioned in git is recoverable; say so instead of asking. ("The old
     version stays in its history.") Uploading over a versioned file now just replaces it and
-    says so in the toast (S44).
+    says so in the toast.
   - Deleting a file still asks: its history is kept, but nothing in the page brings a deleted
     file back yet (item 16 on the Later list).
   - Media and `large/` have no history, so ask there.
@@ -368,18 +351,18 @@ dialog, click-twice in Admin, and Shift+click. The rule:
 
 - **Toast:**
   - One at a time, top centre, 8 px radius, dismissed by time; a new one replaces it.
-  - **Two kinds (S43):** **info** (2.5 s) and **error** (6 s, red edge).
+  - **Two kinds:** **info** (2.5 s) and **error** (6 s, red edge).
   - Progress (uploads) stays until done.
   - Toasts never ask anything; a question is a dialog.
 - **Banner:** a `--warn` strip under a file's bar, for "this file changed under you". It stays
   while it's true.
 
-### 6.8 Settings dialogs (S49)
+### 6.8 Settings dialogs
 
 From the research in `docs/hub-dialog-conventions.md` (Discord, VS Code, GNOME,
-Apple, Fluent all agree), approved by Paul. Admin, Voice settings and Sound settings use it,
+Apple, Fluent all agree), approved by the maintainers. Admin, Voice settings and Sound settings use it,
 built from `settingsDialog`, `group`, `row`, `toggle` and `readout` in util.ts. They stay
-separate dialogs (Paul).
+separate dialogs.
 - **Frame:** 520 px, 24 px padding, spacing 4 / 8 / 12 / 16 / 24. A header: the title on the
   left, a close X on the right ("Close (Esc)"). Taller than the window, it scrolls.
 - **They apply at once:** no Done or Save, so no blue button. The X and Esc close them.
@@ -395,11 +378,11 @@ separate dialogs (Paul).
 - **Narrow (under 560 px):** a row stacks, the control under its text.
 - **Admin:** Add account at the top (name field, blue button); then each person as a row:
   name and badges, "● online" or "Last seen …" under it, and "⋯" with what you may do to them;
-  your own row has none (no "You" label, S51). Recent activity below.
-  - **One list for everyone (S51, Paul):** no separate owner section. The owner's menus add
+  your own row has none (no "You" label). Recent activity below.
+  - **One list for everyone:** no separate owner section. The owner's menus add
     Make Admin on a member, and Reset Password and Remove Admin on an admin (an admin is
     banned or deleted only after Remove Admin).
-  - **Badges** are the same as in chat (S51): an admin's tag reads "op" in their tag colour,
+  - **Badges** are the same as in chat: an admin's tag reads "op" in their tag colour,
     for the owner too; "banned" in red.
   - **Tag colour:** a small swatch (a colour well) on your own row if you're an admin, and on
     every admin's row for the owner, before the "⋯" (whose space is kept, so wells line up). It opens a menu of the nine `--tag-*`
@@ -411,44 +394,43 @@ separate dialogs (Paul).
 
 - **Tree rows (VS Code):**
   - **Size:** 24 px, 8 px indent with guides on hover, Material icons.
-  - **Selection:** one highlight: grey, plus a `--focus` outline while the tree has focus
-    (S39).
-  - **Clicks:** a click opens; only the chevron expands (S37/S39). Plain alphabetical, nothing
-    pinned (S40).
+  - **Selection:** one highlight: grey, plus a `--focus` outline while the tree has focus.
+  - **Clicks:** a click opens; only the chevron expands. Plain alphabetical, nothing
+    pinned.
 - **Chat rows (Discord):**
   - **Size:** 34 px, 6 px radius, a big grey `#`.
   - **Unread:** bold, with a white dot.
   - **Active:** `--tint-3`.
-  - **Planned:** a lock for private chats; DMs listed by their people.
+  - **Private chats** show a lock; DMs are listed by their people (see 14).
 - **Sidebar sections:** an uppercase 12 px head (FILES, CHATS, VOICE, LIVE), with its
   "+"-style icon buttons on the right.
-- **LIVE (S55):** one row per person sharing, a screen icon and their name, styled like the
+- **LIVE:** one row per person sharing, a screen icon and their name, styled like the
   voice chat rows; your own reads brighter. Watching is silent: the picture fills the main
   panel, letterboxed in black, with Full screen and Stop watching in its head. Sharing shows a
   bar above the voice bar ("Sharing your screen", who's watching, Stop). On phones a strip at
   the top of the chat ("… is sharing their screen · Watch") opens it full screen.
-- **Messages (Discord, S42):**
+- **Messages (Discord):**
   - **Layout:** a time gutter on the left; the name, then the text on the next line, never on
     the name's line; grouped messages show their time on hover.
   - **Hover toolbar:** top right.
   - **(edited):** with the time on hover.
   - **Replies:** the quote above the message; a click jumps to it.
-  - **Markdown tables** (S53): GitHub's look: hairline cells, a shaded header row, left
+  - **Markdown tables**: GitHub's look: hairline cells, a shaded header row, left
     aligned, every column but the last on one line, wide ones scroll sideways.
-  - **Day divider** (S53, Paul): a hairline across the feed with the day (Today, Yesterday,
+  - **Day divider**: a hairline across the feed with the day (Today, Yesterday,
     or the date) centred on it, as in Discord.
 - **Cards and tiles:**
-  - **Folder tiles:** 16:9 thumbnails (S40).
-  - **Schematic cards:** text left, render right, on grey (S36).
+  - **Folder tiles:** 16:9 thumbnails.
+  - **Schematic cards:** text left, render right, on grey.
   - **Link previews:** a coloured left edge.
-  - **Mod release cards** (S60, Paul picked option B of five): the link-preview look with
+  - **Mod release cards**: the link-preview look with
     `--accent` down the left edge; a small uppercase MOD RELEASE label, the mod name (16 px,
     600) with its version in mono beside it, tag chips (Client / Server, Required in `--warn`,
     Optional plain), the changes, and a footer with a Note (only for a special step) and the
     jar's name · size with grey **Readme** (the mod's page in `mods/mod info/`, found by its name;
-    Paul: "Readme" is the word we use everywhere) and **Download** buttons. A jar that left Files
+    "Readme" is the word used everywhere) and **Download** buttons. A jar that left Files
     shows a muted line; a server-only card has only Readme.
-  - **Server status card** (S62, Paul picked option C of four; `/serverstatus`, see 8): the
+  - **Server status card** (`/serverstatus`, see 8): the
     link-preview look with a `--border-hi` edge and a small uppercase SERVER STATUS label.
     Per server: a dot (`--ok`, or a hollow grey ring when offline), its name (15 px, 600),
     "3 online" on the right, the names under it; then mspt as a graph of the last ten minutes
@@ -467,9 +449,9 @@ separate dialogs (Paul).
 - **Composer** (Discord):
   - **Enter** sends; **Shift+Enter** is a new line; **↑** in an empty box edits your last
     message; **Esc** cancels a reply.
-  - Pasted or dropped files are posted in the chat (S35–S38; any file since S56).
-  - Drafts are kept per chat (S43).
-- **Commands** (S62, Paul; `commands.ts`): a message that is only `/name` of a command isn't
+  - Pasted or dropped files are posted in the chat (any file).
+  - Drafts are kept per chat.
+- **Commands** (`commands.ts`): a message that is only `/name` of a command isn't
   posted; it runs. Typing `/` at the start of the message box lists them in the autocomplete
   popup (6.4; the name in mono, what it does muted). Anything else starting with `/` is an
   ordinary message.
@@ -477,44 +459,43 @@ separate dialogs (Paul).
     newest message, with no name or time, and a line under it: an eye, "Only you can see
     this · **Dismiss**" (Dismiss in `--link`), as Discord does. It's never stored: Dismiss,
     leaving the chat or reloading removes it. In the side chat it starts at the left edge.
-- **The server link** (S62, Paul; `internal/server/link.go`): the chat `#server-link` is
+- **The server link** (`internal/server/link.go`): the chat `#server-link` is
   shared with game chat on our servers. A line a player starts with `$ ` in game shows here,
   and everything said here shows in game, in aqua, as `[SMP] name: text` (`[CMP]`, `[HUB]`).
   Nothing else crosses. Names: hub names here (a linked Minecraft name posts as its hub
-  account), Minecraft names in game, also for what's typed here (S62, Paul).
+  account), Minecraft names in game, also for what's typed here.
   - A message said in game has a small quiet tag after the name, **SMP** or **CMP**
     (`.tag.via`: `--panel-2`, muted text, a hairline), with "Said in game on Survival" on
     hover. The same name from another place starts a new header.
   - The chat has a muted line at the top, like a private chat's, with a link icon: what it's
     linked to and how to send from the game.
-- **Editing a message** (S49, Paul):
+- **Editing a message**:
   - Desktop has no buttons, only the hint "Enter to save · Esc to cancel", with **Enter** and
     **Esc** in `--mention` blurple. Both are clickable (like Discord's): Enter saves, Esc
     cancels.
   - Phones (under 700 px) show **Save** and **Cancel**, and no hint.
-- **Message sound** (S49, Paul): three soft glass notes (C#6 A5 E6), the hub's sound. It's
-  made by `web/src/sounds/make-message.py`: change it there, never by hand. Paul tuned every
-  detail by ear: the pitch, the rhythm, the soft strike, the quick fade after 150 ms (so it
+- **Message sound**: three soft glass notes (C#6 A5 E6), the hub's sound. It's
+  made by `web/src/sounds/make-message.py`: change it there, never by hand. Every
+  detail was tuned by ear: the pitch, the rhythm, the soft strike, the quick fade after 150 ms (so it
   doesn't hang like a clock chime), and the level: 70% in paplay, which is cubic (0.34).
-  The file is at full strength; Sound Settings' default of 70% gives Paul's level, with room
+  The file is at full strength; Sound Settings' default of 70% gives the chosen level, with room
   above. When it plays: `ding.ts`.
-- **Sound Settings** (S49, Paul; the menu on your name): one section per sound, each with a
+- **Sound Settings** (the menu on your name): one section per sound, each with a
   switch, a Volume slider (cubic like the system's; letting go plays it; **70% by default**,
   each sound's chosen level, so people can turn it up; a small tick above the slider marks
   it) and **Test**.
   Today: Message sound and Voice chat sounds. New sounds get a section here. Voice Settings
-  keeps the microphone and the output (Speaker, Output volume 0–200% squared, a tick at 100%;
-  S53, Paul).
-- **Right-clicking someone in a voice chat** (S49, Paul: Discord's conventions): Join or
+  keeps the microphone and the output (Speaker, Output volume 0–200% squared, a tick at 100%).
+- **Right-clicking someone in a voice chat** (Discord's conventions): Join or
   Leave (and Invite People… for a private one's starter), then **Message**; in your own
   voice chat **User Volume** (a slider in the menu, 0–200%, a tick at 100%, squared, saved
   per person per browser) and **Mute** (for you only); for an admin on someone below them,
   **Mute for Everyone** (until they unmute; they're told) and **Disconnect** (red, asks for a
   second click; they can rejoin). Both are in Admin's recent activity.
-- **Hover-only buttons on phones** (the message toolbar, + reaction; S49): a tap on a message
+- **Hover-only buttons on phones** (the message toolbar, + reaction): a tap on a message
   only shows them. The same tap never presses one that appeared under the finger. They act
   only for a press that began on them (`pressedOn` in `chat.ts`; the `phone-taps` suite).
-- **Files posted in chat** (S38; reworked S56, Paul):
+- **Files posted in chat**:
   - Any file up to 50 MB is kept with the chat; the message holds a link
     (`#media/<chat>/<file>`), shown under it: pictures, video and sound as previews, anything
     else as a file card (icon, name in `--link`, size, a Download icon button).
@@ -524,26 +505,26 @@ separate dialogs (Paul).
   - **Files in this chat:** the paperclip next to the 📌 in a chat's header, a popover like
     pins: thumbnail or icon, name, who · when · size; a row jumps to its message, and on hover
     shows Download and Save to Files….
-- **Text** (planned item 1, S43): Discord's Markdown subset (see the backlog).
-  - **Where formatting shows (S43):**
+- **Text**: Discord's Markdown subset (see Formatting in 14).
+  - **Where formatting shows:**
     - **Full** where whole messages show: the message, pins, the forward preview.
     - **Stripped to plain text** in one-line snippets: reply quotes, search results.
     - That's what Discord does.
 - **Mentions:** `@name`, `@everyone` and `@here` are highlighted in `--mention`. No
-  notifications (S38).
-- **Read markers:** unread dots, Mark as read, the count in the tab title. Planned: the NEW
-  line and Jump to present (item 5).
+  notifications.
+- **Read markers:** unread dots, Mark as read, the count in the tab title. The NEW
+  line and Jump to present (see 14).
 - **Times:**
   - **Message:** time of day; the full date and time on hover.
   - **Day dividers:** Today, Yesterday, or the date.
-  - **One date format everywhere else (S43)** (lists, search, viewer): "Oct 2" this year,
+  - **One date format everywhere else** (lists, search, viewer): "Oct 2" this year,
     "Oct 2, 2025" before. Relative times ("3 min ago") only for "last seen" and history.
 
 ---
 
 ## 9. Files specifics
 
-- **Editor** (S37, S42):
+- **Editor**:
   - Text opens in **View** (read-only): Markdown rendered, other text in a plain read-only
     editor.
   - **One blue Edit** turns into **Cancel**; a **grey Save** to its left turns blue with
@@ -553,36 +534,36 @@ separate dialogs (Paul).
   - **The editor is plain:** no suggestions, hovers, squiggles or auto-brackets; long lines
     wrap.
 - **Unsaved changes:**
-  - One sentence everywhere: "You have unsaved changes to X. Discard them?" (S42).
-  - Asked on Cancel, Back, Esc, opening another file, and (planned) the browser's Back.
+  - One sentence everywhere: "You have unsaved changes to X. Discard them?".
+  - Asked on Cancel, Back, Esc, opening another file, and the browser's Back.
 - **Saving is safe:**
-  - A stale save is refused and both versions are shown side by side (S35).
-  - Moves are followed by links and open tabs (S37).
+  - A stale save is refused and both versions are shown side by side.
+  - Moves are followed by links and open tabs.
 - **Areas without history:** `large/`, `screenshots/`, `map art/` (and files posted in chat).
   - Uploading to them, or deleting from them, says that nothing can be brought back.
   - They can't be renamed or deleted themselves.
-- **Schematic posts are edited in place** (S64, Paul): Edit keeps the post's page and layout.
+- **Schematic posts are edited in place**: Edit keeps the post's page and layout.
   The title, credit and description become boxes whose text sits where the text was; each
   picture gets Move up, Move down and Remove, and a dashed Add pictures tile follows them.
   The bar shows grey Save (blue once something changed) and Cancel, as for a text file.
   Cancel, Back, Esc or another post with unsaved changes asks "Discard your changes to …?".
   The description is edited as plain text. A new post is the same page, empty. There is no
   separate form.
-- **Folder view** (S40):
+- **Folder view**:
   - One for every folder: back, title, count, Upload, the search glass, search, sort, Size.
-  - **Search (S64):** hidden until the glass at the right end of the icon buttons is clicked.
+  - **Search:** hidden until the glass at the right end of the icon buttons is clicked.
     The glass turns light blue (`--link`: it's on, like a switch) and the buttons slide left
     as the box comes in (0.2 s). A second click, or Esc in the box, slides it out and clears it.
-  - **Filters (S64, Paul):** a folder of stamped names (screenshots) shows one **Filters**
+  - **Filters:** a folder of stamped names (screenshots) shows one **Filters**
     button. A click brings who / From / To / Clear out to its left; a second click puts them
     away. While a filter is set they stay out and **Clear is blue** (the way back, 3.2).
-  - **The Schematic Manager's New post** sits on the right, by its search box (S64).
-  - **Sort (S64):** a text button that reads the sort in use, "sort:name" or "sort:date"; a click opens a
+  - **The Schematic Manager's New post** sits on the right, by its search box.
+  - **Sort:** a text button that reads the sort in use, "sort:name" or "sort:date"; a click opens a
     menu with Name and Date modified, the one in use ticked. Date is newest first, folders
     too (a folder's date is its newest file's, shown on its tile while sorted by date). One
     choice for every folder, kept per browser; ←/→ in the single view follow it.
   - Ctrl+V pastes pictures (named `<date> <time> <poster>`).
-  - A click on a tile opens its single view; full window is one more click (S38).
+  - A click on a tile opens its single view; full window is one more click.
 
 ---
 
@@ -590,7 +571,7 @@ separate dialogs (Paul).
 
 | Where | Keys |
 |---|---|
-| Anywhere | `/` or Ctrl+K: search. Esc: close the menu, popup or dialog on top (one layer per press). Planned: Alt+←/→ back and forward (item 15) |
+| Anywhere | `/` or Ctrl+K: search. Esc: close the menu, popup or dialog on top (one layer per press). Alt+←/→: back and forward |
 | Tree | ↑/↓, Home/End, →/← expand or collapse (then into or out of a folder), Enter, F2 rename, Delete |
 | Single item | ←/→ previous or next picture or post, Esc back to its folder or the board |
 | Folder view | Esc up one folder, Ctrl+V paste pictures |
@@ -603,7 +584,7 @@ separate dialogs (Paul).
   - A shortcut never fires while you're typing in a box (one shared check: `typing(e)` in
     util).
   - Shortcuts appear in tooltips and on menu items, not in labels.
-- **(S43)** A "Keyboard shortcuts" item in the account menu, showing this table
+- **Keyboard shortcuts list:** a "Keyboard shortcuts" item in the account menu, showing this table
   (Discord has Ctrl+/). It's cheap, and it helps the non-technical players most.
 
 ---
@@ -632,8 +613,8 @@ separate dialogs (Paul).
   | Remove (takes out of a list, nothing destroyed: Remove admin, removing a picture from a post being edited) | |
   | Forward (the dialog's button too) | Send |
 
-  "op" is only the badge text (S41).
-- **Case (S43):**
+  "op" is only the badge text.
+- **Case:**
   - **Title Case** for menu items only ("Copy Link", "Open in Side Panel"), which is what
     both apps do.
   - **Sentence case** everywhere else: buttons, tooltips, dialog titles, headings.
@@ -654,9 +635,9 @@ separate dialogs (Paul).
 
 ---
 
-## 12. Accessibility baseline (S43)
+## 12. Accessibility baseline
 
-Agreed in S43; nothing was on record before. The minimum, because the audience includes people who aren't
+The minimum, because the audience includes people who aren't
 at home in apps like this:
 - **Focus:** everything clickable can be reached and used by keyboard; focus is always visible
   (`--focus`).
@@ -670,89 +651,50 @@ at home in apps like this:
 
 ## 13. Browsers and verification
 
-- **Supported browsers (S43):** Firefox (Paul's: forced WebRender, NVIDIA) and Chromium-based
+- **Supported browsers:** Firefox (the maintainer's: forced WebRender, NVIDIA) and Chromium-based
   browsers, desktop; phones for chat. Nothing older than a year.
 - **Every change gets a test that fails on the old code** (`make browser-test`, Chromium).
 - **Styling changes also run `make firefox-check`:**
   - It compares the real screen with Firefox's own capture, view by view.
-  - It opens a window for about a minute, so **ask Paul first**.
+  - It opens a window for about a minute, so **ask the maintainer first**, and an agent never runs it: it says in the pull request that
+    the change needs it.
   - New views (popups, dialogs) are added to it.
-- **Paul only looks at the live hub;** test hubs are private tools (S38).
+- **The maintainer looks only at the live hub;** a local hub started for a test is a throwaway
+  tool, not something to show.
 
 ---
 
-## 14. Patterns for the planned pieces
+## 14. Patterns for pieces built on the basics
 
-So the basics are built once, to this guide:
-
-- **@mention and `:emoji:` autocomplete (items 3, 4):** a popup (6.4) above the caret. Rows are
+- **@mention and `:emoji:` autocomplete:** a popup (6.4) above the caret. Rows are
   avatar-less: a name, or an emoji with its `:name:`. Tab or Enter inserts.
-- **Emoji picker (4):** a popup with search at the top (focused), a row of category icons,
+- **Emoji picker:** a popup with search at the top (focused), a row of category icons,
   Recently used first, then a grid.
-- **NEW line (5):** a 1 px `--mention` line across the list with a small "NEW" tag on the
+- **NEW line:** a 1 px `--mention` line across the list with a small "NEW" tag on the
   right (3.3).
-- **Jump to present (5):** a pill at the bottom centre of the message list, `--panel-2` with a
+- **Jump to present:** a pill at the bottom centre of the message list, `--panel-2` with a
   shadow, "Jump to present ↓"; it shows only when you're well up the history.
-- **Formatting (1):**
+- **Formatting:**
   - **Code blocks:** `--bg`, 4 px, mono, a copy icon on hover (top right).
   - **Quotes:** a 4 px `--border` bar on the left.
   - **Spoilers:** a solid `--panel-2` block until clicked.
-- **Folder picker (12; Save to Files…, S56):** a dialog, "Save <name> to Files?". The body is
+- **Folder picker (Save to Files…):** a dialog, "Save <name> to Files?". The body is
   a folder box and list (the tree's selected folder by default; typing narrows it or names a
   new folder). The buttons are Cancel and **Save** (blue).
-- **Private chats and DMs (13):**
+- **Private chats and DMs:**
   - **Lock:** a lock stroke icon after the `#` of private chats.
-  - **DMs sit in CHATS** (Paul, S44: no separate DIRECT MESSAGES section), after the chats,
+  - **DMs sit in CHATS** (no separate DIRECT MESSAGES section), after the chats,
     shown as "@" and the people. CHATS' "+" is a menu: New Chat, New Private Chat… (admins),
-    New Direct Message…, the voice chat items and Share Your Screen… (S55: VOICE and LIVE
+    New Direct Message…, the voice chat items and Share Your Screen… (VOICE and LIVE
     aren't there to click when nobody's using them; their own "+" do the same).
   - **Starting one:** New Direct Message… or New Private Chat… opens a **member picker** dialog: search, a checkbox list of
     accounts, then the confirm button "Message" (DM) or "Create" (private chat, admins).
   - **The privacy caveat:** a muted line in the DM and private-chat headers.
-- **Back and Forward (15):** no UI of its own. Browser Back, the mouse's back button and
+- **Back and Forward:** no UI of its own. Browser Back, the mouse's back button and
   Alt+←/→ move between places, and unsaved edits still ask (9).
 
 ---
 
-## 15. Where the code breaks the guide today (the conformance pass)
+## 15. Where the code breaks the guide
 
-Found in the S43 read of `web/src`. Fix them after the basics, and tick them off here.
-
-1. **DONE (S44)** **Tokens:** hard-coded colours become tokens: about 20 greys, three reds, four blues, about
-   15 white alphas (3.1).
-2. **DONE (S44)** **Primary and danger:** the destructive Delete in dialogs is blue; there's no general
-   `.danger` button style (3.2, 6.1).
-3. **DONE (S44: `ask()` in util.ts)** **Confirmations:** nine `confirm()` calls; the schematic "ask" uses its own action-row
-   class (6.5, 6.6).
-4. **DONE (S44: `openDialog`, Esc caught first)** **Dialogs:**
-   - They don't close on Esc.
-   - `dialog()` clears the classes, so Admin re-adds `wide` by hand.
-5. **DONE (S44)** **Radii and shadows:** 3, 4, 5, 6 and 8 px in use, and six shadows (5).
-6. **DONE (S44)** **Search boxes:** three looks; the same selector is repeated in the CSS (6.2).
-7. **DONE (S44: `toastError`; z-index above the viewer)** **Toasts:** one look for info and error; durations from 2.5 to 6 s; hidden under the viewer
-   (5, 6.7).
-8. **DONE (S44)** **Menus:**
-   - **DONE (S44)** No keyboard (6.3).
-   - Title Case leaks into tooltips ("Add Reaction", "Pinned Messages").
-   - "Open folder" vs "Open Folder" for the same action.
-9. **DONE (S44)** **Ellipsis:** chat Delete… has one, other Deletes don't; Forward and Add Reaction lack one
-   (11).
-10. **DONE (S44)** **Words:**
-    - Straight apostrophes in three strings.
-    - "Send" vs "Forward".
-    - "Delete failed" and "Failed: …" vs "Couldn’t …".
-    - Four ways of saying irreversible.
-    - Raw server errors in toasts.
-    - "Nothing matches." vs "Nothing found." vs "Nothing matches the search.".
-11. **DONE (S44)** **Font sizes:** the one-off 12.5 and 13.5 px sizes (4).
-12. **DONE (S44)** **Glyph icons:** ◀ ▶ ✕ in the schematic form; » « on the chat panel (6.1).
-13. **DONE (S44)** **Dead CSS:** `.msg-actions` in the phone rules matches nothing (it's `.msg-tools`).
-14. **DONE (S44)** **Typing check:** five copies; one (schems.ts) misses the editor (10).
-15. **DONE (S44)** **Times:** six date formats; "3 h ago" vs "3 min ago" (8).
-16. **DONE (S44)** **Empty states:** two styles, and inconsistent full stops (7).
-17. **DONE (S44)** **Focus:** buttons have no visible focus style (12).
-18. **DONE (S44)** **Keyboard shortcuts:** the account-menu item showing the table in 10 doesn't exist yet.
-19. **DONE (S44)** **Reduced motion:** `prefers-reduced-motion` isn't honoured (12).
-
-The basics were built to this guide first (`docs/hub-backlog.md`),
-then this list was worked through: **all 19 done (S44)**. New gaps go here as they're found.
+Nothing is known to break it. New gaps go here as they are found, and are fixed.
