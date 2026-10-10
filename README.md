@@ -78,8 +78,8 @@ including how to run one suite or one Go test, are in [`docs/testing.md`](docs/t
 Pull requests are welcome, from a branch or a fork. Nothing on GitHub builds or tests them: the
 maintainer runs the checks and tries the change before merging. Start with
 [`AGENTS.md`](AGENTS.md); it is written for people and for coding agents, and has the commands,
-where a change goes and the rules. Bigger ideas are in
-[`docs/hub-backlog.md`](docs/hub-backlog.md); ask (a GitHub issue) before starting one.
+where a change goes and the rules. New features and experiments are welcome too; ideas that came up earlier are in
+[`docs/hub-backlog.md`](docs/hub-backlog.md).
 
 ## Licence
 

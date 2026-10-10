@@ -8,8 +8,8 @@ framework.
 
 1. **Read the rule first.** `docs/style-guide.md` says how everything looks and behaves, and it
    wins over the code. Find the section for what you change (colours 3, controls 6, chat 8,
-   files 9, words 11). If your change breaks a rule, say so in the pull request rather than
-   quietly breaking it. A new feature may be turned down: see `AGENTS.md`.
+   files 9, words 11) so the change fits in. If it does something different on purpose, say so
+   in the pull request.
 2. **Find where it lives.**
 
    | Area | File |
@@ -40,7 +40,8 @@ framework.
 7. **Use the words the guide uses** (section 11): "chat", "folder", "panel"; Title Case for menu
    items only and sentence case everywhere else; plain sentences in toasts, no jargon.
 8. **Write the browser test** (`docs/agents/write-a-browser-test.md`).
-9. **A new dependency is not allowed** without asking (see `AGENTS.md`).
+9. **Dependencies:** the page loads nothing from other sites, so anything new must bundle into
+   it; mention it in the pull request.
 
 ## Build and look
 

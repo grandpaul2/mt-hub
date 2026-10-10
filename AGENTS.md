@@ -12,21 +12,15 @@ framework. All data is plain files in the data directory. It is not a code edito
 a general chat product, and not a Minecraft mod (that is
 [`mthub-mod`](https://github.com/grandpaul2/mthub-mod)).
 
-## Before you write anything
+## What you can build
 
-The hub is deliberately small and quiet. A change is merged when it fixes a bug, or does a
-small thing the group asked for, in the way `docs/style-guide.md` says. A pull request will be
-turned down if it:
+New features, experiments and fixes are all welcome: build what your human asked for. The hub
+is for a group playing a game together, so it is meant to be fun to change. The maintainer
+tries every pull request before merging, so it does not have to be perfect. Ideas that came up
+earlier are in `docs/hub-backlog.md`, if you want a starting point.
 
-- adds notifications, pings, presence, typing indicators, avatars, or mobile-only work (phones
-  are chat only);
-- adds a dependency, a framework, a build step, GitHub Actions or other automation;
-- loads anything from another site (fonts, scripts, analytics): the page ships everything;
-- breaks a rule in `docs/style-guide.md` without saying so and giving the reason;
-- is a big feature nobody asked for. Ideas not yet built are in `docs/hub-backlog.md`.
-
-**If the request is a new feature rather than a fix, tell your human to ask first** (a GitHub
-issue, or the group's hub), and say so plainly in your reply to them. Do not start building it.
+To make a change fit in, follow `docs/style-guide.md`: it describes how the page looks and
+behaves. If your change does something different on purpose, say so in the pull request.
 
 ## Set up and commands
 
@@ -51,7 +45,7 @@ PATH (`CHROMIUM=google-chrome` uses another browser).
 - **Always build the page before Go.** `web/dist` is generated, and the Go code embeds it. On a
   fresh clone `go vet` or `go test` alone fails with `pattern dist: no matching files found`;
   run `make` or `make check` first.
-- **Never run `make firefox-check`.** It opens a real Firefox window on a desktop for a
+- **Do not run `make firefox-check`.** It opens a real Firefox window on a desktop for a
   minute and needs i3 and maim. Only the maintainer runs it. If your change touches styling,
   say in the pull request that it needs the Firefox check.
 - **A hub started to try a change is a throwaway.** Give it its own `-data` directory and
@@ -91,11 +85,11 @@ PATH (`CHROMIUM=google-chrome` uses another browser).
 
 - **A change comes with a check that fails on the old code**: a Go test, or a browser suite.
   Otherwise nobody can tell the change does anything.
-- **Read `docs/style-guide.md` before changing how anything looks or behaves.** It records
-  decisions the group made; the code is fixed to match it.
+- **Read `docs/style-guide.md` before changing how anything looks or behaves,** so the change
+  fits in with the rest of the page. It records the group's decisions on look and behaviour.
 - **Text a member wrote is never parsed as HTML.** Build nodes with `h()` from `util.ts`. The
-  two places that render Markdown go through `cleanHTML`. Do not add an `innerHTML` that takes
-  anything but a constant: a member could plant a script.
+  two places that render Markdown go through `cleanHTML`. Use `innerHTML` only with a constant,
+  because a member could otherwise plant a script.
 - **Every change to data is a `fetch` from the page's script.** The server refuses a form post
   and the page's policy forbids one; a form could be planted by member-written HTML.
 - **A chat route goes through `inChat`** (`private.go`), so private chats and DMs stay
@@ -109,13 +103,14 @@ PATH (`CHROMIUM=google-chrome` uses another browser).
   characters that would break the history.
 - **The page a browser has open may be older than the server.** Add to an API's answer; do not
   change the shape of something the page already reads, and the same for cached files.
-- **No new dependency without asking.** The page ships its own fonts and emoji and loads
-  nothing from other sites; the Content Security Policy in `headers.go` enforces it and the
-  browser suites fail on anything it blocks.
+- **Keep the page's files inside the hub.** It ships its own fonts and emoji and loads nothing
+  from other sites; the Content Security Policy in `headers.go` enforces it and the browser
+  suites fail on anything it blocks. A new dependency is fine if it bundles into the page
+  that way; mention it in the pull request.
 - **Nothing private goes in**: no tokens, addresses, home-folder paths, or names of real
   people in code, tests, docs or commit messages. Use the stand-in names the tests use.
-- **Do not add GitHub Actions or other automation.** Nothing on GitHub builds or tests a pull
-  request; the maintainer does, on his own machine.
+- **No GitHub Actions or other CI.** Nothing on GitHub builds or tests a pull request; the
+  maintainer does, on his own machine.
 
 ## Check your work
 

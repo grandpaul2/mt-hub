@@ -11,7 +11,7 @@ field in an answer, a new permission check. The routes live in `internal/server/
      `s.isAdmin(r)` when you want your own error text (see `setOrder` in `chat.go`).
    - **Inside one chat** (`/api/channels/{name}/...`): add the route to the map of chat routes
      in `New` (`server.go`), so it goes through `inChat` (`private.go`). A chat the caller
-     cannot see answers "not found". Do not register a chat route outside that map.
+     cannot see answers "not found". Register chat routes only in that map, so private chats stay private.
    - **For a game server:** a server token reaches only the routes in `serverAllow`
      (`tokens.go`). A new route is closed to tokens until you add `"METHOD /path"` there on
      purpose. A trailing `/` means "anything under it". Most routes should stay closed.
@@ -31,8 +31,8 @@ field in an answer, a new permission check. The routes live in `internal/server/
 6. **If other pages must see the change,** call `s.bus.publish("event", payload)` (or
    `s.publishChat` for a chat, which only reaches people who can see it). The page listens in
    `main.ts`/`chat.ts`; see `docs/agents/change-the-page.md`.
-7. **Only add to an answer.** A browser may hold a page older than the server. Do not rename or
-   remove a field the page reads.
+7. **Only add to an answer.** A browser may hold a page older than the server. Add fields rather than renaming
+   or removing one the page reads, so an older page keeps working.
 8. **Write the Go test** in `internal/server/` (below), and add a row to `docs/api.md`.
 
 ## Example: `PUT /api/channel-order`

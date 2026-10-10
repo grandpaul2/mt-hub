@@ -5,8 +5,7 @@ nothing lives only in someone's head. How the hub looks and behaves today is
 [`style-guide.md`](style-guide.md); how it is put together is
 [`architecture.md`](architecture.md).
 
-A bigger idea is something to ask about before starting it (a GitHub issue is the place). The
-hub is deliberately small: see "Not in scope" in the style guide's principles.
+Any of these is fair game, and so is something not listed.
 
 ## Later
 
