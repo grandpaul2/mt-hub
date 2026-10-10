@@ -1,9 +1,10 @@
 // The full-window picture viewer, Discord style, used everywhere a picture opens full size:
 // chat, the galleries, files, folder previews and schematic posts. Everything else is
 // darkened; the picture fills nearly the whole window. Who posted it and when (or the file
-// name) top left; zoom, forward, download, open in a new tab and close top right, plus
+// name) top left; forward, download, open in a new tab and close top right, plus
 // "open folder" when it was opened from a chat. ←/→ step through the set, Esc closes,
-// clicking the dark area closes, clicking the picture zooms (drag to pan).
+// clicking the dark area closes, clicking the picture zooms (drag to pan). No zoom button:
+// a magnifier means search everywhere in the hub.
 import { glyphs, dateTime, h } from './util';
 
 export type ViewItem = {
@@ -21,8 +22,7 @@ const svg = (body: string) =>
   `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
 // Lucide icons (ISC licence).
 export const ICON = {
-  zoomIn: svg('<circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/><line x1="11" x2="11" y1="8" y2="14"/><line x1="8" x2="14" y1="11" y2="11"/>'),
-  zoomOut: svg('<circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/><line x1="8" x2="14" y1="11" y2="11"/>'),
+  expand: svg('<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>'),
   forward: svg('<polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/>'),
   download: svg('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>'),
   newTab: svg('<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>'),
@@ -67,22 +67,24 @@ export function openViewer(items: ViewItem[], index = 0, zoomed = false) {
 }
 
 // SingleBar describes the bar over one item shown on its own in the main panel: a picture or
-// video, a text file, a schematic post. One look everywhere: back on the left, then the name
-// and details; previous/next and the icon buttons on the right: full window, forward,
-// download, open in new tab, then Delete (red only on hover, as in chat). Each view
-// turns on what applies.
+// video, a text file, a schematic post. One look everywhere, in the folder view's order: back
+// on the left, then the name and details; on the right the text buttons, the icon buttons
+// (forward, download, open in new tab, Delete, which is red only on hover, as in chat),
+// previous/next, and at the far right what makes it bigger: a text file's Size slider, or
+// full window for a picture or post. Each view turns on what applies.
 export type SingleBar = {
   back?: { label: string; title: string; go: () => void };
   name: string;
   info?: string; // details after the name (when, size…)
   prev?: (() => void) | null; // undefined: no glyphs; null: at that end
   next?: (() => void) | null;
-  zoom?: () => void; // full window
+  zoom?: () => void; // full window (the far-right slot)
+  size?: HTMLElement; // a size control instead (a text file's slider)
   forward?: () => void; // forward to a chat
   download?: { href: string; name: string };
   newTab?: string;
   del?: () => void;
-  extra?: HTMLElement[]; // anything else (a text button), before the glyphs
+  extra?: HTMLElement[]; // text buttons, before the icon buttons
 };
 
 export function singleBar(o: SingleBar) {
@@ -102,12 +104,7 @@ export function singleBar(o: SingleBar) {
   // The buttons, together on the right; in a narrow panel they drop below the name.
   const actions = h('div', { class: 'single-actions' }, ...(o.extra ?? []));
   bar.append(actions);
-  if (o.prev !== undefined || o.next !== undefined) {
-    actions.append(h('div', { class: 'viewer-tools single-nav' },
-      tool(ICON.prev, 'Previous (←)', o.prev ?? null), tool(ICON.next, 'Next (→)', o.next ?? null)));
-  }
   const tools = h('div', { class: 'viewer-tools' });
-  if (o.zoom) tools.append(tool(ICON.zoomIn, 'Full window', o.zoom));
   if (o.forward) tools.append(tool(ICON.forward, 'Forward', o.forward));
   if (o.download) tools.append(h('a', { class: 'vtool', href: o.download.href, download: o.download.name, title: 'Download', innerHTML: ICON.download }));
   if (o.newTab) {
@@ -116,6 +113,12 @@ export function singleBar(o: SingleBar) {
   }
   if (o.del) tools.append(tool(ICON.trash, 'Delete', o.del, 'del'));
   if (tools.children.length) actions.append(tools);
+  if (o.prev !== undefined || o.next !== undefined) {
+    actions.append(h('div', { class: 'viewer-tools single-nav' },
+      tool(ICON.prev, 'Previous (←)', o.prev ?? null), tool(ICON.next, 'Next (→)', o.next ?? null)));
+  }
+  if (o.size) actions.append(o.size);
+  else if (o.zoom) actions.append(h('div', { class: 'viewer-tools single-full' }, tool(ICON.expand, 'Full window', o.zoom)));
   return bar;
 }
 
@@ -166,9 +169,6 @@ function render() {
   if (it.who) info.title = it.name;
 
   const tools = h('div', { class: 'viewer-tools' });
-  if (it.kind !== 'video') {
-    tools.append(tool(state.zoomed ? ICON.zoomOut : ICON.zoomIn, state.zoomed ? 'Zoom out' : 'Zoom in', () => zoom()));
-  }
   if (it.forward) tools.append(tool(ICON.forward, 'Forward', () => { const f = it.forward!; closeViewer(); f(); }));
   const dl = h('a', { class: 'vtool', href: it.src, download: it.name, title: 'Download', innerHTML: ICON.download });
   dl.onclick = (e) => e.stopPropagation();

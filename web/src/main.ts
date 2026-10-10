@@ -855,9 +855,14 @@ function setZoom(z: number) {
   store('mt-zoom', String(zoom));
   applyZoom();
   if (pos != null) showPos(pos); // bigger text: stay at the same line
-  const label = document.querySelector('#toolbar .zoom-pct');
-  if (label) label.textContent = `${zoom}%`;
+  const slider = document.querySelector<HTMLInputElement>('#toolbar .size input');
+  if (slider) {
+    slider.value = String(zoom);
+    slider.title = sizeTitle();
+  }
 }
+
+const sizeTitle = () => `Text size: ${zoom}% (double-click for 100%)`;
 
 function applyZoom() {
   editor?.updateOptions({ fontSize: 14 * zoom / 100 });
@@ -865,14 +870,13 @@ function applyZoom() {
   if (md) md.style.fontSize = `${13 * zoom / 100}px`;
 }
 
-function zoomControl() {
-  const minus = h('button', { class: 'vtool', title: 'Smaller text', innerHTML: ICON.zoomOut });
-  const pct = h('button', { class: 'zoom-pct', title: 'Text size (click for 100%)' }, `${zoom}%`);
-  const plus = h('button', { class: 'vtool', title: 'Bigger text', innerHTML: ICON.zoomIn });
-  minus.onclick = () => setZoom(zoom - 10);
-  plus.onclick = () => setZoom(zoom + 10);
-  pct.onclick = () => setZoom(100);
-  return h('div', { class: 'viewer-tools zoom' }, minus, pct, plus);
+// sizeControl is the bar's Size slider, the folder view's look: 50% to 250%, the percentage in
+// its tooltip, a double-click back to 100%.
+function sizeControl() {
+  const slider = h('input', { type: 'range', min: 50, max: 250, step: 10, value: String(zoom), title: sizeTitle() });
+  slider.oninput = () => setZoom(Number(slider.value));
+  slider.ondblclick = () => setZoom(100);
+  return h('label', { class: 'size', title: 'Text size' }, 'Size ', slider);
 }
 
 // discardEdits is View/Cancel: back to the last saved text (asking first if anything
@@ -949,7 +953,6 @@ function renderToolbar() {
     };
     extra.push(hist);
   }
-  if (text) extra.push(zoomControl());
   const folder = dirName(p);
   const mod = entries.find((e) => e.path === p)?.mod;
   bar.append(singleBar({
@@ -961,6 +964,7 @@ function renderToolbar() {
     newTab: `/api/file/${enc(p)}`,
     del,
     extra,
+    size: text ? sizeControl() : undefined,
   }));
 }
 

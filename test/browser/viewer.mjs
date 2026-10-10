@@ -46,7 +46,7 @@ await ev(`document.querySelector('#view .image img').click()`);
 await settle(400);
 let v = await viewer();
 check('picture → viewer, no "Open folder" from here', [v?.who, v?.src, v?.tools],
-  ['a.png', '/api/file/pics/a.png', ['Zoom in', 'Forward', 'Download', 'Open in new tab']]);
+  ['a.png', '/api/file/pics/a.png', ['Forward', 'Download', 'Open in new tab']]);
 check('download link', await ev(`(() => { const a = document.querySelector('#viewer .viewer-tools a'); return [a.getAttribute('href'), a.getAttribute('download')]; })()`), ['/api/file/pics/a.png', 'a.png']);
 check('darkens everything, fills the window', await ev(`(() => { const r = document.querySelector('.viewer-stage').getBoundingClientRect();
   return [getComputedStyle(document.getElementById('viewer')).backgroundColor, Math.round(r.width) >= innerWidth - 40, Math.round(r.height) >= innerHeight - 80]; })()`),
@@ -61,16 +61,17 @@ await ev(`document.querySelector('#dialog .fwd-chan').click(); document.querySel
 await settle(800);
 check('forwarded as a link', (await (await hub(`/api/channels/general/messages`)).json()).pop().text, '#pics/a.png');
 
-// Zoom: full size, scrollable; again returns.
+// Zoom is a click on the picture (no button: a magnifier means search): full size,
+// scrollable; a click again returns.
 await ev(`location.hash = '#pics/b.png'`);
 await settle(1000);
 await ev(`document.querySelector('#view .image img').click()`);
 await settle(300);
-await ev(`document.querySelector('#viewer .viewer-tools [title="Zoom in"]').click()`);
+await ev(`document.querySelector('#viewer .viewer-stage img').click()`);
 await settle(400);
 check('zoomed to full size', await ev(`(() => { const s = document.querySelector('.viewer-stage'); const i = s.querySelector('img');
   return [s.classList.contains('zoomed'), i.offsetWidth, s.scrollWidth > s.clientWidth]; })()`), [true, 1600, true]);
-await ev(`document.querySelector('#viewer .viewer-tools [title="Zoom out"]').click()`);
+await ev(`document.querySelector('#viewer .viewer-stage img').click()`);
 check('zoomed out', await ev(`document.querySelector('.viewer-stage').classList.contains('zoomed')`), false);
 await key('Escape');
 
@@ -124,12 +125,12 @@ await settle(300);
 check('file view → viewer', [(await viewer())?.src.startsWith('/api/file/pics/a.png'), (await viewer())?.tools.includes('Open folder')], [true, false]);
 await key('Escape');
 
-// A picture file gets the shared single-item bar: back, name, previous/next through its
-// folder, and the viewer's buttons plus Delete.
+// A picture file gets the shared single-item bar, in the folder view's order: back, name; the
+// text button, the icon buttons, previous/next through its folder, and full window last.
 check('file toolbar buttons', await ev(`[[...document.querySelectorAll('#toolbar .single-bar > button, #toolbar .single-actions > button')].map((b) => b.textContent),
   document.querySelector('#toolbar .single-name').textContent,
   [...document.querySelectorAll('#toolbar .single-bar .vtool')].map((b) => b.title)]`),
-  [['← Back to pics/', 'History'], 'a.png', ['Previous (←)', 'Next (→)', 'Full window', 'Forward', 'Download', 'Open in new tab', 'Delete']]);
+  [['← Back to pics/', 'History'], 'a.png', ['Forward', 'Download', 'Open in new tab', 'Delete', 'Previous (←)', 'Next (→)', 'Full window']]);
 // Delete sits with the others and turns red only on hover, as in chat (Paul, S56). The bar has
 // no ⋯: every action is already a button on it.
 check('Delete is quiet until hovered', await ev(`(() => { const b = document.querySelector('#toolbar [title="Delete"]');
@@ -156,6 +157,6 @@ await settle(1200);
 // A text file has the same bar, with Edit, History and its text size.
 check('text files: the same bar', await ev(`[[...document.querySelectorAll('#toolbar .single-bar > button, #toolbar .single-actions > button, #toolbar .mode-switch button')].filter((b) => getComputedStyle(b).visibility === 'visible').map((b) => b.textContent),
   document.querySelector('#toolbar .single-name').textContent, [...document.querySelectorAll('#toolbar .single-bar .vtool')].map((b) => b.title)]`),
-  [['Edit', 'History'], 'notes.txt', ['Smaller text', 'Bigger text', 'Forward', 'Download', 'Open in new tab', 'Delete']]);
+  [['Edit', 'History'], 'notes.txt', ['Forward', 'Download', 'Open in new tab', 'Delete']]);
 
 await done();

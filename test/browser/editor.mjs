@@ -77,17 +77,20 @@ await open('bad.json');
 await sleep(1500); // the editor would check the file in the background, where settle() can't see
 check('no error squiggles on broken JSON', await ev(`document.querySelectorAll('.squiggly-error, .squiggly-warning').length`), 0);
 
-// Text size: − / + / the percentage (back to 100%), in view and edit, remembered.
-const size = () => ev(`[document.querySelector('#toolbar .zoom-pct').textContent, getComputedStyle(document.querySelector('.monaco-editor .view-lines')).fontSize]`);
-const zbtn = (t) => ev(`document.querySelector('#toolbar [title="${t}"]').click()`);
-check('text size 100%', await size(), ['100%', '14px']);
-await zbtn('Bigger text'); await zbtn('Bigger text'); await settle(300);
-check('bigger', await size(), ['120%', '16.8px']);
+// Text size: the Size slider at the bar's far right (the percentage in its tooltip, a
+// double-click back to 100%), in view and edit, remembered. No magnifiers: those mean search.
+const S = `document.querySelector('#toolbar .size input')`;
+const size = () => ev(`[${S}.value, ${S}.title, getComputedStyle(document.querySelector('.monaco-editor .view-lines')).fontSize]`);
+check('text size 100%', await size(), ['100', 'Text size: 100% (double-click for 100%)', '14px']);
+check('Size is the last thing on the bar', await ev(`(() => { const a = document.querySelector('#toolbar .single-actions'); return [a.lastElementChild.textContent.trim(), a.lastElementChild === ${S}.parentElement]; })()`), ['Size', true]);
+await ev(`(() => { const s = ${S}; s.value = '120'; s.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+await settle(300);
+check('bigger', await size(), ['120', 'Text size: 120% (double-click for 100%)', '16.8px']);
 await open('long.md');
-check('remembered, markdown too', [await ev(`document.querySelector('#toolbar .zoom-pct').textContent`), await ev(`getComputedStyle(document.querySelector('.markdown')).fontSize`)], ['120%', '15.6px']);
-await ev(`document.querySelector('#toolbar .zoom-pct').click()`);
+check('remembered, markdown too', [await ev(`${S}.value`), await ev(`getComputedStyle(document.querySelector('.markdown')).fontSize`)], ['120', '15.6px']);
+await ev(`${S}.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`);
 await settle(200);
-check('the percentage resets', await ev(`document.querySelector('#toolbar .zoom-pct').textContent`), '100%');
+check('a double-click resets', [await ev(`${S}.value`), await ev(`getComputedStyle(document.querySelector('.markdown')).fontSize`)], ['100', '13px']);
 
 // Switching keeps the place: scroll the view to "Section 3", switch to Edit: that line is at
 // the top; scroll the editor to line 45, switch back: the view shows line 45 at the top.
