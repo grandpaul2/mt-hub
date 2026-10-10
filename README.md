@@ -374,7 +374,6 @@ both versions side by side.
 | POST | `/api/mkdir` | `{path}` empty folder (on disk only until a file goes in) |
 | GET | `/api/zip/<path>` | a folder as `<name>.zip`, streamed |
 | GET | `/api/thumb/<path>?v=<mod>` | a 640-wide JPEG of a workspace picture (chat previews), cached in `thumbs/` |
-
 | GET | `/api/channels` | `[{name, last_id}]` |
 | POST | `/api/channels` | `{name}` creates one |
 | PATCH / DELETE | `/api/channels/<name>` | admins: `{name}` renames; delete moves its folder (files posted in it included) to `chat/.deleted/<name>-<time>` |
