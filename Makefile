@@ -14,7 +14,8 @@ node_modules: package.json package-lock.json
 	npm ci
 	touch node_modules
 
-check: node_modules
+# The Go code embeds web/dist, so vet and test need the page built first.
+check: web
 	npx tsc
 	go vet ./...
 	go test ./...
