@@ -509,6 +509,18 @@ func (s *Server) stat(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, statResp{Path: p, Size: size, Rev: rev, Kind: kind, Large: workspace.IsLarge(p)})
 }
 
+// pageLike is a file a browser would show as a page of its own: HTML, or an SVG or XML
+// document. The sandbox policy stops its script, but opened in a tab it would still be a
+// member's page under the hub's address (a made-up "log in again" screen), so these are only
+// ever downloaded. Inside the hub's page they show as before (an SVG as a picture, HTML as text).
+func pageLike(name string) bool {
+	switch strings.ToLower(path.Ext(name)) {
+	case ".html", ".htm", ".xhtml", ".xht", ".shtml", ".mht", ".mhtml", ".svg", ".svgz", ".xml", ".xsl", ".xslt":
+		return true
+	}
+	return false
+}
+
 func (s *Server) getFile(w http.ResponseWriter, r *http.Request) {
 	p, ok := cleanPath(w, r)
 	if !ok {
@@ -517,7 +529,7 @@ func (s *Server) getFile(w http.ResponseWriter, r *http.Request) {
 	// Uploaded HTML or SVG can carry script; opened directly, it must not run as our origin.
 	w.Header().Set("Content-Security-Policy", "sandbox")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	if r.URL.Query().Get("download") != "" {
+	if r.URL.Query().Get("download") != "" || pageLike(p) {
 		w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": path.Base(p)}))
 	}
 
@@ -566,10 +578,14 @@ func (s *Server) putFile(w http.ResponseWriter, r *http.Request) {
 	if !s.roomFor(w, r.ContentLength) {
 		return
 	}
-	rev, err := s.ws.WriteFrom(p, http.MaxBytesReader(w, r.Body, limit), r.URL.Query().Get("base"), s.author(r))
+	rev, err := s.ws.WriteFrom(p, s.floored(http.MaxBytesReader(w, r.Body, limit)), r.URL.Query().Get("base"), s.author(r))
 	var tooBig *http.MaxBytesError
 	if errors.As(err, &tooBig) {
 		writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": msg})
+		return
+	}
+	if errors.Is(err, errDiskFull) {
+		writeJSON(w, http.StatusInsufficientStorage, map[string]string{"error": diskFull})
 		return
 	}
 	if err != nil {

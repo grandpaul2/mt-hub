@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -181,5 +182,50 @@ func TestServerLink(t *testing.T) {
 	f := read(survival, "?after="+last)
 	if n := len([]rune(f.Messages[0].Text)); n != linkLine || !strings.HasSuffix(f.Messages[0].Text, "…") {
 		t.Errorf("long line: %d runes", n)
+	}
+}
+
+// From the hub, one person can't flood the link chat (every line is printed in both games);
+// a game server's own lines aren't counted.
+func TestLinkChatRate(t *testing.T) {
+	dir := t.TempDir()
+	us, _ := auth.Open(filepath.Join(dir, "users"))
+	ws, _ := workspace.Open(filepath.Join(dir, "workspace"))
+	cs, _ := chat.Open(filepath.Join(dir, "chat"))
+	ls, _ := preview.Open(filepath.Join(dir, "previews"))
+	us.SetPassword("Steve", "Steve-password")
+	us.SetPassword("Alex", "Alex-password")
+	srv := httptest.NewServer(New(us, ws, cs, ls, filepath.Join(dir, "thumbs"), fstest.MapFS{}, nil))
+	defer srv.Close()
+	// The chat exists once a game server has connected.
+	survival, _, _ := us.NewToken("survival", "")
+	r, _ := http.NewRequest("GET", srv.URL+"/api/server-link", nil)
+	r.Header.Set("Authorization", "Bearer "+survival)
+	if res, err := http.DefaultClient.Do(r); err != nil || res.StatusCode != 200 {
+		t.Fatalf("server connects: %v", err)
+	}
+	defer func(l *limiter) { linkLines = l }(linkLines)
+	linkLines = newLimiter(3, time.Minute)
+	say := func(who, chat string) int {
+		t.Helper()
+		c, _ := us.Login(who, who+"-password")
+		r, _ := http.NewRequest("POST", srv.URL+"/api/channels/"+chat+"/messages", strings.NewReader(`{"text":"hi"}`))
+		r.AddCookie(&http.Cookie{Name: sessionCookie, Value: c})
+		res, err := http.DefaultClient.Do(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+		return res.StatusCode
+	}
+	codes := []int{say("Steve", LinkChat), say("Steve", LinkChat), say("Steve", LinkChat), say("Steve", LinkChat)}
+	if !slices.Equal(codes, []int{200, 200, 200, 429}) {
+		t.Errorf("Steve's lines in the link chat: %v, want three sent and the fourth refused", codes)
+	}
+	if code := say("Alex", LinkChat); code != 200 {
+		t.Errorf("Alex, who hasn't said anything: %d", code)
+	}
+	if code := say("Steve", "general"); code != 200 {
+		t.Errorf("Steve in another chat: %d", code)
 	}
 }

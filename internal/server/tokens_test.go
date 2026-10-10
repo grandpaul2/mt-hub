@@ -143,6 +143,12 @@ func TestTokens(t *testing.T) {
 	code, _ = call(survival, "POST", "/api/screenshots?poster=Alex", strings.NewReader(png+strings.Repeat("x", 100)))
 	want("a game server's screenshot over its cap", code, 413)
 	maxTokenShot = oldCap
+	// ...and a day's bytes run out too.
+	oldDay := tokenShotBytes
+	tokenShotBytes = 0
+	code, _ = call(survival, "POST", "/api/screenshots?poster=Alex", strings.NewReader(png))
+	want("a game server past its bytes for the day", code, 429)
+	tokenShotBytes = oldDay
 
 	// From the page, the poster is you, whatever ?poster= says.
 	code, body = call("cookie:Steve", "POST", "/api/screenshots?name=2026-10-03_22.00.00.png&poster=Paul", strings.NewReader(png))

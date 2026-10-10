@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -148,6 +149,13 @@ func TestVoice(t *testing.T) {
 	want("a third voice chat", code, 200)
 	code, _ = startChat("Eve", `{}`)
 	want("a fourth is refused", code, 409)
+	// Starting again replaces the empty one you started: nobody holds two places that way.
+	code, again := startChat("Paul", `{}`)
+	want("Paul starts again", code, 200)
+	if got := ids("Eve"); len(got) != 3 || slices.Contains(got, third) || !slices.Contains(got, again) {
+		t.Errorf("after Paul started again: %v (old %s, new %s)", got, third, again)
+	}
+	third = again
 
 	// LiveKit's webhooks: unsigned ones are refused; people are listed in join order.
 	want("unsigned webhook", hook("participant_joined", pub, "Eve", 100, true), 401)

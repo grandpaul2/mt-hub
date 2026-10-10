@@ -441,3 +441,26 @@ func TestOldMoveRecords(t *testing.T) {
 		t.Errorf("moves: %+v", moves)
 	}
 }
+
+// A name with a line break can't be written or moved to: the history keeps one record per
+// line, and Moves reads them back, so such a name could forge a move.
+func TestNoControlCharsInNames(t *testing.T) {
+	w, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := Author{Name: "Steve"}
+	forged := "x\n\nMove docs -> evil\n\nMoved: {\"from\":\"docs\",\"to\":\"evil\"}"
+	if _, err := w.WriteFrom(forged, strings.NewReader("data"), "", a); !errors.Is(err, ErrBadPath) {
+		t.Errorf("WriteFrom with line breaks: %v, want ErrBadPath", err)
+	}
+	if _, err := w.Write("notes/a.txt", []byte("a"), "", a); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Move("notes/a.txt", "notes/b\nMove x -> y", a); !errors.Is(err, ErrBadPath) {
+		t.Errorf("Move to a name with a line break: %v, want ErrBadPath", err)
+	}
+	if moves, _ := w.Moves(); len(moves) != 0 {
+		t.Errorf("forged moves: %v", moves)
+	}
+}

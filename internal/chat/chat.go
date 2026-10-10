@@ -564,7 +564,9 @@ func (s *Store) Hide(name, user string) error {
 // MediaFile is where a picture, video or sound posted in a private chat or DM is kept:
 // <dir>/<chat>/media/<file>. file is a bare name.
 func (s *Store) MediaFile(name, file string) (string, error) {
-	if file == "" || file == "." || file == ".." || strings.ContainsAny(file, "/\\\x00") {
+	// No control characters: the name can end up in Files ("Save to Files"), whose history
+	// keeps one record per line.
+	if file == "" || file == "." || file == ".." || strings.ContainsAny(file, "/\\\x00") || strings.ContainsFunc(file, unicode.IsControl) {
 		return "", ErrBadFile
 	}
 	s.mu.Lock()

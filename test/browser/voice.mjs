@@ -253,10 +253,12 @@ const listed = async (who) => (await (await api('GET', '/api/voice', undefined, 
 check('private: Alex and Steve see it, Paul doesn’t', [await listed('Alex'), await listed('Steve'), await listed('Paul')], [1, 1, 0]);
 
 // The limit: with 3, the menu entries are greyed out.
+// (Each person can hold one empty voice chat, so it takes three people; the refusal of a
+// fourth is in the Go test.)
 await api('POST', '/api/voice', {}, 'Steve');
 await api('POST', '/api/voice', {}, 'Steve');
-const full = await api('POST', '/api/voice', {}, 'Steve');
-check('a fourth is refused', full.status, 409);
+await api('POST', '/api/voice', {}, 'Paul');
+check('starting again replaces your empty one: three in all', await listed('Steve'), 3);
 await ev(`document.dispatchEvent(new MouseEvent('mousedown'))`);
 await settle(300);
 await send('Page.reload');

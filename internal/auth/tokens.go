@@ -23,6 +23,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -89,9 +90,23 @@ func (s *Store) loadTokensLocked() ([]Token, error) {
 }
 
 // updateTokens rewrites tokens.json with change applied to a copy of the list.
+//
+// The hub (recording when a token was last used) and `mthub token` (adding or revoking one)
+// are two programs changing the same file. A lock file keeps one's read-change-write whole,
+// so the hub can't write back a list that still has a token revoked a moment ago.
 func (s *Store) updateTokens(change func([]Token) ([]Token, error)) error {
 	s.tokMu.Lock()
 	defer s.tokMu.Unlock()
+	lock, err := os.OpenFile(s.tokensPath()+".lock", os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return err
+	}
+	defer lock.Close()
+	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX); err != nil {
+		return err
+	}
+	defer syscall.Flock(int(lock.Fd()), syscall.LOCK_UN)
+	s.tokens = nil // read what's on disk now, whatever this program read before
 	cur, err := s.loadTokensLocked()
 	if err != nil {
 		return err

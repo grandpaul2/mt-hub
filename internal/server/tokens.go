@@ -141,6 +141,10 @@ func (s *Server) postScreenshot(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "not a PNG"})
 		return
 	}
+	if who(r).Token != "" && !shotBytes.spend(who(r).Name, int64(len(data)), tokenShotBytes) {
+		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "too many screenshots today"})
+		return
+	}
 	stamp := time.Now().Format("2006-01-02 15.04.05")
 	if m := mcShotName.FindStringSubmatch(r.URL.Query().Get("name")); m != nil {
 		stamp = m[1] + " " + m[2]

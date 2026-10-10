@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -234,5 +235,49 @@ func TestConcurrentEdits(t *testing.T) {
 	}
 	if n := dupOK.Load(); n != 1 {
 		t.Errorf("%d adds of the same name succeeded, want 1", n)
+	}
+}
+
+// tokens.json is changed by two programs (the hub and `mthub token`), so a change waits for
+// the lock file and starts from what's on disk: a second Store, standing in for the other
+// program, revokes a token, and this one's next write doesn't bring it back.
+func TestTokensFileIsLocked(t *testing.T) {
+	dir := t.TempDir()
+	hub, _ := Open(dir)
+	cli, _ := Open(dir)
+	_, tok, err := hub.NewToken("survival", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// While another program holds the lock, a change waits.
+	lock, _ := os.OpenFile(filepath.Join(dir, "tokens.json.lock"), os.O_CREATE|os.O_RDWR, 0o600)
+	defer lock.Close()
+	syscall.Flock(int(lock.Fd()), syscall.LOCK_EX)
+	done := make(chan error, 1)
+	go func() { _, _, err := hub.NewToken("creative", ""); done <- err }()
+	select {
+	case <-done:
+		t.Fatal("a change went ahead while another program held the lock")
+	case <-time.After(150 * time.Millisecond):
+	}
+	syscall.Flock(int(lock.Fd()), syscall.LOCK_UN)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	// The other program revokes; the hub's own next change keeps it revoked.
+	if err := cli.Revoke(tok.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := hub.NewToken("event", ""); err != nil {
+		t.Fatal(err)
+	}
+	toks, _ := cli.Tokens()
+	for _, k := range toks {
+		if k.ID == tok.ID {
+			t.Errorf("the revoked token %s came back", tok.ID)
+		}
+	}
+	if len(toks) != 2 {
+		t.Errorf("%d tokens, want 2 (creative, event)", len(toks))
 	}
 }

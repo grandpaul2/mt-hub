@@ -194,7 +194,15 @@ func (s *Server) voiceStart(w http.ResponseWriter, r *http.Request) {
 	rand.Read(b)
 	vc.ID = "v" + hex.EncodeToString(b)
 	s.voice.mu.Lock()
+	// One empty voice chat per person: starting again takes over the one you started that
+	// nobody has joined yet, so one person (or a script) can't hold every place.
+	for id, old := range s.voice.chats {
+		if old.Starter == me && len(old.People) == 0 {
+			delete(s.voice.chats, id)
+		}
+	}
 	if len(s.voice.chats) >= maxVoiceChats {
+		s.voice.save()
 		s.voice.mu.Unlock()
 		writeJSON(w, http.StatusConflict, map[string]string{"error": fmt.Sprintf("There are already %d voice chats. Join one of them.", maxVoiceChats)})
 		return
@@ -399,7 +407,8 @@ func (s *Server) voiceToken(w http.ResponseWriter, id, name string) {
 	token := conf.sign(map[string]any{
 		"iss": conf.Key, "sub": name, "name": name,
 		"nbf": now.Add(-time.Minute).Unix(), "exp": now.Add(time.Hour).Unix(), // for joining; LiveKit renews it while connected
-		"video": map[string]any{"room": id, "roomJoin": true, "canPublish": true, "canSubscribe": true, "canPublishData": false},
+		"video": map[string]any{"room": id, "roomJoin": true, "canPublish": true, "canPublishSources": []string{"microphone"},
+			"canSubscribe": true, "canPublishData": false},
 	})
 	writeJSON(w, http.StatusOK, map[string]string{"id": id, "url": conf.URL, "token": token})
 }

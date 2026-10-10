@@ -16,6 +16,10 @@ func (s *Server) linkPreview(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "too many new links: wait a few minutes"})
 		return
 	}
+	// A new preview keeps its picture (up to 10 MB), so it needs room like any upload.
+	if !s.links.Cached(link) && !s.roomFor(w, 10<<20) {
+		return
+	}
 	p, err := s.links.Get(r.Context(), link)
 	if errors.Is(err, preview.ErrBadURL) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})

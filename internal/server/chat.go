@@ -150,6 +150,11 @@ func (s *Server) post(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := r.PathValue("name")
+	// What's said in the link chat is printed in both games' chat, so a person can't flood it.
+	if name == LinkChat && who(r).Token == "" && !linkLines.take(who(r).Name) {
+		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "that's a lot at once for the game chat: wait a few seconds"})
+		return
+	}
 	d := chat.Draft{Text: s.copyLinked(r, req.Text, name), ReplyTo: req.ReplyTo}
 	if req.Forward != nil {
 		// Forwarding out of a private chat is the forwarder's choice, but only from one

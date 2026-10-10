@@ -167,7 +167,7 @@ func (s *Server) mediaFile(w http.ResponseWriter, r *http.Request) {
 	if ctype := mime.TypeByExtension(path.Ext(file)); ctype != "" {
 		w.Header().Set("Content-Type", ctype)
 	}
-	if r.URL.Query().Get("download") == "1" {
+	if r.URL.Query().Get("download") == "1" || pageLike(file) {
 		w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": file}))
 	}
 	http.ServeContent(w, r, file, info.ModTime(), f)

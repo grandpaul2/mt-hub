@@ -23,6 +23,9 @@ import (
 // LinkChat is the chat's name.
 const LinkChat = "server-link"
 
+// linkLines is how fast one person may post there from the hub.
+var linkLines = newLimiter(8, 10*time.Second)
+
 const (
 	linkWaitMax = 30 * time.Second
 	linkBatch   = 50  // messages in one answer; a server away longer misses the older ones

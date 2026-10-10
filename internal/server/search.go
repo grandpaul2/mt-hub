@@ -444,7 +444,12 @@ func around(s string, words []string, n int) string {
 type textCache struct {
 	mu    sync.Mutex
 	files map[string]cachedText
+	bytes int64 // of text held
 }
+
+// maxTextCache is how much text the cache holds. Past it the cache starts over: a hub's
+// notes and READMEs fit many times, and a pile of big text files can't use up the memory.
+var maxTextCache int64 = 64 << 20
 
 type cachedText struct {
 	size, mod int64
@@ -475,6 +480,14 @@ func (c *textCache) get(s *Server, e workspace.Entry) (string, bool) {
 	if f.isText {
 		f.text = string(data)
 	}
-	c.files[e.Path] = f
+	c.bytes -= int64(len(c.files[e.Path].text))
+	delete(c.files, e.Path)
+	if c.bytes+int64(len(f.text)) > maxTextCache {
+		c.files, c.bytes = map[string]cachedText{}, 0
+	}
+	if int64(len(f.text)) <= maxTextCache {
+		c.files[e.Path] = f
+		c.bytes += int64(len(f.text))
+	}
 	return f.text, f.isText
 }

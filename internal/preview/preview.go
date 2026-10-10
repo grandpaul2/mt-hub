@@ -125,10 +125,30 @@ var cgnat = &net.IPNet{IP: net.IP{100, 64, 0, 0}, Mask: net.CIDRMask(10, 32)}
 // Public reports whether ip is an ordinary internet address: not this machine, the LAN,
 // the tailnet, link-local or multicast.
 func Public(ip net.IP) bool {
-	return !(ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() ||
+	if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() ||
 		ip.IsInterfaceLocalMulticast() || ip.IsMulticast() || ip.IsUnspecified() || cgnat.Contains(ip) ||
-		ip.To4() != nil && ip.To4()[0] == 0)
+		ip.To4() != nil && ip.To4()[0] == 0 {
+		return false
+	}
+	for _, n := range special {
+		if n.Contains(ip) {
+			return false
+		}
+	}
+	return true
 }
+
+// special is the ranges that aren't ordinary internet addresses and that net.IP has no test
+// for: protocol assignments, benchmarking, reserved, and the two that wrap an IPv4 address
+// in IPv6 (NAT64 and 6to4), through which a private address could be reached on a network
+// with such a gateway.
+var special = func() (out []*net.IPNet) {
+	for _, c := range []string{"192.0.0.0/24", "198.18.0.0/15", "240.0.0.0/4", "64:ff9b::/96", "64:ff9b:1::/48", "2002::/16"} {
+		_, n, _ := net.ParseCIDR(c)
+		out = append(out, n)
+	}
+	return
+}()
 
 // key is what a link is cached under: the URL as fetch writes it into Preview.URL, which is
 // also what index.jsonl is reloaded by, so "HTTP://x/Café" is still cached after a restart.

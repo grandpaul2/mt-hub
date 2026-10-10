@@ -314,6 +314,11 @@ func (w *Workspace) Write(p string, data []byte, baseRev string, a Author) (stri
 // hold up everyone else's saves. The temp file is then renamed into place: atomic, and
 // it lives in .git so a crash can't leave litter in the tree.
 func (w *Workspace) WriteFrom(p string, r io.Reader, baseRev string, a Author) (string, error) {
+	// Callers clean their paths; this is the last look, because a name with a line break would
+	// write its own records into the history (see Moves).
+	if c, err := Clean(p); err != nil || c != p {
+		return "", ErrBadPath
+	}
 	if reserved(p) {
 		return "", errReserved
 	}
@@ -378,6 +383,9 @@ func (w *Workspace) WriteFrom(p string, r io.Reader, baseRev string, a Author) (
 // git, so nothing over MaxVersioned may leave them. Those folders themselves stay put.
 func (w *Workspace) Move(from, to string, a Author) error {
 	if isArea(from) || isArea(to) || to == from || strings.HasPrefix(to, from+"/") {
+		return ErrBadPath
+	}
+	if c, err := Clean(to); err != nil || c != to {
 		return ErrBadPath
 	}
 	if reserved(to) {

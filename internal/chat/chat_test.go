@@ -347,3 +347,19 @@ func TestInvisibleTextReactionsAndQuickDeletes(t *testing.T) {
 		}
 	}
 }
+
+// A file posted in chat can't have control characters in its name.
+func TestMediaFileName(t *testing.T) {
+	s, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, bad := range []string{"a\nb.txt", "tab\there.png", "bell\a.zip", "", "..", "a/b"} {
+		if _, err := s.MediaFile("general", bad); !errors.Is(err, ErrBadFile) {
+			t.Errorf("%q: %v, want ErrBadFile", bad, err)
+		}
+	}
+	if _, err := s.MediaFile("general", "farm v2 (final).litematic"); err != nil {
+		t.Errorf("ordinary name: %v", err)
+	}
+}

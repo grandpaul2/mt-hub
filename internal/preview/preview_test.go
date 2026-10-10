@@ -142,6 +142,7 @@ func TestOnlyPublicAddresses(t *testing.T) {
 	for ip, want := range map[string]bool{
 		"127.0.0.1": false, "192.168.1.50": false, "10.0.0.5": false, "172.16.3.4": false,
 		"100.100.100.100": false, "169.254.169.254": false, "0.0.0.0": false, "::1": false,
+		"192.0.0.8": false, "198.18.0.1": false, "240.0.0.1": false, "64:ff9b::a00:5": false, "2002:c0a8:101::1": false,
 		"fd7a:115c:a1e0::1": false, "fe80::1": false,
 		"8.8.8.8": true, "93.184.216.34": true, "2606:4700:4700::1111": true,
 	} {
