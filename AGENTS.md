@@ -110,7 +110,7 @@ PATH (`CHROMIUM=google-chrome` uses another browser).
 - **Nothing private goes in**: no tokens, addresses, home-folder paths, or names of real
   people in code, tests, docs or commit messages. Use the stand-in names the tests use.
 - **No GitHub Actions or other CI.** Nothing on GitHub builds or tests a pull request; the
-  maintainer does, on his own machine.
+  maintainer does, on their own machine.
 
 ## Check your work
 
