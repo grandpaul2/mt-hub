@@ -80,10 +80,16 @@ the guide first, with the reason.
   - On the right: search, then your name, which opens the account menu.
   - The tab title and login heading say **MacroTech**.
 - **Bars** (the strip at the top of a panel): one height (35 px minimum) and one padding.
-  - **Single-item bar** (one file, picture or post), shared everywhere: back, name, details,
-    then the buttons grouped on the right. The icon buttons, in order: full window,
-    forward, download, open in new tab, **Delete** (grey, red only on hover, like the
-    chat toolbar's). No **⋯** on a bar: every action is a button on it.
+  - **Single-item bar** (one file, picture or post), shared everywhere, in the folder view's
+    order: back, name, details; then on the right the text buttons (Save, Edit, History, Open
+    folder), the icon buttons, previous/next, and at the far right the **size slot**.
+    - **Icon buttons**, the same everywhere: forward, download, open in new tab, **Delete**
+      (grey, red only on hover, like the chat toolbar's).
+    - **Size slot:** what makes the thing bigger. A text file: the **Size** slider, as in
+      the folder view. A picture or post: **full window**, an expand icon (four corners).
+    - No **⋯** on a bar: every action is a button on it.
+  - **A magnifier means search**, and nothing else: no magnifier for text size, full window
+    or zooming a picture (the full-window viewer zooms on a click on the picture).
   - **Narrow panels:** the details shorten first, then the buttons drop to their own line.
   - **Folder and board bars** wrap rather than clip.
 - **Phones (under 700 px):** chat only, with the chat picker in the panel header.
@@ -536,8 +542,8 @@ separate dialogs.
     editor.
   - **One blue Edit** turns into **Cancel**; a **grey Save** to its left turns blue with
     unsaved changes.
-  - **Your place** in the file is kept across View, Edit and History. Zoom (− % +, Ctrl+wheel)
-    is remembered.
+  - **Your place** in the file is kept across View, Edit and History. Text size (the bar's Size
+    slider, Ctrl+wheel; the percentage is in the slider's tooltip, a double-click is 100%) is remembered.
   - **The editor is plain:** no suggestions, hovers, squiggles or auto-brackets; long lines
     wrap.
 - **Unsaved changes:**

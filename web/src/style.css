@@ -1260,9 +1260,9 @@ body.chat-hidden #chat .pins-btn, body.chat-hidden #chat .files-btn { display: n
 /* Edit / Cancel on a text file: the same width either way, so nothing moves. */
 .single-actions .edit-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 84px; }
 .single-actions .edit-toggle svg { width: 15px; height: 15px; }
-/* Text size: − 100% + (the percentage resets it). */
-.single-bar .zoom { flex: none; align-items: center; }
-.single-bar .zoom-pct { min-width: 46px; height: 30px; padding: 0 4px; border: 0; background: none; color: var(--text); font-size: 12px; font-variant-numeric: tabular-nums; }
+/* Text size: the folder view's Size slider, at the bar's far right. */
+.single-bar label.size { flex: none; display: flex; align-items: center; gap: 4px; color: var(--muted); }
+.single-bar .size input { width: 110px; }
 
 /* ---- search (top bar) ---- */
 

@@ -33,8 +33,8 @@ are in [`style-guide.md`](style-guide.md).
   links is never deleted. Deleting a chat keeps its files with it in `chat/.deleted/`.
   `media/` is not a Files folder: Files refuses the name.
 - **Pictures full size:** clicking a picture anywhere (chat, files, folder views,
-  schematic posts) opens the full-window viewer: zoom, forward, download, open in a
-  new tab, close; ←/→ step through the set. Opened from chat, it also has Open folder (a
+  schematic posts) opens the full-window viewer: forward, download, open in a
+  new tab, close; a click on the picture zooms; ←/→ step through the set. Opened from chat, it also has Open folder (a
   picture in Files: shows it there) or Save to Files… (a picture posted in chat).
 - **Folder view:** clicking any folder (or a `#path` link to it) opens it as a grid of its
   folders and files, with one bar: Upload, a name search, Size (`#folder=<path>`). Ctrl+V
@@ -50,9 +50,10 @@ are in [`style-guide.md`](style-guide.md).
   picture anywhere gets the same kind of name. Map art is named by its title
   (`MA-001 MacroTech Logo.png`). The `#shots` and `#mapart` addresses open the folders.
 - **One item on its own** (a picture or video file, one schematic post) gets the same bar:
-  back and the name on the left; previous/next (also ←/→, Esc goes back) and icon buttons on
-  the right: full window, forward, download, open in a new tab, and delete (red on
-  hover). A post's blue Edit is a text button before them, as on a text file. The folder's own bar (filters, search, size) hides
+  back and the name on the left; on the right the text buttons (a post's blue Edit, as on a
+  text file), the icon buttons (forward, download, open in a new tab, delete, red on hover),
+  previous/next (also ←/→, Esc goes back) and full window last. A text file has its Size
+  slider in that last place. The folder's own bar (filters, search, size) hides
   meanwhile.
   Any other file opened on its own (text, Markdown, binaries) gets `← Back to <folder>/` and
   Esc too (Esc works from the tree as well, which keeps only its arrow keys; with a menu open,
