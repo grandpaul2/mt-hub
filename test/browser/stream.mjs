@@ -3,21 +3,14 @@
 // capture stands in for a real window. Sharing from the "+" menu, LIVE appearing for the
 // other person, watching (the picture arrives), the viewer count, watching your own stream,
 // Stop, an admin stopping someone, the streamer reloading, and a phone watching.
-import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, writeFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { join } from 'node:path';
 import { api, check, COOKIE, DATA, done, HUB, send, settle, shot, ws } from './lib.mjs';
+import { ensureLivekit } from './support/livekit.mjs';
 
-const root = join(import.meta.dirname, '..', '..');
-const LK = join(root, 'fetched', 'livekit-server');
-const LK_VERSION = '1.13.7';
-if (!existsSync(LK)) {
-  const base = `https://github.com/livekit/livekit/releases/download/v${LK_VERSION}`;
-  const tar = `livekit_${LK_VERSION}_linux_amd64.tar.gz`;
-  execFileSync('sh', ['-ec', `cd "$1" && curl -sSLO "$2/$3" && curl -sSL "$2/checksums.txt" | grep "  $3$" | sha256sum -c - >/dev/null && tar xzf "$3" livekit-server && rm "$3"`,
-    'sh', join(root, 'fetched'), base, tar]);
-}
+const LK = ensureLivekit();
 const freePort = () => new Promise((r) => { const s = createServer().listen(0, '127.0.0.1', () => { const { port } = s.address(); s.close(() => r(port)); }); });
 const port = await freePort();
 const tcp = await freePort();

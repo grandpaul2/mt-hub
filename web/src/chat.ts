@@ -54,7 +54,7 @@ const pressedOn = (el: Element, e: MouseEvent) => e.detail === 0 || (pressStart 
 let hooks: Hooks;
 let channels: ChannelInfo[] = [];
 let renames: { from: string; to: string }[] = []; // every chat rename, oldest first
-// Unread markers are per browser while there are no accounts: last message ID seen per channel.
+// Unread markers are per browser, not on the account: last message ID seen per channel.
 const lastRead: Record<string, string> = JSON.parse(load('mt-read') ?? '{}');
 let side: ChatView;
 let main: ChatView;

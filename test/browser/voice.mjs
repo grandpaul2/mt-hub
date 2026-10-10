@@ -1,24 +1,16 @@
-// Voice chats, end to end: a local LiveKit (fetched/livekit-server, see README), Paul in the
+// Voice chats, end to end: a local LiveKit (fetched/livekit-server, see support/livekit.mjs), Paul in the
 // suite's page and Alex in a second browser profile (his own login). Starting from the "+"
 // menu, the other person seeing it and joining under the first name, hearing each other
 // (Alex gets Paul's audio track), the bar, leaving, a private voice chat hidden from an admin,
 // and the limit of 3.
-import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, writeFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { join } from 'node:path';
 import { api, check, COOKIE, DATA, done, ev, HUB, send, settle, shot, ws } from './lib.mjs';
+import { ensureLivekit } from './support/livekit.mjs';
 
-const root = join(import.meta.dirname, '..', '..');
-// The LiveKit server the VPS runs, fetched once into fetched/ (not in git), checksum checked.
-const LK = join(root, 'fetched', 'livekit-server');
-const LK_VERSION = '1.13.7';
-if (!existsSync(LK)) {
-  const base = `https://github.com/livekit/livekit/releases/download/v${LK_VERSION}`;
-  const tar = `livekit_${LK_VERSION}_linux_amd64.tar.gz`;
-  execFileSync('sh', ['-ec', `cd "$1" && curl -sSLO "$2/$3" && curl -sSL "$2/checksums.txt" | grep "  $3$" | sha256sum -c - >/dev/null && tar xzf "$3" livekit-server && rm "$3"`,
-    'sh', join(root, 'fetched'), base, tar]);
-}
+const LK = ensureLivekit();
 const freePort = () => new Promise((r) => { const s = createServer().listen(0, '127.0.0.1', () => { const { port } = s.address(); s.close(() => r(port)); }); });
 const port = await freePort();
 const tcp = await freePort();

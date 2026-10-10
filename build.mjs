@@ -97,10 +97,18 @@ cpSync(twemoji, `${out}/emoji`, { recursive: true, filter: (f) => !f.endsWith('.
   for (const [path, sum] of dfn) {
     const local = `fetched/dfn3/${path}`;
     if (!existsSync(local)) {
-      const r = await fetch(`${cdn}/${path}`);
-      if (!r.ok) throw new Error(`fetching ${path}: ${r.status}`);
+      const url = `${cdn}/${path}`;
+      console.log(`downloading ${path} from ${new URL(url).host} (needed once; saved in fetched/)`);
+      let body;
+      try {
+        const r = await fetch(url, { signal: AbortSignal.timeout(120000) });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        body = Buffer.from(await r.arrayBuffer());
+      } catch (e) {
+        throw new Error(`could not download ${path} from ${new URL(url).host} (${e.cause?.code ?? e.message}; a download gives up after 120 s): check the network, or put the file at ${local} yourself (it is checked against a pinned SHA-256)`);
+      }
       mkdirSync(local.slice(0, local.lastIndexOf('/')), { recursive: true });
-      writeFileSync(local, Buffer.from(await r.arrayBuffer()));
+      writeFileSync(local, body);
     }
     const got = createHash('sha256').update(readFileSync(local)).digest('hex');
     if (got !== sum) throw new Error(`${local}: sha256 ${got}, expected ${sum} (delete it to fetch again)`);

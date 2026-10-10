@@ -29,7 +29,7 @@ func (s *Server) roomFor(w http.ResponseWriter, size int64) bool {
 	return true
 }
 
-const diskFull = "the hub's disk is nearly full: tell Paul"
+const diskFull = "the hub's disk is nearly full: tell an admin"
 
 // diskFree is the space left on the disk holding dir (the tests replace it).
 var diskFree = func(dir string) (int64, bool) {
