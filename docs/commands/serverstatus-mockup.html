@@ -1,0 +1,228 @@
+<!doctype html><html><head><meta charset="utf-8"><title>/serverstatus mockups</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans:wght@400;600&display=swap">
+<style>
+/* Mockups for the hub's /serverstatus card. The hub's own fonts and tokens (style guide 3.1),
+   so the samples read as they would in chat. Sample numbers are made up. */
+:root {
+  color-scheme: dark;
+  --sans: 'Noto Sans', sans-serif; --mono: 'JetBrains Mono', monospace;
+  --bg: #1e1e1e; --panel: #252526; --panel-2: #2d2d2d; --border: #3c3c3c; --border-hi: #585858;
+  --hover: #2a2d2e; --select: #37373d; --text: #cccccc; --muted: #8a8a8a;
+  --chat-text: #e0e0e0; --chat-muted: #9d9d9d; --chat-name: #ffffff;
+  --accent: #0e639c; --link: #3794ff; --danger: #f47067; --ok: #73c991; --mention: #5865f2;
+  --flash: rgba(250, 200, 60, .25);
+  --tint-1: rgba(255, 255, 255, .04); --tint-2: rgba(255, 255, 255, .08); --tint-3: rgba(255, 255, 255, .12);
+  --shadow-float: 0 8px 28px rgba(0, 0, 0, .55);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: #151515; color: var(--text); font: 14px/1.5 var(--sans); }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 28px 16px 80px; display: grid; gap: 36px; }
+h1 { margin: 0; font-size: 22px; font-weight: 600; color: var(--chat-name); }
+h2 { margin: 0 0 4px; font-size: 16px; font-weight: 600; color: var(--chat-name); }
+p { margin: 0; max-width: 76ch; }
+.muted { color: var(--muted); }
+.lab { margin-bottom: 6px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.pair { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; margin-top: 14px; }
+@media (max-width: 900px) { .pair { grid-template-columns: 1fr; } }
+
+/* A slice of chat */
+.chat { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 0 0; overflow: hidden; }
+.msg { --gutter: 56px; position: relative; padding: 4px 12px 2px calc(12px + var(--gutter) + 18px); font-size: 14px; color: var(--chat-text); }
+.narrow .msg { --gutter: 48px; }
+/* In the narrow side chat a private reply has no time or name, so it starts at the left edge. */
+.narrow .msg.private { padding-left: 12px; }
+.msg-head { display: flex; gap: 8px; align-items: baseline; margin-left: -10px; }
+.msg-head .when { flex: none; width: var(--gutter); margin-left: calc(-1 * (var(--gutter) + 8px)); text-align: right; font-size: 11px; color: var(--chat-muted); white-space: nowrap; }
+.msg-head .who { font-weight: 600; color: var(--chat-name); }
+.msg-body { line-height: 1.45; }
+.composer { padding: 8px 20px 16px; position: relative; }
+.narrow .composer { padding: 8px 12px 16px; }
+.compose { padding: 16px; background: var(--tint-1); border: 1px solid var(--tint-1); border-radius: 8px; font-size: 15px; line-height: 1.4; color: var(--muted); }
+.compose.typed { color: var(--chat-text); border-color: var(--tint-3); }
+.caret { display: inline-block; width: 1px; height: 18px; margin-left: 1px; vertical-align: -3px; background: var(--chat-text); }
+
+/* Autocomplete popup (style guide 6.4) */
+.ac-pop { width: 360px; max-width: 100%; margin: 0 0 6px 20px; padding: 4px 0; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; box-shadow: var(--shadow-float); color: var(--chat-text); }
+.ac-head { padding: 6px 12px 4px; font-size: 11px; font-weight: 600; letter-spacing: .5px; color: var(--muted); text-transform: uppercase; }
+.ac-row { display: flex; align-items: baseline; gap: 10px; padding: 6px 12px; line-height: 20px; }
+.ac-row.on { background: var(--select); }
+.ac-row .ac-name { color: var(--chat-name); font-family: var(--mono); font-size: 13px; }
+.ac-row .desc { margin-left: auto; font-size: 12px; color: var(--muted); }
+.ac-pop mark { background: var(--flash); color: inherit; border-radius: 2px; }
+
+/* The private line under every card */
+.only { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 12px; color: var(--chat-muted); }
+.only svg { width: 13px; height: 13px; flex: none; }
+.only a { color: var(--link); text-decoration: none; cursor: pointer; }
+.only a:hover { text-decoration: underline; }
+
+/* Shared bits */
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex: none; }
+.dot.off { background: transparent; border: 2px solid var(--muted); }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.bad { color: var(--danger); }
+.card { max-width: min(480px, 100%); margin-top: 2px; padding: 10px 16px 12px 12px; background: var(--tint-1); border-left: 4px solid var(--border-hi); border-radius: 4px; }
+.card-label { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--chat-muted); }
+.x { position: absolute; top: 6px; right: 6px; width: 22px; height: 22px; padding: 4px; border: 0; border-radius: 4px; background: none; color: var(--chat-muted); cursor: pointer; }
+.x:hover { background: var(--select); color: var(--chat-name); }
+.x svg { display: block; width: 100%; height: 100%; }
+
+/* A: one card, a row per server */
+.a { position: relative; }
+.a table { width: 100%; margin-top: 6px; border-collapse: collapse; }
+.a th { padding: 0 10px 4px 0; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--chat-muted); text-align: right; }
+.a th:first-child { text-align: left; }
+.a td { padding: 6px 10px 0 0; text-align: right; white-space: nowrap; vertical-align: baseline; }
+.a td:first-child { text-align: left; }
+.a td:last-child, .a th:last-child { padding-right: 0; }
+.a .name { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: var(--chat-name); }
+.a tr.who td { padding-top: 0; padding-left: 16px; text-align: left; white-space: normal; font-size: 13px; color: var(--chat-muted); }
+.a tr.down .name { color: var(--chat-muted); }
+.a tr.down td:last-child { white-space: normal; }
+
+/* B: a tile per server */
+.b { display: flex; flex-wrap: wrap; gap: 8px; max-width: min(560px, 100%); margin-top: 2px; }
+.b .tile { flex: 1 1 220px; min-width: 0; padding: 10px 14px 12px 12px; background: var(--tint-1); border-left: 4px solid var(--ok); border-radius: 4px; }
+.b .tile.down { border-left-color: var(--border-hi); }
+.b .head { display: flex; align-items: baseline; gap: 8px; }
+.b .name { font-size: 16px; font-weight: 600; color: var(--chat-name); }
+.b .state { font-size: 12px; color: var(--ok); }
+.b .down .state { color: var(--chat-muted); }
+.b .stats { display: grid; grid-template-columns: repeat(3, auto); justify-content: space-between; gap: 4px 12px; margin-top: 8px; }
+.b .stat .v { font-size: 16px; color: var(--chat-name); }
+.b .stat .v small { font-size: 12px; color: var(--chat-muted); }
+.b .stat .k { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--chat-muted); }
+.b .who { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 13px; color: var(--chat-text); }
+.b .who.none { color: var(--chat-muted); }
+
+/* C: with the last ten minutes drawn */
+.c .srv { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+.c .srv:first-of-type { margin-top: 6px; padding-top: 0; border-top: 0; }
+.c .head { display: flex; align-items: center; gap: 8px; }
+.c .name { font-size: 15px; font-weight: 600; color: var(--chat-name); }
+.c .count { margin-left: auto; font-size: 13px; color: var(--chat-muted); }
+.c .who { font-size: 13px; color: var(--chat-muted); margin: 0 0 6px 16px; }
+.c .rows { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 6px 10px; align-items: center; margin-left: 16px; }
+.c .k { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--chat-muted); }
+.c svg.spark { display: block; width: 100%; height: 28px; }
+.c .spark .line { fill: none; stroke: var(--chat-text); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.c .spark .limit { stroke: var(--border-hi); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.c .bar { height: 6px; background: var(--tint-2); border-radius: 3px; overflow: hidden; }
+.c .bar i { display: block; height: 100%; background: var(--chat-muted); border-radius: 3px; }
+.c .v { font-size: 13px; color: var(--chat-name); text-align: right; white-space: nowrap; }
+.c .v small { font-size: 12px; color: var(--chat-muted); }
+.c .down .name { color: var(--chat-muted); }
+.c .foot { margin-top: 8px; font-size: 11px; color: var(--muted); }
+
+/* D: plain lines, no card */
+.d { margin-top: 2px; }
+.d .line span { white-space: nowrap; }
+.d .line { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 8px; line-height: 1.6; }
+.d .line .dot { align-self: center; }
+.d .name { font-weight: 600; color: var(--chat-name); }
+.d .sep { color: var(--muted); }
+.d .who { margin-left: 16px; font-size: 13px; color: var(--chat-muted); }
+.d .down .name, .d .down { color: var(--chat-muted); }
+</style></head><body><div class="wrap">
+
+<div>
+  <h1>/serverstatus mockups</h1>
+  <p class="muted">Four looks for the card, A to D. Each is shown in the main chat (left) and the narrow side chat (right). The left sample has both servers up; the right one has Creative down and Survival lagging, so you can see those states. All numbers are made up.</p>
+</div>
+
+<section>
+  <h2>Typing the command</h2>
+  <p class="muted">The same popup as @mentions and emoji. Tab or Enter completes it, Enter runs it. Nothing is posted to the chat.</p>
+  <div class="pair"><div class="chat">
+    <div class="msg"><div class="msg-head"><span class="when">7:42 PM</span><span class="who">Eldridge</span></div><div class="msg-body">is survival lagging for anyone else?</div></div>
+    <div class="composer">
+      <div class="ac-pop"><div class="ac-head">Commands</div>
+        <div class="ac-row on"><span class="ac-name"><mark>/s</mark>erverstatus</span><span class="desc">Both servers: players, mspt, memory</span></div>
+      </div>
+      <div class="compose typed">/s<span class="caret"></span></div>
+    </div>
+  </div><div></div></div>
+</section>
+
+<section id="A"><h2>A. One card, a row per server</h2>
+  <p class="muted">The mod release card's shape with a small table inside. Compact, and the numbers line up for comparing the two servers.</p></section>
+<section id="B"><h2>B. A tile per server</h2>
+  <p class="muted">Each server is its own tile with larger numbers; the left edge is green when it's up and grey when it's down. Side by side when there's room, stacked in the side chat.</p></section>
+<section id="C"><h2>C. With the last ten minutes drawn</h2>
+  <p class="muted">Adds a small mspt graph (the dashed line is 50, where the server starts falling behind) and a memory bar. The tallest of the four, and the only one that shows a lag spike that has already passed.</p></section>
+<section id="D"><h2>D. Plain lines, no card</h2>
+  <p class="muted">The quietest: one line per server and the names under it. Reads like a chat message that only you see.</p></section>
+
+</div>
+<script>
+const EYE = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8s-2.4 4.5-6.5 4.5S1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></svg>';
+const X = '<button class="x" title="Close"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>';
+
+// Two made-up moments: everything fine, and one server down while the other lags.
+const fine = [
+  { name: 'Survival', up: true, players: ['grandpaul', 'Eldridge', 'Lennox'], mspt: 14.2, peak: 31.0, ram: 6.8, max: 16,
+    hist: [12,13,12,14,13,15,14,13,22,31,18,14,13,14,15,14,13,14,15,14] },
+  { name: 'Creative', up: true, players: [], mspt: 3.1, peak: 4.4, ram: 3.2, max: 16,
+    hist: [3,3,3,4,3,3,3,3,4,3,3,3,4,3,3,3,3,3,4,3] },
+];
+const rough = [
+  { name: 'Survival', up: true, players: ['grandpaul', 'Eldridge', 'Lennox', 'Steve', 'Alex'], mspt: 58.6, peak: 74.3, ram: 13.4, max: 16,
+    hist: [22,24,28,31,36,41,44,52,58,61,66,74,70,63,59,57,60,62,58,59] },
+  { name: 'Creative', up: false, seen: '12 min ago' },
+];
+
+const dot = s => `<span class="dot${s.up ? '' : ' off'}"></span>`;
+const ms = v => `<span class="num${v >= 50 ? ' bad' : ''}">${v.toFixed(1)}</span>`;
+const who = s => s.players.length ? s.players.join(', ') : 'Nobody online';
+const only = '<div class="only">' + EYE + 'Only you can see this · <a>Dismiss</a></div>';
+
+const looks = {
+  A: d => `<div class="card a">${X}<div class="card-label">Server status</div><table>
+    <tr><th></th><th>Players</th><th>mspt</th><th>Memory</th></tr>
+    ${d.map(s => s.up ? `<tr><td><span class="name">${dot(s)}${s.name}</span></td><td class="num">${s.players.length}</td><td>${ms(s.mspt)}</td><td class="num">${s.ram} / ${s.max} GB</td></tr>
+      <tr class="who"><td colspan="4">${who(s)}</td></tr>`
+      : `<tr class="down"><td><span class="name">${dot(s)}${s.name}</span></td><td colspan="3" class="muted">Offline · last seen ${s.seen}</td></tr>`).join('')}
+  </table></div>`,
+
+  B: d => `<div class="b">${d.map(s => s.up ? `<div class="tile"><div class="head"><span class="name">${s.name}</span><span class="state">Online</span></div>
+      <div class="stats">
+        <div class="stat"><div class="v num">${s.players.length}</div><div class="k">Players</div></div>
+        <div class="stat"><div class="v">${ms(s.mspt)}</div><div class="k">mspt</div></div>
+        <div class="stat"><div class="v num">${s.ram}<small> / ${s.max} GB</small></div><div class="k">Memory</div></div>
+      </div><div class="who${s.players.length ? '' : ' none'}">${who(s)}</div></div>`
+    : `<div class="tile down"><div class="head"><span class="name">${s.name}</span><span class="state">Offline</span></div>
+      <div class="who none" style="border:0;padding-top:0">Last seen ${s.seen}.</div></div>`).join('')}</div>`,
+
+  C: d => `<div class="card c"><div class="card-label">Server status</div>${d.map(s => s.up ? `<div class="srv">
+      <div class="head">${dot(s)}<span class="name">${s.name}</span><span class="count">${s.players.length} online</span></div>
+      <div class="who">${who(s)}</div>
+      <div class="rows">
+        <span class="k">mspt</span>${spark(s.hist)}<span class="v">${ms(s.mspt)} <small>peak ${s.peak.toFixed(1)}</small></span>
+        <span class="k">Memory</span><div class="bar"><i style="width:${100 * s.ram / s.max}%"></i></div><span class="v num">${s.ram}<small> / ${s.max} GB</small></span>
+      </div></div>`
+    : `<div class="srv down"><div class="head">${dot(s)}<span class="name">${s.name}</span><span class="count">Offline · last seen ${s.seen}</span></div></div>`).join('')}
+    <div class="foot">Last 10 minutes</div></div>`,
+
+  D: d => `<div class="d">${d.map(s => s.up ? `<div class="line">${dot(s)}<span class="name">${s.name}</span><span class="sep">·</span><span><span class="num">${s.players.length}</span> online</span><span class="sep">·</span><span>${ms(s.mspt)} mspt</span><span class="sep">·</span><span class="num">${s.ram} / ${s.max} GB</span></div>
+      <div class="who">${who(s)}</div>`
+    : `<div class="line down">${dot(s)}<span class="name">${s.name}</span><span class="sep">·</span><span>Offline, last seen ${s.seen}</span></div>`).join('')}</div>`,
+};
+
+// mspt over time; the scale tops out at 80 so the 50 line sits in the same place for both servers
+function spark(h) {
+  const top = 80, y = v => (28 - 2 - Math.min(v, top) / top * 24).toFixed(1);
+  const pts = h.map((v, i) => `${(i / (h.length - 1) * 100).toFixed(1)},${y(v)}`).join(' ');
+  return `<svg class="spark" viewBox="0 0 100 28" preserveAspectRatio="none"><line class="limit" x1="0" x2="100" y1="${y(50)}" y2="${y(50)}"/><polyline class="line" points="${pts}"/></svg>`;
+}
+
+const slice = (html, narrow) => `<div class="chat${narrow ? ' narrow' : ''}">
+  <div class="msg"><div class="msg-head"><span class="when">7:42 PM</span><span class="who">Eldridge</span></div><div class="msg-body">is survival lagging for anyone else?</div></div>
+  <div class="msg private">${html}${only}</div>
+  <div class="composer"><div class="compose">Message #general</div></div></div>`;
+
+for (const [id, draw] of Object.entries(looks)) {
+  document.getElementById(id).insertAdjacentHTML('beforeend',
+    `<div class="pair"><div><div class="lab">Main chat · both up</div>${slice(draw(fine))}</div>
+     <div><div class="lab">Side chat · one down, one lagging</div>${slice(draw(rough), true)}</div></div>`);
+}
+</script></body></html>

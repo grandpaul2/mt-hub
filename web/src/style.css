@@ -1,0 +1,1418 @@
+:root {
+  /* Our own fonts, served by the hub (imported in main.ts), never the system's: the same look on
+     every machine. (Firefox on GNOME used Adwaita Sans for system-ui and cut off g, p and y.)
+     The generic names are only for the moment before they load. */
+  --sans: 'Noto Sans Variable', sans-serif;
+  --mono: 'JetBrains Mono Variable', monospace;
+  /* Colours: the style guide's tokens (3.1). Every colour below is one of these, except the
+     badge and identity colours, which are kept where they're used. */
+  --bg: #1e1e1e;
+  --panel: #252526;
+  --panel-2: #2d2d2d;
+  --top: #333333;
+  --border: #3c3c3c;
+  --border-hi: #585858; /* hovered edges, tree guides, quote and forward bars */
+  --hover: #2a2d2e;
+  --select: #37373d;
+  --active: #04395e;
+  --text: #cccccc;
+  --muted: #8a8a8a;
+  --chat-text: #e0e0e0;
+  --chat-muted: #9d9d9d;
+  --chat-name: #ffffff;
+  --accent: #0e639c;
+  --accent-hi: #1177bb;
+  --focus: #007fd4;
+  --link: #3794ff;
+  --danger: #f47067;
+  --danger-fill: #a1260d;
+  --danger-fill-hi: #be2f12;
+  --ok: #73c991;
+  --warn: #5a4a14;
+  --mention: #5865f2;
+  --mention-tint: rgba(88, 101, 242, .25);
+  --mention-text: #c9cdfb;
+  --flash: rgba(250, 200, 60, .25);
+  /* admin tag colours (S51; TAG_COLOURS in util.ts, server TagColours): admins pick one; the
+     default is purple, gold for the owner */
+  --tag-purple: #8a3ffc;
+  --tag-gold: #9c7a32;
+  --tag-blue: #2f6fd0;
+  --tag-teal: #1f8a7a;
+  --tag-green: #3d8b37;
+  --tag-orange: #c0601a;
+  --tag-red: #b8323f; /* muted, leaning crimson, so it stays clear of the orange */
+  --tag-pink: #c2407f;
+  --tag-grey: #5f6670;
+  --tag-gold-text: #f2e3bf;
+  /* the top-bar logo, from map art MA-001 and MA-003 */
+  --logo-text: #c6d2dd;
+  --logo-frame: #929eae;
+  --logo-red: #c8161a;
+  --logo-red-hi: #e0393c;
+  --logo-red-lo: #8e0d10;
+  /* A shade lighter than what's behind (Discord's hover style in chat). */
+  --tint-1: rgba(255, 255, 255, .04); /* hover in chat */
+  --tint-2: rgba(255, 255, 255, .08); /* pressed or open */
+  --tint-3: rgba(255, 255, 255, .12); /* the open chat */
+  /* Behind pictures and over the page. */
+  --media-bg: #000000;
+  --scrim: rgba(0, 0, 0, .86); /* the full-window viewer */
+  --scrim-soft: rgba(0, 0, 0, .65); /* behind dialogs; the play button */
+  --pill: rgba(30, 31, 34, .92); /* the viewer's tool pills */
+  /* Depth (5): two shadows. */
+  --shadow-near: 0 2px 8px rgba(0, 0, 0, .35);
+  --shadow-float: 0 8px 28px rgba(0, 0, 0, .55);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+/* Less motion when the system asks for it (style guide 12): no flashes, no turning chevrons. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+[hidden] { display: none !important; }
+/* ← → ↑ ↓ ● as icons (util.ts glyphs): our fonts don't have them. */
+.glyph { display: inline-block; width: 1em; height: 1em; vertical-align: -0.14em; }
+.glyph svg { display: block; width: 100%; height: 100%; }
+
+html, body { height: 100%; margin: 0; }
+
+body {
+  display: grid;
+  grid-template: 34px 1fr / var(--side-w, 260px) 1fr var(--chat-w, 340px);
+  grid-template-areas: "top top top" "side main chat";
+  background: var(--bg);
+  color: var(--text);
+  font: 13px var(--sans);
+}
+
+/* Form controls and code don't inherit the page font by default. */
+input, textarea, select, button { font-family: inherit; }
+code, pre, kbd, samp { font-family: var(--mono); }
+
+button {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 10px;
+  font: inherit;
+  cursor: pointer;
+}
+button:hover:not(:disabled) { background: var(--select); }
+button:disabled { opacity: .45; cursor: default; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--chat-name); }
+button.primary:hover { background: var(--accent-hi); }
+/* Destructive confirms are red, never blue (style guide 3.2, 3.3). */
+button.danger { background: var(--danger-fill); border-color: var(--danger-fill); color: var(--chat-name); }
+button.danger:hover { background: var(--danger-fill-hi); border-color: var(--danger-fill-hi); }
+/* Focus is always visible when it came from the keyboard (style guide 12). */
+button:focus-visible, a:focus-visible, [tabindex]:focus-visible, input[type=checkbox]:focus-visible { outline: 1px solid var(--focus); outline-offset: 1px; }
+/* An error toast has a red edge (style guide 6.7). */
+#toast.error { border-left: 4px solid var(--danger); }
+/* Keyboard shortcuts (the menu on your name). */
+#dialog table.keys { border-collapse: collapse; margin: 8px 0 14px; width: 100%; }
+#dialog table.keys th { text-align: left; vertical-align: top; padding: 6px 16px 6px 0; white-space: nowrap; color: var(--chat-name); font-weight: 600; }
+#dialog table.keys td { padding: 6px 0; color: var(--text); }
+#dialog table.keys tr + tr > * { border-top: 1px solid var(--border); }
+/* One search box style (style guide 6.2): the top bar's, the folder and board bars', the
+   emoji picker's. */
+#search, .shot-bar input[type=search], .emoji-search {
+  padding: 4px 8px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font: inherit;
+}
+#search:focus, .shot-bar input[type=search]:focus, .emoji-search:focus { outline: 1px solid var(--focus); border-color: var(--focus); }
+/* Size sliders (galleries, schematics) are gray, not the browser's blue. */
+input[type=range] { accent-color: var(--chat-muted); }
+
+.spacer { flex: 1; }
+.muted { color: var(--muted); }
+.pad { padding: 6px 12px; }
+
+#top {
+  grid-area: top;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  background: var(--top);
+  border-bottom: 1px solid var(--border);
+}
+/* Pixel art: drawn on whole pixels, 27px tall so it centres on a whole pixel in the 33px bar; the viewBox starts at -1 to sit the frame 4px from the top. */
+.brand { display: block; flex: none; shape-rendering: crispEdges; }
+.logo-text { fill: var(--logo-text); }
+.logo-frame { fill: var(--logo-frame); }
+.logo-red { fill: var(--logo-red); }
+.logo-red-hi { fill: var(--logo-red-hi); }
+.logo-red-lo { fill: var(--logo-red-lo); }
+
+#side, #chat { background: var(--panel); overflow: auto; }
+#side { grid-area: side; border-right: 1px solid var(--border); }
+#chat { grid-area: chat; border-left: 1px solid var(--border); }
+/* Sidebar text matches the main chat: 14px and bright. */
+#side { font-size: 14px; color: var(--chat-text); display: flex; flex-direction: column; }
+#side > * { flex: none; }
+/* The bottom of the sidebar: the voice and screen-sharing bars, while in use. */
+/* Its bottom lines up with the chat box's (.composer: 16px up), with the same corners. */
+#side-foot { margin-top: auto; position: sticky; bottom: 0; padding: 8px 8px 16px; background: var(--panel); }
+#side-foot:not(:has(> :not([hidden]))) { display: none; }
+/* VOICE and LIVE sit under CHATS (Paul, S55), each there only while in use. */
+#voice-list, #live-list { padding: 0 8px 8px; }
+
+.side-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 8px 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .6px;
+  color: var(--text);
+}
+.side-head button { padding: 0 6px; font-size: 13px; }
+#files-head { cursor: pointer; }
+/* FILES and its buttons stay at the top while the sidebar scrolls. */
+#side > .side-head:first-child { position: sticky; top: 0; z-index: 2; background: var(--panel); }
+#target { font-weight: 400; letter-spacing: 0; line-height: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.row {
+  display: flex;
+  align-items: center;
+  height: 22px;
+  padding-right: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.row:hover { background: var(--hover); }
+.row .twisty { width: 14px; flex: none; color: var(--muted); }
+/* Text cut short with "…" (text-overflow: ellipsis) gets a whole-pixel line-height with room
+   below the tails of g, p and y. Firefox clips that text to its box, and with GPU rendering a
+   box edge on a half pixel cost the bottom pixel row (file-tree names: 24px rows held a 19px
+   default line box, centred at .5). Negative margins keep the old layout
+   where the taller line would grow its container. Checked on screen, not just in tests. */
+.row .name { line-height: 24px; overflow: hidden; text-overflow: ellipsis; }
+
+/* Header buttons, VS Code style bare icons, always visible. */
+.tree-actions { display: flex; gap: 2px; }
+.side-head button.icon-btn {
+  width: 22px;
+  height: 22px;
+  padding: 3px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text);
+}
+.side-head button.icon-btn:hover { background: var(--tint-2); }
+.icon-btn svg { display: block; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.1; }
+
+/* The file tree: 8px per level, a 16px chevron slot on every row (so files line up under
+   their folder's icon), guides on hover, and large/ dimmed like VS Code's ignored files. */
+#tree { padding-bottom: 12px; min-height: 60px; outline: none; }
+#tree.drop { outline: 1px dashed var(--focus); outline-offset: -2px; }
+#tree .row { height: 24px; padding-left: 8px; }
+#tree .row .twisty { width: 16px; height: 16px; color: var(--text); }
+#tree .row .twisty svg { display: block; width: 16px; height: 16px; transition: transform .1s; }
+#tree .row.open .twisty svg { transform: rotate(90deg); }
+#tree .row .icon { width: 16px; height: 16px; flex: none; margin-right: 6px; }
+#tree .indent { display: flex; align-self: stretch; flex: none; }
+#tree .guide { width: 8px; border-right: 1px solid transparent; }
+#tree:hover .guide { border-right-color: var(--border-hi); }
+/* One selected row, as in VS Code: gray, with a blue outline while the tree has focus. */
+#tree .row.focused { background: var(--select); }
+#tree:focus .row.focused { outline: 1px solid var(--focus); outline-offset: -1px; }
+
+#main { grid-area: main; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+#file-area, #main-chat, #main-folder, #main-schems, #main-live { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+#toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 35px;
+  padding: 4px 10px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+#toolbar .path { font-family: var(--mono); line-height: 20px; margin-right: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#banner { padding: 6px 12px; background: var(--warn); border-bottom: 1px solid var(--border); }
+/* The connection line (6.7): a banner under the top bar while the hub can't be reached. */
+#offline {
+  position: fixed; z-index: 105; top: 34px; left: 0; right: 0;
+  padding: 4px 12px; background: var(--warn); border-bottom: 1px solid var(--border); text-align: center;
+}
+body:has(#offline:not([hidden])) #toast { top: 70px; }
+#view { flex: 1; min-height: 0; overflow: auto; position: relative; }
+
+.editor { position: absolute; inset: 0; }
+.empty { padding: 40px; color: var(--muted); text-align: center; }
+.image { padding: 20px; text-align: center; }
+.image video { display: block; margin: 0 auto; max-width: 100%; max-height: calc(100vh - 140px); background: var(--media-bg); }
+.image img { max-width: 100%; image-rendering: pixelated; background: repeating-conic-gradient(var(--top) 0 25%, var(--hover) 0 50%) 0 0 / 16px 16px; }
+.card { margin: 40px auto; max-width: 420px; padding: 20px; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; }
+.card h2 { margin: 0 0 12px; font-size: 15px; word-break: break-all; }
+.card dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0 0 16px; }
+.card dt { color: var(--muted); }
+.card dd { margin: 0; }
+
+.markdown { max-width: 860px; padding: 16px 32px; line-height: 1.55; }
+.markdown a { color: var(--link); }
+.markdown code { background: var(--panel-2); padding: 1px 4px; border-radius: 4px; }
+.markdown pre { background: var(--panel-2); padding: 10px; overflow: auto; }
+.markdown pre code { padding: 0; }
+.markdown img { max-width: 100%; }
+/* Tables (GitHub's look): hairline cells, a shaded header row, left-aligned unless the
+   table says otherwise; every column but the last stays on one line (names, versions), and a
+   table too wide for the panel scrolls sideways. */
+.markdown table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; margin: 8px 0 16px; }
+.markdown th, .markdown td { border: 1px solid var(--border); padding: 6px 12px; vertical-align: top; }
+.markdown th:not([align]), .markdown td:not([align]) { text-align: left; }
+.markdown th { background: var(--panel-2); font-weight: 600; }
+.markdown th:not(:last-child), .markdown td:not(:last-child) { white-space: nowrap; }
+
+.split { position: absolute; inset: 0; display: flex; flex-direction: column; }
+.split .note { padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--border); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.split .note .text { margin-right: auto; }
+.split .diff { flex: 1; min-height: 0; }
+
+.history-wrap { position: absolute; inset: 0; display: grid; grid-template-columns: 260px 1fr; }
+.history { overflow: auto; border-right: 1px solid var(--border); background: var(--panel); }
+.commit { padding: 8px 12px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.commit:hover { background: var(--hover); }
+.commit.selected { background: var(--active); }
+.commit .who { font-weight: 600; }
+.commit .when, .commit .msg { color: var(--muted); font-size: 12px; }
+.tag { font-size: 10px; background: var(--accent); color: var(--chat-name); border-radius: 4px; padding: 0 5px; margin-left: 4px; }
+/* Said in game (the server link): which server, quieter than an op's tag. */
+.tag.via { align-self: center; margin-left: -2px; background: var(--panel-2); color: var(--chat-muted); border: 1px solid var(--border); font-weight: 600; letter-spacing: .04em; }
+.history-view { position: relative; min-width: 0; }
+
+/* Top centre, just under the bar, where it gets noticed. */
+#toast {
+  position: fixed;
+  z-index: 110; /* above the full-window viewer */
+  top: 44px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 9px 16px;
+  background: var(--select);
+  color: var(--chat-name);
+  border: 1px solid var(--tint-3);
+  border-radius: 8px;
+  box-shadow: var(--shadow-float);
+  text-align: center;
+}
+
+#overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--scrim-soft);
+  z-index: 10;
+}
+#dialog {
+  width: min(380px, calc(100vw - 32px));
+  padding: 22px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: var(--shadow-float);
+}
+#dialog h2 { margin: 0 0 6px; font-size: 16px; }
+#dialog p { margin: 0 0 14px; color: var(--muted); }
+#dialog form { display: grid; gap: 10px; }
+#dialog label { display: grid; gap: 4px; color: var(--muted); font-size: 12px; }
+#dialog input {
+  padding: 6px 8px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font: inherit;
+}
+#dialog input:focus { outline: 1px solid var(--focus); border-color: var(--focus); }
+#dialog .error { color: var(--danger); min-height: 1em; }
+#dialog label.check { display: flex; gap: 8px; align-items: flex-start; color: var(--text); font-size: 13px; margin: 6px 0 8px; }
+#dialog label.check input { width: auto; margin: 2px 0 0; padding: 0; flex: none; }
+#dialog .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+/* Add to Files (chat.ts addToFiles): the folder box, the folders to pick from, a note. */
+#dialog > input[type=text] { width: 100%; }
+.folder-pick { display: flex; flex-direction: column; max-height: 200px; overflow-y: auto; margin: 6px 0; padding: 2px 0; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); }
+.folder-row { text-align: left; background: none; border: none; border-radius: 0; padding: 4px 8px; color: var(--text); overflow-wrap: anywhere; }
+.folder-row:hover { background: var(--hover); }
+.folder-row.picked { background: var(--active); color: var(--chat-name); }
+.folder-note { min-height: 1.2em; margin-bottom: 8px; font-size: 12px; }
+/* The Admin page: a wider dialog with the accounts table, add form and log. */
+#dialog.wide { width: min(720px, calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow-y: auto; }
+.admin .muted { color: var(--muted); }
+/* Admin (a settings dialog, 6.8): a person's row is name + badges over online / last seen,
+   with "⋯" (or "You") on the right. */
+.admin .who { display: inline-flex; align-items: center; gap: 4px; }
+.admin .who .name { font-weight: 600; color: var(--chat-name); }
+.admin .who .tag { margin-left: 2px; }
+.admin .is-banned .who .name { text-decoration: line-through; color: var(--muted); }
+.admin .online { color: var(--ok); }
+.admin .icon-btn.more { padding: 4px; background: none; border: 0; border-radius: 4px; color: var(--muted); cursor: pointer; }
+.admin .icon-btn.more:hover { background: var(--select); color: var(--chat-name); }
+.admin .icon-btn.more svg { display: block; }
+.admin .more-slot { width: 24px; flex: none; } /* the space of a "⋯" (16 px icon + 4 px padding) */
+/* The admin tag (it reads "op") and its colours: the tag itself, the colour well and swatches on the Admin page. */
+.t-purple { --tag: var(--tag-purple); } .t-gold { --tag: var(--tag-gold); } .t-blue { --tag: var(--tag-blue); }
+.t-teal { --tag: var(--tag-teal); } .t-green { --tag: var(--tag-green); } .t-orange { --tag: var(--tag-orange); }
+.t-red { --tag: var(--tag-red); } .t-pink { --tag: var(--tag-pink); } .t-grey { --tag: var(--tag-grey); }
+.tag.op { background: var(--tag); }
+.tag.op.t-gold { color: var(--tag-gold-text); }
+.tag-well { flex: none; width: 18px; height: 18px; padding: 0; border: 1px solid var(--border-hi); border-radius: 4px; background: var(--tag); cursor: pointer; }
+.tag-well:hover { border-color: var(--chat-name); }
+/* In the menu: #menu's own button rules (full width, no fill) would win without the #menu. */
+#menu:has(.tag-swatches) { min-width: 0; }
+#menu .tag-swatches { display: grid; grid-template-columns: repeat(3, 22px); gap: 6px; padding: 6px; }
+#menu .tag-swatches .tag-swatch { display: block; width: 22px; height: 22px; min-width: 0; margin: 0; padding: 0; border: 1px solid transparent; border-radius: 4px; background: var(--tag); cursor: pointer; }
+#menu .tag-swatches .tag-swatch:hover { border-color: var(--chat-name); background: var(--tag); }
+#menu .tag-swatches .tag-swatch[aria-pressed=true] { outline: 2px solid var(--chat-name); outline-offset: 1px; }
+.tag.banned { background: var(--danger-fill); }
+.admin .error:empty { display: none; }
+.admin .error { margin: 0 0 12px; }
+.admin .new-pw { margin: 0 0 12px; padding: 8px 12px; background: var(--warn); border-radius: 4px; display: grid; gap: 4px; }
+.admin .new-pw code { font-size: 14px; user-select: all; }
+#dialog .admin .add-user { display: flex; gap: 8px; align-items: center; margin: 0 0 12px; }
+.admin .add-user input, .admin .add-user select { flex: 1; min-width: 0; height: 28px; box-sizing: border-box; }
+.admin .add-user button { white-space: nowrap; }
+#dialog .admin .set-group .add-user:last-child { margin: 12px 0 0; }
+.admin select { padding: 0 6px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px; font: inherit; }
+.admin-log { list-style: none; margin: 0; padding: 0; max-height: 120px; overflow-y: auto; font-size: 12px; color: var(--text); }
+.admin-log li { padding: 2px 0; }
+.admin-log .when { display: inline-block; width: 72px; color: var(--muted); }
+
+.devices { display: grid; gap: 6px; margin-bottom: 14px; }
+.device { display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: var(--bg); border-radius: 4px; }
+.device .info { margin-right: auto; }
+.device .when { color: var(--muted); font-size: 12px; }
+
+/* ---- chat ---- */
+
+#chat { position: relative; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+/* Collapsed: a slim strip keeps the toggle button in the same spot, flipped to «. */
+body.chat-hidden { grid-template-columns: var(--side-w, 260px) 1fr 36px; }
+body.chat-hidden #chat-select, body.chat-hidden #chat-body, body.chat-hidden #chat-resize { display: none; }
+body.chat-hidden #chat .chat-head { justify-content: flex-end; padding: 4px; }
+#chat-resize {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  cursor: col-resize;
+  z-index: 2;
+}
+/* The sidebar's handle sits on its right edge, in the page grid (the sidebar itself scrolls). */
+#side-resize { grid-area: side; justify-self: end; width: 5px; margin-right: -3px; cursor: col-resize; z-index: 3; }
+#chat-resize:hover, #chat-resize.dragging, #side-resize:hover, #side-resize.dragging { background: var(--accent-hi); }
+body.resizing { cursor: col-resize; user-select: none; }
+body.resizing iframe, body.resizing .monaco-editor { pointer-events: none; }
+.chat-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 35px;
+  padding: 4px 8px 4px 12px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+}
+#chat-select {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 6px;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font: inherit;
+  font-weight: 600;
+}
+#chat-hide { padding: 3px; }
+#chat-hide svg, button.glyph svg { display: block; }
+button.glyph { padding: 3px 6px; }
+.chat-body { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.messages { flex: 1; min-height: 0; overflow-y: auto; overflow-anchor: none; padding: 8px 0; } /* ChatView.keep anchors */
+/* The list and its "Jump to present" pill (style guide 14), floating at the bottom centre. */
+.messages-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
+.jump {
+  position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 2;
+  display: flex; align-items: center; gap: 6px; padding: 5px 14px; white-space: nowrap;
+  background: var(--panel-2); color: var(--chat-text); border: 1px solid var(--border); border-radius: 999px;
+  box-shadow: var(--shadow-float); font: inherit; cursor: pointer;
+}
+.jump:hover { background: var(--select); color: var(--chat-name); }
+.jump svg { width: 16px; height: 16px; }
+/* The NEW line above the first unread message: blurple, not Discord's red (style guide 3.3). */
+.new-line { position: relative; margin: 10px 12px 2px; border-top: 1px solid var(--mention); }
+#main-chat .new-line { margin-left: 20px; margin-right: 20px; }
+.new-tag {
+  position: absolute; right: 0; top: -8px; padding: 0 5px; line-height: 15px;
+  font-size: 10px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase;
+  background: var(--mention); color: var(--chat-name); border-radius: 4px;
+}
+.day {
+  margin: 12px 12px 4px;
+  color: var(--chat-muted);
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+/* The day divider (Discord's): a line across the feed with the date in the middle. */
+.day::before, .day::after { content: ""; flex: 1; border-top: 1px solid var(--border); }
+/* Discord-style feed: the time in a gutter on the left, then the name; everything under the
+   name (text, pictures, embeds, reactions) is indented just past its first letter. Unlike
+   Discord's compact mode, the text starts on the line below the name. */
+.msg {
+  --gutter: 56px; /* the time column */
+  --indent: 10px; /* content past the name's first letter */
+  --edge: 12px; /* side margin: wider in the main panel */
+  position: relative;
+  padding: 4px var(--edge) 2px calc(var(--edge) + var(--gutter) + 8px + var(--indent));
+  font-size: 14px;
+  color: var(--chat-text);
+}
+.msg.grouped { padding-top: 0; }
+.msg > .msg-head { margin-left: calc(-1 * var(--indent)); }
+.msg > .msg-head .when, .msg > .when.side { flex: none; width: var(--gutter); text-align: right; font-size: 11px; white-space: nowrap; }
+.msg > .msg-head .when { margin-left: calc(-1 * (var(--gutter) + 8px)); }
+/* A grouped message's time: in the gutter beside its first line, on hover. */
+.msg > .when.side { position: absolute; left: var(--edge); top: 0; line-height: 20px; color: var(--chat-muted); visibility: hidden; }
+.msg.grouped:hover > .when.side { visibility: visible; }
+/* The side panel is narrow: times start at the left edge, in line with the date dividers, in a
+   column just wide enough for "10:00 AM". */
+#chat .msg { --gutter: 48px; }
+#chat .msg > .msg-head .when, #chat .msg > .when.side { text-align: left; }
+.msg:hover { background: var(--hover); }
+.msg-head { display: flex; gap: 8px; align-items: baseline; }
+.msg-head .who { font-weight: 600; color: var(--chat-name); }
+.msg-head .tag.op { align-self: center; margin-left: -2px; }
+.msg-head .when { color: var(--chat-muted); font-size: 12px; }
+.msg-body { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.45; }
+.msg-body a { color: var(--link); }
+.msg-body a.file-link { font-family: var(--mono); font-size: 12px; background: var(--panel-2); padding: 0 4px; border-radius: 4px; text-decoration: none; }
+.msg-body .edited { color: var(--chat-muted); font-size: 12px; }
+/* Hover toolbar, Discord style: a small floating bar at the message's top right. */
+button.tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: var(--chat-muted);
+}
+button.tool:hover:not(:disabled) { background: var(--tint-2); color: var(--chat-name); }
+button.tool.danger:hover:not(:disabled) { color: var(--danger); }
+.msg-tools {
+  position: absolute;
+  top: -14px;
+  right: 12px;
+  z-index: 1;
+  display: none;
+  gap: 2px;
+  padding: 2px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: var(--shadow-near);
+}
+.msg:hover .msg-tools { display: flex; }
+.msg:first-child .msg-tools { top: 2px; } /* don't poke out of the top of the list */
+.pin-mark { position: absolute; top: 4px; right: 14px; color: var(--chat-muted); opacity: .7; }
+.pin-mark svg { width: 13px; height: 13px; }
+.msg:hover .pin-mark { display: none; }
+@keyframes flash { from { background: var(--flash); } to { background: transparent; } }
+.msg.flash { animation: flash 1.6s ease-out; }
+/* A reply's quote line, with a curve leading down to the reply's name. */
+.reply-quote {
+  position: relative;
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  margin: 2px 0 2px calc(22px - var(--indent, 0px));
+  font-size: 13px;
+  color: var(--chat-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.reply-quote::before {
+  content: "";
+  position: absolute;
+  left: -16px;
+  top: 7px;
+  width: 12px;
+  height: 9px;
+  border-left: 2px solid var(--border-hi);
+  border-top: 2px solid var(--border-hi);
+  border-top-left-radius: 6px;
+}
+.reply-quote .who { font-weight: 600; color: var(--chat-text); }
+.reply-quote .text { min-width: 0; line-height: 20px; margin-block: -1px; overflow: hidden; text-overflow: ellipsis; }
+.reply-quote:hover .text { color: var(--chat-text); }
+.reply-quote .gone { font-style: italic; }
+.reply-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px 4px 14px;
+  margin-bottom: -6px;
+  padding-bottom: 10px;
+  background: var(--tint-1);
+  border-radius: 8px 8px 0 0;
+  font-size: 13px;
+  color: var(--chat-muted);
+}
+.reply-bar b { color: var(--chat-text); }
+/* A forwarded copy: a bar down the left, the text, and where it came from. */
+.fwd { margin: 4px 0; padding: 4px 0 4px 12px; border-left: 3px solid var(--border-hi); }
+.fwd-label { display: flex; align-items: center; gap: 4px; color: var(--chat-muted); font-size: 12px; font-style: italic; }
+.fwd-label svg { width: 14px; height: 14px; }
+.fwd-src { display: inline-block; margin-top: 2px; color: var(--chat-muted); font-size: 12px; text-decoration: none; }
+.fwd-src:hover { color: var(--chat-text); text-decoration: underline; }
+/* Reactions: rounded chips under the message; yours are outlined in blue. */
+.reactions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.reaction {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 7px;
+  background: var(--tint-1);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--chat-text);
+  font-size: 13px;
+}
+/* Emoji are Twemoji images, sized to the text around them. */
+img.emoji { width: 1.3em; height: 1.3em; margin: 0 .05em; vertical-align: -.3em; }
+.reaction img.emoji { width: 16px; height: 16px; margin: 0; vertical-align: middle; }
+.reaction.mine { background: var(--mention-tint); border-color: var(--mention); }
+.reaction:hover:not(:disabled) { border-color: var(--border-hi); background: var(--tint-2); }
+.reaction.add { display: none; color: var(--chat-muted); }
+.reaction.add svg { width: 15px; height: 15px; }
+.msg:hover .reaction.add { display: inline-flex; }
+/* Linked screenshots, map art and schematics under a message. */
+.refs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.ref-pic img { display: block; max-width: 320px; max-height: 240px; border-radius: 6px; cursor: pointer; background: var(--panel-2); }
+.ref-card {
+  min-width: 200px;
+  max-width: 360px;
+  padding: 8px 12px;
+  background: var(--panel-2);
+  border-left: 3px solid #e8a33d;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.ref-card:hover { background: var(--select); }
+.ref-title { font-weight: 600; color: var(--chat-name); }
+.ref-file { font-family: var(--mono); font-size: 12px; color: var(--chat-text); }
+/* Chat media: a video or sound player under the message. */
+.ref-video video { display: block; max-width: 400px; max-height: 300px; border-radius: 6px; background: var(--media-bg); }
+.ref-audio { padding: 8px 10px; background: var(--panel-2); border-radius: 6px; }
+.ref-audio audio { display: block; margin-top: 4px; }
+/* Any other file posted in chat: a card with its icon, name (a download link), size and a
+   download button, as in Discord. */
+.file-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 240px;
+  max-width: 400px;
+  padding: 10px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  align-self: flex-start;
+}
+.file-card .icon { width: 28px; height: 28px; flex: none; }
+.file-text { flex: 1; min-width: 0; }
+.file-text .file-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--link); font-size: 14px; }
+.file-card a.file-name { text-decoration: none; }
+.file-card a.file-name:hover { text-decoration: underline; }
+.file-size { font-size: 12px; }
+/* The Files in this chat list (its header's paperclip). */
+.file-item { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: var(--chat-text); }
+.file-item:hover { background: var(--tint-1); }
+.file-item .icon, .file-item .file-thumb { width: 40px; height: 40px; flex: none; border-radius: 4px; object-fit: cover; }
+.file-item .icon { padding: 6px; box-sizing: border-box; }
+.file-item .file-name { color: var(--chat-text); }
+.file-tools { display: none; flex: none; }
+.file-item:hover .file-tools { display: flex; }
+/* Mentions: a purple pill, as in Discord (there are no notifications, it just stands out). */
+.mention { padding: 0 2px; border-radius: 4px; background: var(--mention-tint); color: var(--mention-text); font-weight: 500; }
+/* The + (upload) button sits inside the message box, on the left. */
+.compose-row { position: relative; }
+.compose-row .attach { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); z-index: 1; }
+.compose-row .attach svg { width: 22px; height: 22px; }
+.compose-row .compose { padding-left: 48px; padding-right: 44px; }
+.compose-row .smile { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); z-index: 1; }
+.compose-row .smile svg { width: 22px; height: 22px; }
+
+/* @mention and :emoji: autocomplete (autocomplete.ts; style guide 6.4), above the caret. */
+.ac-pop {
+  position: fixed; z-index: 60; width: 300px; max-width: calc(100vw - 8px); max-height: 50vh; overflow-y: auto;
+  padding: 4px 0; background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+  box-shadow: var(--shadow-float); color: var(--chat-text);
+}
+.ac-head { padding: 6px 12px 4px; font-size: 11px; font-weight: 600; letter-spacing: .5px; color: var(--muted); text-transform: uppercase; }
+.ac-row { display: flex; align-items: center; gap: 8px; padding: 6px 12px; line-height: 20px; cursor: pointer; }
+.ac-row.on { background: var(--select); }
+.ac-row .ac-name { color: var(--chat-name); }
+.ac-row .muted { margin-left: auto; font-size: 12px; }
+.ac-row img.emoji { width: 20px; height: 20px; margin: 0; vertical-align: middle; }
+.ac-pop mark { background: var(--flash); color: inherit; border-radius: 2px; }
+.chat-body.drop { outline: 2px dashed var(--focus); outline-offset: -4px; }
+/* Popovers: the emoji picker and the pinned messages list. */
+.popover {
+  position: fixed;
+  z-index: 50;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: var(--shadow-float);
+}
+.emoji-cell img.emoji { width: 24px; height: 24px; vertical-align: middle; }
+/* The emoji picker (emoji.ts; style guide 14): search, categories, a grid, the name of the
+   highlighted one at the bottom. */
+.emoji-pop { width: 360px; }
+.emoji-picker { display: flex; flex-direction: column; height: 420px; max-height: calc(100vh - 16px); }
+.emoji-search { margin: 8px 8px 4px; }
+.emoji-cats { display: flex; justify-content: space-between; padding: 2px 8px 4px; border-bottom: 1px solid var(--border); }
+.emoji-cat { display: grid; place-items: center; width: 30px; height: 28px; padding: 0; background: none; border: none; border-radius: 4px; color: var(--chat-muted); cursor: pointer; }
+.emoji-cat:hover { background: var(--select); color: var(--chat-text); }
+.emoji-cat img.emoji { width: 18px; height: 18px; margin: 0; vertical-align: middle; }
+.emoji-body { flex: 1; overflow-y: auto; padding: 0 8px 8px; position: relative; }
+.emoji-head { padding: 10px 4px 4px; font-size: 11px; font-weight: 600; letter-spacing: .5px; color: var(--muted); text-transform: uppercase; }
+.emoji-grid { display: grid; grid-template-columns: repeat(9, 1fr); }
+.emoji-cell { height: 36px; padding: 0; line-height: 1.2; background: none; border: none; border-radius: 4px; cursor: pointer; }
+.emoji-cell.on { background: var(--select); }
+.emoji-foot { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 6px 12px; border-top: 1px solid var(--border); color: var(--chat-text); }
+.emoji-foot img.emoji { width: 24px; height: 24px; margin: 0; vertical-align: middle; }
+.pins-pop { width: 380px; max-height: 70vh; display: flex; flex-direction: column; }
+.pins-pop > div { display: flex; flex-direction: column; min-height: 0; }
+.pop-head { padding: 10px 14px; font-weight: 600; border-bottom: 1px solid var(--border); }
+.pins-list { overflow-y: auto; padding: 6px; }
+.pin-item { position: relative; padding: 8px 10px; border-radius: 4px; cursor: pointer; font-size: 14px; color: var(--chat-text); }
+.pin-item:hover { background: var(--tint-1); }
+.pin-item .unpin { position: absolute; top: 6px; right: 6px; display: none; }
+.pin-item:hover .unpin { display: inline-flex; }
+.pins-btn svg, .files-btn svg { width: 16px; height: 16px; }
+#main-chat-title { flex: 1; }
+body.chat-hidden #chat .pins-btn, body.chat-hidden #chat .files-btn { display: none; }
+/* Forward dialog. */
+.fwd-preview { margin-bottom: 10px; padding: 8px 10px; background: var(--bg); border-radius: 4px; color: var(--chat-text); font-size: 13px; max-height: 80px; overflow: hidden; }
+.fwd-list { display: flex; flex-direction: column; gap: 2px; max-height: 240px; overflow-y: auto; margin-bottom: 10px; }
+.fwd-chan { display: flex; gap: 6px; text-align: left; background: none; border-color: transparent; font-size: 14px; }
+.fwd-chan .hash { color: var(--muted); }
+.fwd-chan.picked { background: var(--active); border-color: var(--accent-hi); }
+#dialog textarea { margin-bottom: 10px; width: 100%; box-sizing: border-box; padding: 6px 8px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px; font: inherit; resize: vertical; }
+.msg-edit { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.msg-edit .hint { color: var(--muted); font-size: 11px; margin-right: auto; }
+.msg-edit .hint .key { padding: 0; background: none; border: 0; color: var(--mention); font: inherit; font-weight: 600; cursor: pointer; }
+.msg-edit .hint .key:hover { text-decoration: underline; }
+.msg-edit > button { display: none; } /* desktop edits by key; phones get the buttons */
+#main-chat .messages { padding: 12px 0; }
+#main-chat .msg { --edge: 20px; }
+#main-chat .day { margin-left: 20px; margin-right: 20px; }
+/* Message box, Discord style: a roomy rounded box a shade lighter than the pane behind
+   it (white overlay, so it works on both panes' backgrounds), no focus outline. */
+.composer { padding: 4px 12px 16px; }
+#main-chat .composer { padding-left: 20px; padding-right: 20px; } /* same bottom, so the two boxes line up */
+.compose, .msg-edit textarea {
+  display: block;
+  width: 100%;
+  resize: none;
+  padding: 16px 16px;
+  background: var(--tint-1);
+  color: var(--chat-text);
+  border: 1px solid var(--tint-1);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.4;
+  outline: none;
+}
+.msg-edit textarea { padding: 10px 12px; font-size: 14px; }
+.compose::placeholder, .msg-edit textarea::placeholder { color: var(--muted); }
+.compose:focus, .msg-edit textarea:focus { border-color: var(--tint-3); }
+/* Chats, Discord style: roomy rounded rows, a big muted #, read chats a little dimmer
+   than unread (white, bold, dot) and the open one. */
+#channels { padding: 0 8px 8px; }
+/* Dragging a chat (admins): the row being moved fades; a line shows where it lands. */
+.row.channel.dragging { opacity: .4; }
+.row.channel.drop-above { box-shadow: inset 0 2px 0 var(--focus); }
+.row.channel.drop-below { box-shadow: inset 0 -2px 0 var(--focus); }
+/* Private chats: a lock after the name (style guide 14). */
+.row.channel .lock, #main-chat-title .lock { display: inline-flex; margin-left: 6px; color: var(--chat-muted); }
+.row.channel .lock svg, #main-chat-title .lock svg { width: 13px; height: 13px; }
+#main-chat-title { display: inline-flex; align-items: center; }
+/* Who can see a private chat or DM: a muted line at the top of the pane. */
+.chat-privacy { display: flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 12px; color: var(--chat-muted); border-bottom: 1px solid var(--border); }
+#main-chat .chat-privacy { padding-left: 20px; padding-right: 20px; }
+.chat-privacy svg { width: 13px; height: 13px; flex: none; }
+/* The member picker (start a DM, private chat members). */
+.member-pick { display: flex; flex-direction: column; max-height: 240px; overflow-y: auto; margin: 6px 0 10px; padding: 4px 0; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); }
+#dialog label.check.member { margin: 0; padding: 4px 10px; align-items: center; cursor: pointer; }
+#dialog label.check.member:hover { background: var(--select); }
+#dialog > input[type=text] + input[type=text] { margin-top: 8px; }
+#dialog .warn-line { padding: 6px 8px; background: var(--warn); color: var(--text); border-radius: 4px; }
+.row.channel {
+  height: 34px;
+  margin: 2px 0;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 15px;
+  color: var(--text);
+}
+.row.channel:hover { background: var(--tint-1); color: var(--chat-text); }
+.row.channel.active { background: var(--tint-3); color: var(--chat-name); }
+.row.channel .hash {
+  flex: none;
+  width: 20px;
+  margin-right: 8px;
+  font-size: 23px;
+  font-weight: 300;
+  line-height: 1;
+  text-align: center;
+  color: var(--muted);
+}
+.row.channel.unread .name { font-weight: 600; color: var(--chat-name); }
+.row.channel.unread::after { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--chat-name); margin-left: auto; }
+
+@media (max-width: 1100px) {
+  body { grid-template-columns: var(--side-w, 210px) 1fr var(--chat-w, 300px); }
+  body.chat-hidden { grid-template-columns: var(--side-w, 210px) 1fr 36px; }
+}
+
+/* Phones: chat only, with a channel picker in the header. */
+@media (max-width: 700px) {
+  /* minmax(0, …): the page is never wider than the phone, whatever's inside. */
+  body, body.chat-hidden { grid-template: 34px 1fr / minmax(0, 1fr); grid-template-areas: "top" "chat"; }
+  #top .search-wrap { min-width: 0; } /* the top bar fits: the search box gives way first */
+  #side, #main, #chat-resize, #side-resize, #chat-hide { display: none !important; }
+  body.chat-hidden #chat, #chat { display: flex; border-left: 0; }
+  body.chat-hidden #chat-select { display: block; }
+  body.chat-hidden #chat-body { display: flex; }
+  body.chat-hidden #chat .chat-head { justify-content: normal; padding: 4px 8px 4px 12px; }
+  #chat-select { padding: 6px; }
+  .compose { font-size: 16px; } /* stops iOS zooming in on focus */
+  .msg-edit .hint { display: none; }
+  .msg-edit > button { display: inline-block; margin-left: auto; }
+  .msg-edit > button + button { margin-left: 0; }
+  /* Someone sharing their screen: a line at the top of the chat; watching covers the screen. */
+  #live-strip:not([hidden]) { display: flex; flex-direction: column; border-bottom: 1px solid var(--border); }
+  .live-strip-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 0; border-radius: 0; background: var(--panel-2); color: var(--chat-text); font-size: 14px; text-align: left; }
+  .live-strip-item svg { flex: none; width: 18px; height: 18px; color: var(--ok); }
+  .live-strip-item span:first-of-type { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .live-strip-item .watch { color: var(--accent-hi); font-weight: 600; }
+  body.watching #main { display: flex !important; position: fixed; inset: 0; z-index: 30; background: var(--panel); }
+}
+
+/* ---- screenshots ---- */
+
+.shot-bar { flex-wrap: wrap; gap: 8px; font-weight: 400; }
+.shot-bar > span:first-child { font-weight: 600; }
+.shot-bar label { display: flex; align-items: center; gap: 4px; color: var(--muted); }
+.shot-bar .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.shot-bar .filters[hidden] { display: none; }
+/* Filters: tinted while the filters are out (style guide 3.1, an open state); it can't put
+   them away while one is set. */
+.shot-bar .filters-toggle[aria-pressed=true] { background: var(--tint-2); }
+.shot-bar .filters-toggle[aria-disabled=true] { cursor: default; }
+.shot-bar select, .shot-bar input[type=date] {
+  padding: 2px 4px;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font: inherit;
+  color-scheme: dark;
+}
+.shot-bar .size input { width: 110px; }
+.shot-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 20px; }
+.shot-scroll.drop { outline: 1px dashed var(--focus); outline-offset: -4px; }
+.shot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(var(--shot-w, 280px), 100%), 1fr));
+  gap: 14px;
+  align-items: start;
+}
+.shot img {
+  display: block;
+  width: 100%;
+  background: var(--panel-2);
+  border-radius: 4px;
+  cursor: zoom-in;
+}
+/* Folder previews (folder.ts) reuse the gallery grid. */
+.folder-grid .shot img { cursor: pointer; }
+/* Pictures sit whole in a 16:9 box, like videos, files and schematic renders, so the grid
+   is laid out before they load (a feed can open at the bottom). */
+.folder-grid .shot img.thumb { aspect-ratio: 16 / 9; object-fit: contain; background: var(--panel-2); }
+.folder-grid .shot-meta .who { font-weight: 400; color: var(--chat-text); line-height: 20px; margin-block: -1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.folder-video { position: relative; }
+.folder-video video { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 4px; background: var(--media-bg); }
+.folder-video .play { position: absolute; inset: 0; display: grid; place-items: center; color: var(--chat-name); filter: drop-shadow(0 2px 6px var(--media-bg)); }
+.folder-video .play svg { width: 34px; height: 34px; }
+.folder-icon { display: grid; place-items: center; aspect-ratio: 16 / 9; font-size: 40px; background: var(--panel-2); border-radius: 4px; }
+.folder-icon img { width: 34%; max-width: 96px; aspect-ratio: 1; }
+.folder-grid .shot { cursor: pointer; }
+.shot-bar .count { min-width: 6ch; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.shot.flash { animation: flash 1.6s ease-out; border-radius: 6px; }
+.shot-meta { display: flex; flex-wrap: wrap; gap: 0 8px; align-items: baseline; margin-top: 5px; font-size: 13px; }
+.shot-meta .who { font-weight: 600; color: var(--chat-name); }
+.shot-meta .when { color: var(--chat-muted); font-size: 12px; }
+
+
+/* ---- schematics ---- */
+
+.schem-bar > button { flex: none; white-space: nowrap; }
+/* Fixed width, so the search box doesn't shift as "210" becomes "12 of 210". */
+.schem-bar .count { width: 10ch; flex: none; }
+.shot-bar input[type=search] { width: 220px; flex: none; margin: 1px; }
+/* The folder bar's search box slides in when its glass is clicked (folder.ts): closed, the
+   slot is no width and takes back the bar's gap, so the buttons sit where they would without it. */
+.shot-bar .search-slot {
+  display: flex; flex: none; width: 0; margin-left: -8px; overflow: hidden; opacity: 0;
+  transition: width .2s ease, margin-left .2s ease, opacity .2s ease;
+}
+.shot-bar .search-slot.open { width: 222px; margin-left: 0; opacity: 1; }
+/* On is state, not a call to action (style guide 3.2): a lighter blue than the buttons'. */
+.shot-bar .vtool[aria-pressed=true], .shot-bar .vtool[aria-pressed=true]:hover { color: var(--link); }
+.schem-body { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 20px; }
+/* Board cards (Schematic Manager): text on the left, the first render on the right. */
+.schem-card {
+  display: flex;
+  gap: 16px;
+  height: var(--card-h, 150px);
+  margin: 0 0 10px;
+  padding: 12px 12px 12px 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.schem-card:hover { border-color: var(--border-hi); background: var(--hover); }
+.schem-text { flex: 1; min-width: 0; overflow: hidden; display: flex; flex-direction: column; gap: 4px; }
+.schem-title { font-size: 16px; font-weight: 600; color: var(--chat-name); }
+.schem-credit { color: #c5a5ff; font-size: 13px; }
+.schem-desc {
+  color: var(--chat-text);
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: var(--desc-lines, 3);
+  -webkit-box-orient: vertical;
+}
+.schem-card .schem-meta { margin-top: auto; line-height: 18px; margin-bottom: -1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.schem-meta { color: var(--chat-muted); font-size: 12px; }
+.schem-meta a { color: inherit; }
+.schem-thumb { flex: none; width: var(--thumb-w, 224px); max-width: 60%; height: 100%; display: flex; align-items: center; justify-content: center; }
+.schem-thumb img { width: 100%; height: 100%; object-fit: contain; }
+.schem-thumb.none { background: var(--panel-2); border-radius: 4px; color: var(--muted); font-size: 12px; }
+
+.schem-post { max-width: 980px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; color: var(--chat-text); }
+.schem-post h1 { margin: 6px 0 0; font-size: 22px; color: var(--chat-name); }
+.schem-full-desc { overflow-wrap: anywhere; font-size: 14px; line-height: 1.5; padding: 0; }
+.schem-images { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+.schem-images img { display: block; max-width: 100%; }
+
+/* A post being edited (schems.ts): the post's own page, its parts as boxes where they sit.
+   The boxes' text lines up with the text they replace: their padding and border hang outside
+   (negative margins), and the bar is as tall as a post's own, so nothing jumps on Edit. */
+#main-schems .single-actions { min-height: 32px; }
+.schem-edit input:not([type=file]), .schem-edit textarea {
+  margin: -4px -9px;
+  padding: 3px 8px;
+  background: var(--bg);
+  color: var(--chat-text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font: inherit;
+}
+.schem-edit input:focus, .schem-edit textarea:focus { outline: 1px solid var(--focus); border-color: var(--focus); }
+.schem-edit input.schem-edit-title { margin-top: 2px; font-size: 22px; font-weight: 700; color: var(--chat-name); }
+.schem-edit-by { display: flex; align-items: baseline; gap: 6px; }
+.schem-edit-by input.schem-edit-credit { flex: 1; margin: -3px 0; padding: 2px 8px; color: inherit; font-size: 13px; }
+.schem-edit-file { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.schem-edit-file button { margin: -4px 0; }
+.schem-edit-file .schem-picked { color: var(--chat-text); }
+.schem-edit textarea.schem-edit-desc { font-size: 14px; line-height: 1.5; resize: none; overflow: hidden; min-height: 72px; }
+.schem-edit-img { position: relative; align-self: flex-start; max-width: 100%; }
+.schem-img-tools {
+  position: absolute; top: 8px; right: 8px; display: flex; align-items: center; gap: 4px; padding: 4px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 6px; font-size: 12px; color: var(--chat-muted);
+}
+.schem-img-tools span { padding: 0 6px; }
+.schem-img-tools button { display: flex; padding: 4px; }
+.schem-img-tools button:disabled { opacity: .35; }
+.schem-add-pic {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 110px;
+  background: none; border: 1px dashed var(--border-hi); border-radius: 6px; color: var(--chat-text);
+}
+.schem-add-pic:hover { background: var(--hover); }
+.schem-add-pic .muted { font-size: 12px; }
+
+.schem-bar label.size { display: flex; align-items: center; gap: 4px; color: var(--muted); }
+.schem-bar .size input { width: 110px; }
+
+/* Tree extras: inline rename, drop highlight, right-click menu (VS Code's colours). */
+#channels .chan-error { padding: 0 8px 6px 36px; font-size: 12px; color: var(--danger); }
+#tree .row .rename, #channels .row .rename {
+  flex: 1;
+  min-width: 0;
+  height: 22px;
+  padding: 0 3px;
+  background: var(--border);
+  color: var(--text);
+  border: 1px solid var(--focus);
+  font: inherit;
+  outline: none;
+}
+#tree .row.drop-target { background: var(--select); }
+/* The folder view's New File / New Folder tile: the name box sits where the name goes. */
+.folder-grid .creating .shot-meta { flex-wrap: nowrap; }
+.folder-grid .creating .rename { flex: 1; min-width: 0; height: 22px; padding: 0 3px; background: var(--border); color: var(--text); border: 1px solid var(--focus); font: inherit; outline: none; }
+#menu {
+  position: fixed;
+  z-index: 50;
+  min-width: 200px;
+  padding: 4px 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: var(--shadow-float);
+}
+#menu button {
+  display: flex;
+  width: calc(100% - 8px);
+  margin: 0 4px;
+  padding: 3px 12px 3px 20px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  text-align: left;
+}
+#menu button:hover, #menu button.on { background: var(--active); color: var(--chat-name); }
+#menu .key { margin-left: auto; padding-left: 24px; color: var(--muted); }
+#menu .sep { height: 1px; margin: 4px 0; background: var(--border); }
+/* A destructive item: red text (3.3); armed (asking for the second click), a red fill. */
+#menu button.danger { color: var(--danger); }
+#menu button.arm { background: var(--danger-fill); color: var(--chat-name); }
+/* The voice menu's User Volume: a label, then the slider and its readout. */
+#menu .menu-volume { padding: 6px 12px 8px 20px; } /* lined up with the items (#menu button) */
+#menu .menu-volume .label { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+#menu .menu-volume .line { display: flex; align-items: center; gap: 8px; }
+#menu .menu-volume .slider { flex: 1; }
+#menu .menu-volume input { width: 100%; margin: 0; accent-color: var(--chat-muted); }
+#menu .menu-volume .readout { width: 40px; text-align: right; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* Mod release cards (S60): a post shaped like a release, drawn as a card with the accent down
+   the left edge: a small label, the mod and version, its tags, what changed, and a footer with
+   a note (only when there's a special step) and the jar to download. */
+.rel-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: min(480px, 100%);
+  margin-top: 2px;
+  padding: 10px 16px 12px 12px;
+  background: var(--tint-1);
+  border-left: 4px solid var(--accent);
+  border-radius: 4px;
+}
+.rel-label { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--chat-muted); }
+.rel-title { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+.rel-name { font-size: 16px; font-weight: 600; color: var(--chat-name); }
+.rel-version { font-family: var(--mono); font-size: 13px; color: var(--chat-muted); }
+.rel-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.rel-tag { padding: 1px 8px; font-size: 12px; color: var(--chat-text); background: var(--panel-2); border: 1px solid var(--border); border-radius: 4px; }
+.rel-tag.required { color: var(--chat-name); background: var(--warn); border-color: var(--warn); }
+.rel-changes { margin-top: 2px; }
+.rel-foot { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--border); }
+.rel-note { color: var(--chat-text); }
+.rel-file { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rel-file-name { flex: 1; min-width: 0; font-family: var(--mono); font-size: 12px; color: var(--chat-muted); overflow-wrap: anywhere; }
+.rel-file-name.muted { font-family: inherit; font-size: 13px; }
+.rel-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+.rel-card .rel-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  text-decoration: none;
+}
+.rel-card .rel-btn:hover { background: var(--select); text-decoration: none; }
+.rel-btn svg { width: 15px; height: 15px; }
+
+/* A command's answer (commands.ts): in the list for you alone, with no name or time. In the
+   narrow side chat it starts at the left edge, to have the full width. */
+#chat .msg.private { padding-left: var(--edge); }
+.msg.private:hover { background: none; }
+.only-you { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 12px; color: var(--chat-muted); white-space: pre; }
+.only-you span { display: inline-flex; }
+.only-you svg { width: 13px; height: 13px; }
+.only-you button { margin-left: -6px; padding: 0; background: none; border: 0; color: var(--link); font: inherit; cursor: pointer; }
+.only-you button:hover { text-decoration: underline; }
+.ac-row .ac-command { font-family: var(--mono); font-size: 13px; }
+
+/* /serverstatus (S62, Paul picked option C of four): the link-preview look; per server its
+   name, who's on, mspt over the last ten minutes with a dashed line at 50, and memory. */
+.st-card {
+  max-width: min(480px, 100%);
+  margin-top: 2px;
+  padding: 10px 16px 12px 12px;
+  background: var(--tint-1);
+  border-left: 4px solid var(--border-hi);
+  border-radius: 4px;
+}
+.st-label { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--chat-muted); }
+.st-none { margin-top: 6px; color: var(--chat-muted); }
+.st-srv { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+.st-label + .st-srv { margin-top: 6px; padding-top: 0; border-top: 0; }
+.st-head { display: flex; align-items: center; flex-wrap: wrap; gap: 0 8px; }
+.st-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+.st-dot.off { background: none; border: 2px solid var(--muted); }
+.st-name { font-size: 15px; font-weight: 600; color: var(--chat-name); }
+.st-srv.down .st-name { color: var(--chat-muted); }
+.st-count { margin-left: auto; font-size: 13px; color: var(--chat-muted); }
+.st-who { margin: 0 0 6px 16px; font-size: 13px; color: var(--chat-muted); overflow-wrap: anywhere; }
+.st-rows { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px 10px; align-items: center; margin-left: 16px; }
+.st-key { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--chat-muted); }
+.st-graph svg { display: block; width: 100%; height: 28px; }
+.st-line { fill: none; stroke: var(--chat-text); stroke-width: 1.5; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.st-limit { stroke: var(--border-hi); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.st-bar { height: 6px; background: var(--tint-2); border-radius: 3px; overflow: hidden; }
+.st-bar i { display: block; height: 100%; background: var(--chat-muted); border-radius: 3px; }
+.st-val { font-size: 13px; color: var(--chat-name); text-align: right; white-space: nowrap; }
+.st-val small { font-size: 12px; color: var(--chat-muted); }
+.st-num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.st-val small { font-family: var(--sans); }
+.st-num.bad { color: var(--danger); }
+.st-foot { margin-top: 8px; font-size: 11px; color: var(--muted); }
+
+/* Link previews, Discord style: a card a shade off the chat background with the site's
+   colour down the left edge; the image big underneath, or a thumbnail beside small cards. */
+.embeds { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-top: 4px; }
+.embed {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 16px;
+  max-width: min(432px, 100%);
+  padding: 10px 16px 14px 12px;
+  background: var(--tint-1);
+  border-left: 4px solid var(--border-hi);
+  border-radius: 4px;
+}
+.embed-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.embed-site { font-size: 12px; color: var(--chat-muted); }
+.embed-title { font-size: 15px; font-weight: 600; color: var(--link); text-decoration: none; overflow-wrap: anywhere; }
+.embed-title:hover { text-decoration: underline; }
+.embed-desc {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.embed-media { grid-column: 1 / -1; display: block; position: relative; padding: 0; border: 0; background: none; cursor: pointer; }
+.embed-media img, .embed-image img { display: block; max-width: 100%; object-fit: contain; border-radius: 4px; }
+.embed-thumb { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; }
+.embed-image { display: block; max-width: min(400px, 100%); }
+.embed-video { width: 400px; max-width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 4px; }
+.embed-play .play {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: var(--scrim-soft);
+  color: var(--chat-name);
+  display: grid;
+  place-items: center;
+  padding-left: 3px;
+}
+.embed-play .play svg { width: 22px; height: 22px; }
+.embed-play:hover .play { background: var(--scrim); }
+
+/* ---- full-window picture viewer (viewer.ts), Discord style ---- */
+#viewer { position: fixed; inset: 0; z-index: 100; background: var(--scrim); }
+.viewer-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  pointer-events: none; /* clicks on the bar's empty parts reach the dark area (close) */
+}
+.viewer-bar > * { pointer-events: auto; }
+.viewer-info { min-width: 0; color: var(--chat-name); text-shadow: 0 1px 3px var(--media-bg); }
+.viewer-who { font-size: 15px; font-weight: 600; line-height: 22px; margin-block: -1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.viewer-when { font-size: 12px; color: var(--text); }
+.viewer-right { display: flex; gap: 8px; }
+.viewer-tools, .vtool.close {
+  display: flex;
+  background: var(--pill);
+  border: 1px solid var(--tint-2);
+  border-radius: 8px;
+}
+.vtool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  color: var(--chat-text);
+  cursor: pointer;
+}
+.vtool:hover:not(:disabled) { background: var(--tint-2); color: var(--chat-name); }
+.viewer-stage {
+  position: absolute;
+  inset: 60px 16px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.viewer-stage img, .viewer-stage video { max-width: 100%; max-height: 100%; object-fit: contain; cursor: zoom-in; user-select: none; }
+.viewer-stage video { cursor: auto; }
+.viewer-stage.zoomed { display: block; overflow: auto; cursor: grab; text-align: center; }
+.viewer-stage.zoomed:active { cursor: grabbing; }
+.viewer-stage.zoomed img { max-width: none; max-height: none; cursor: zoom-out; }
+.viewer-prev, .viewer-next {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--pill);
+}
+.viewer-prev { left: 20px; }
+.viewer-next { right: 20px; }
+/* The single-item bar (viewer.ts singleBar): one picture or video file, one screenshot or
+   map art picture, one schematic post. Back, name and details on the left; previous/next
+   and the viewer's icon buttons, a little smaller, on the right. */
+.single-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 35px;
+  padding: 4px 10px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  color: var(--chat-text);
+}
+#toolbar > .single-bar { flex: 1; padding: 0; border: 0; background: none; min-height: 0; }
+.single-bar { flex-wrap: wrap; row-gap: 6px; }
+.single-bar button, .single-bar .viewer-tools { flex: none; white-space: nowrap; }
+/* The buttons sit together on the right. When they don't fit beside the name they drop to a
+   line of their own (still on the right); the details, then the name, shorten with "…". */
+.single-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 10px; margin-left: auto; }
+.single-actions .reserved { visibility: hidden; } /* holds its place (Save, Cancel in View) */
+.single-name { flex: none; max-width: 40%; line-height: 20px; margin-block: -1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: var(--chat-name); }
+.single-info { flex: 1 1 0; min-width: 0; /* takes what's left: shortens before the buttons wrap */ line-height: 20px; margin-block: -1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.single-bar .spacer { flex: 1 1 0; min-width: 0; }
+.single-bar .vtool, .shot-bar .vtool { width: 30px; height: 30px; }
+.single-bar .vtool svg, .shot-bar .vtool svg { width: 17px; height: 17px; }
+.single-bar .vtool:disabled, .shot-bar .vtool[aria-disabled=true] { opacity: .35; cursor: default; }
+.shot-bar .vtool[aria-disabled=true]:hover { background: none; color: var(--chat-text); }
+.shot-bar .viewer-tools { flex: none; }
+.single-bar .vtool.del:hover:not(:disabled) { color: var(--danger); } /* red only on hover, as in chat */
+/* Edit / Cancel on a text file: the same width either way, so nothing moves. */
+.single-actions .edit-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 84px; }
+.single-actions .edit-toggle svg { width: 15px; height: 15px; }
+/* Text size: − 100% + (the percentage resets it). */
+.single-bar .zoom { flex: none; align-items: center; }
+.single-bar .zoom-pct { min-width: 46px; height: 30px; padding: 0 4px; border: 0; background: none; color: var(--text); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+/* ---- search (top bar) ---- */
+
+.search-wrap { position: relative; flex: 0 1 420px; min-width: 140px; }
+#search { width: 100%; }
+/* The results: wider than the box when there's room, growing leftwards from its right edge.
+   Nothing in it is cut short with CSS (the server shortens long text with "…"), so no text is
+   clipped to a box (see .row .name). */
+#search-drop {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  width: max(100%, 560px);
+  max-width: calc(100vw - 24px);
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 4px 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: var(--shadow-float);
+  z-index: 50;
+  color: var(--chat-text);
+}
+.search-head { padding: 10px 12px 4px; font-size: 11px; font-weight: 600; letter-spacing: .5px; color: var(--muted); text-transform: uppercase; }
+.search-row { padding: 6px 12px; cursor: pointer; line-height: 20px; }
+.search-row.on { background: var(--select); }
+.search-sug b { color: var(--chat-name); }
+.search-meta { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.search-meta b { color: var(--chat-name); }
+.search-chan { color: var(--muted); }
+.search-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.search-text.mono { font: 12px var(--mono); margin-left: 22px; }
+.search-name { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; overflow-wrap: anywhere; }
+.search-name .icon { width: 16px; height: 16px; flex: none; align-self: center; }
+.search-schem { display: flex; align-items: center; gap: 10px; }
+.search-schem img, .search-noimg { width: 64px; height: 40px; flex: none; object-fit: cover; border-radius: 4px; background: var(--panel-2); }
+.search-more { padding: 6px 12px; }
+.search-error { color: var(--danger); }
+#search-drop mark { background: var(--flash); color: inherit; border-radius: 2px; }
+.markdown .flash { animation: flash 1.6s ease-out; border-radius: 4px; }
+
+/* ---- chat formatting (markdown.ts; style guide 8 and 14) ---- */
+
+.msg-body strong { font-weight: 700; color: var(--chat-name); }
+.msg-body .md-code { font: 0.85em var(--mono); padding: 1px 4px; background: var(--panel-2); border-radius: 4px; }
+/* Code wraps rather than scrolling sideways or being cut short (nothing is clipped to a box). */
+.md-pre {
+  position: relative;
+  margin: 4px 0;
+  padding: 8px 36px 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font: 13px/20px var(--mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.md-copy {
+  position: absolute; top: 4px; right: 4px;
+  display: flex; padding: 4px; border: none; border-radius: 4px;
+  background: var(--panel-2); color: var(--chat-muted);
+  visibility: hidden;
+}
+.md-pre:hover .md-copy { visibility: visible; }
+.md-copy:hover { color: var(--chat-name); }
+.md-quote { margin: 2px 0; padding-left: 12px; border-left: 4px solid var(--border); }
+.md-h { margin: 6px 0 2px; color: var(--chat-name); font-weight: 700; line-height: 1.3; }
+h1.md-h { font-size: 22px; }
+h2.md-h { font-size: 16px; }
+h3.md-h { font-size: 15px; }
+.md-sub { font-size: 12px; color: var(--chat-muted); }
+.md-list { margin: 2px 0; padding-left: 24px; white-space: normal; }
+.md-list li { white-space: pre-wrap; }
+.md-spoiler { background: var(--panel-2); color: transparent; border-radius: 4px; cursor: pointer; }
+.md-spoiler * { visibility: hidden; }
+.md-spoiler.shown { background: var(--tint-2); color: inherit; cursor: auto; }
+.md-spoiler.shown * { visibility: visible; }
+
+/* Voice chats (voice.ts): in CHATS above the DMs, each one its people in join order, the first
+   with the speaker icon and the rest under it. A name lights up while they talk. */
+.row.channel.voice .hash, .row.channel.live .hash { display: inline-flex; justify-content: center; font-size: 15px; }
+.row.channel.voice .hash svg, .row.channel.live .hash svg { width: 18px; height: 18px; color: var(--muted); }
+.row.channel.live.here .name { color: var(--chat-name); }
+.row.channel.voice-more { height: 26px; margin-top: 0; font-size: 14px; }
+.row.channel.voice.here .name { color: var(--chat-name); }
+.row.channel.voice.speaking .name { color: var(--ok); }
+.row.channel.voice.speaking .hash svg { color: var(--ok); }
+/* The bar while you're in one: where you are, then mute, deafen, settings, leave. */
+/* Sharing your screen: a bar like the voice one, above it. */
+#share-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); font-size: 13px; }
+#share-bar .share-where { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+#share-bar .share-ok { color: var(--ok); font-weight: 600; }
+#share-bar .muted { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#share-bar button.danger { color: var(--danger); }
+/* Watching someone's screen: the picture fills the main panel, letterboxed in black. */
+#main-live .live-head { padding-left: 20px; }
+#main-live .live-count { font-weight: 400; font-size: 13px; }
+#main-live .live-head button svg { display: block; width: 16px; height: 16px; }
+.live-body { position: relative; flex: 1; min-height: 0; background: #000; }
+.live-body video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.live-note { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--chat-muted); font-size: 15px; }
+#live-strip { display: none; }
+#voice-bar { margin-bottom: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); }
+#voice-bar .voice-where { display: flex; flex-direction: column; gap: 2px; margin-bottom: 6px; font-size: 13px; }
+#voice-bar .voice-ok { color: var(--ok); font-weight: 600; }
+#voice-bar .voice-where .muted { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#voice-bar .voice-buttons { display: flex; gap: 4px; }
+#voice-bar .voice-buttons button { flex: 1; display: inline-flex; justify-content: center; padding: 4px 0; }
+#voice-bar .voice-buttons button svg { width: 18px; height: 18px; }
+#voice-bar .voice-buttons button.off { color: var(--danger); }
+#voice-bar .voice-buttons button.danger { color: var(--danger); background: none; border-color: transparent; }
+#voice-bar .voice-buttons button.danger:hover { background: var(--tint-2); }
+/* Voice settings. */
+/* Settings dialogs (style guide 6.8; util.ts settingsDialog/group/row/toggle): Admin, Voice
+   and Sound settings. 520 px, 24 px padding, spacing 4/8/12/16/24. */
+#dialog.settings { width: min(520px, calc(100vw - 32px)); padding: 24px; max-height: calc(100vh - 48px); overflow-y: auto; box-sizing: border-box; }
+#dialog .dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 0 16px; }
+#dialog .dialog-head h2 { margin: 0; }
+#dialog .dialog-x { padding: 4px; background: none; border: 0; border-radius: 4px; color: var(--muted); cursor: pointer; }
+#dialog .dialog-x:hover { background: var(--select); color: var(--chat-name); }
+#dialog .dialog-x svg { display: block; }
+#dialog .set-group + .set-group { margin-top: 24px; }
+#dialog .set-group h3 { margin: 0 0 8px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+#dialog .set-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 16px; align-items: center; min-height: 48px; padding: 12px 0; border-top: 1px solid var(--border); box-sizing: border-box; }
+#dialog .set-row > :nth-child(3) { grid-column: 1 / -1; margin-top: 8px; } /* something the full width below (a meter) */
+#dialog .set-row.off { opacity: .45; }
+#dialog .set-title { font-size: 13px; line-height: 18px; color: var(--text); }
+#dialog .set-sub { margin-top: 2px; font-size: 12px; line-height: 16px; color: var(--muted); }
+#dialog .set-control { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+#dialog .set-control select { width: 220px; height: 28px; padding: 0 6px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px; font: inherit; }
+#dialog .set-control input[type=range] { width: 160px; margin: 0; padding: 0; border: 0; background: none; }
+#dialog .set-control button:not(.switch):not(.icon-btn):not(.tag-well) { min-width: 64px; white-space: nowrap; }
+#dialog .readout { width: 52px; text-align: right; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* An on/off switch: off grey, on blue (S49, Paul: blue like Discord's). */
+#dialog .switch { position: relative; flex: none; width: 36px; height: 20px; padding: 0; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; cursor: pointer; }
+#dialog .switch .knob { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--muted); transition: left .12s; }
+#dialog .switch[aria-checked=true] { background: var(--accent); border-color: var(--accent); }
+#dialog .switch[aria-checked=true] .knob { left: 18px; background: #fff; }
+#dialog .switch:focus-visible { outline: 1px solid var(--focus); outline-offset: 2px; }
+@media (max-width: 560px) {
+  #dialog .set-row { grid-template-columns: 1fr; }
+  #dialog .set-control { justify-content: flex-start; margin-top: 8px; }
+}
+/* A slider's default, as a tick above it (--at: Sound settings 70%, a person's volume 100%
+   of 200%): the knob travels the width
+   less its own, so the point is half a knob in plus that share of the rest. The knob is
+   16 px in Chromium, 20 px in Firefox (measured on Paul's screen, S49); the 1 px line is
+   centred on the point. */
+.slider { position: relative; display: flex; align-items: center; }
+.slider .tick { --at: .7; position: absolute; top: -4px; left: calc(8px + (100% - 16px) * var(--at) - .5px); width: 1px; height: 5px; background: var(--muted); pointer-events: none; }
+@supports (-moz-appearance: none) {
+  .slider .tick { left: calc(10px + (100% - 20px) * var(--at) - .5px); }
+}
+/* Voice settings' level meter: under the Mic test row, the full width. */
+.voice-meter { height: 6px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.voice-meter > div { height: 100%; width: 0; background: var(--ok); }
+/* A greyed-out menu item (its title says why). */
+#menu button:disabled { opacity: .45; }
+#menu button:disabled:hover { background: none; color: inherit; }

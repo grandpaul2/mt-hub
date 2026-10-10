@@ -1,0 +1,13 @@
+# Build output (regenerable with `make`)
+/bin/
+/web/dist/
+/node_modules/
+# Local dev data (a real workspace repo and, later, the chat db)
+/data/
+# Python bytecode (web/src/sounds/make-message.py)
+__pycache__/
+# Browser-test screenshots, for looking at (test/browser/run.mjs)
+/test/browser/out/
+/test/firefox/out/
+# Downloaded build inputs too big for git (build.mjs fetches and checks them)
+/fetched/

@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MacroTech</title>
+  <!-- Tab icon: the logo's red M (index.html's .brand), cropped to 16x16 so each pixel stays 2x2. -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%278 5 16 16%27 shape-rendering=%27crispEdges%27%3E%3Cpath fill=%27%23e0393c%27 d=%27M8 6h4v2h-4zM20 6h4v2h-4zM8 8h6v2h-6zM18 8h6v2h-6z%27/%3E%3Cpath fill=%27%23c8161a%27 d=%27M8 10h16v2h-16zM8 12h4v2h-4zM14 12h4v2h-4zM20 12h4v2h-4zM8 14h4v2h-4zM20 14h4v2h-4z%27/%3E%3Cpath fill=%27%238e0d10%27 d=%27M8 16h4v2h-4zM20 16h4v2h-4zM8 18h4v2h-4zM20 18h4v2h-4z%27/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <header id="top">
+    <!-- The MacroTech logo, redrawn from map art MA-003 (lettering, frame) and MA-001 (red M). -->
+    <svg class="brand" viewBox="0 -1 179 27" width="179" height="27" role="img" aria-label="MacroTech"><path class="logo-frame" d="M0 0h21v1h-21zM27 0h152v1h-152zM0 25h144v1h-144zM149 25h30v1h-30zM0 1h1v24h-1zM178 1h1v24h-1z"/><path class="logo-red-hi" d="M8 6h4v2h-4zM20 6h4v2h-4zM8 8h6v2h-6zM18 8h6v2h-6z"/><path class="logo-red" d="M8 10h16v2h-16zM8 12h4v2h-4zM14 12h4v2h-4zM20 12h4v2h-4zM8 14h4v2h-4zM20 14h4v2h-4z"/><path class="logo-red-lo" d="M8 16h4v2h-4zM20 16h4v2h-4zM8 18h4v2h-4zM20 18h4v2h-4z"/><path class="logo-text" d="M32 6h4v2h-4zM42 6h4v2h-4zM32 8h6v2h-6zM40 8h6v2h-6zM32 10h14v2h-14zM32 12h4v2h-4zM38 12h2v2h-2zM42 12h4v2h-4zM32 14h4v2h-4zM42 14h4v2h-4zM32 16h4v2h-4zM42 16h4v2h-4zM32 18h4v2h-4zM42 18h4v2h-4zM50 6h10v2h-10zM48 8h4v2h-4zM58 8h4v2h-4zM48 10h4v2h-4zM58 10h4v2h-4zM48 12h14v2h-14zM48 14h4v2h-4zM58 14h4v2h-4zM48 16h4v2h-4zM58 16h4v2h-4zM48 18h4v2h-4zM58 18h4v2h-4zM66 6h12v2h-12zM64 8h4v2h-4zM64 10h4v2h-4zM64 12h4v2h-4zM64 14h4v2h-4zM64 16h4v2h-4zM66 18h12v2h-12zM80 6h12v2h-12zM80 8h4v2h-4zM90 8h4v2h-4zM80 10h4v2h-4zM90 10h4v2h-4zM80 12h12v2h-12zM80 14h4v2h-4zM86 14h4v2h-4zM80 16h4v2h-4zM88 16h4v2h-4zM80 18h4v2h-4zM90 18h4v2h-4zM98 6h10v2h-10zM96 8h4v2h-4zM106 8h4v2h-4zM96 10h4v2h-4zM106 10h4v2h-4zM96 12h4v2h-4zM106 12h4v2h-4zM96 14h4v2h-4zM106 14h4v2h-4zM96 16h4v2h-4zM106 16h4v2h-4zM98 18h10v2h-10zM112 6h12v2h-12zM116 8h4v2h-4zM116 10h4v2h-4zM116 12h4v2h-4zM116 14h4v2h-4zM116 16h4v2h-4zM116 18h4v2h-4zM126 6h12v2h-12zM126 8h4v2h-4zM126 10h4v2h-4zM126 12h10v2h-10zM126 14h4v2h-4zM126 16h4v2h-4zM126 18h12v2h-12zM142 6h12v2h-12zM140 8h4v2h-4zM140 10h4v2h-4zM140 12h4v2h-4zM140 14h4v2h-4zM140 16h4v2h-4zM142 18h12v2h-12zM156 6h4v2h-4zM166 6h4v2h-4zM156 8h4v2h-4zM166 8h4v2h-4zM156 10h4v2h-4zM166 10h4v2h-4zM156 12h14v2h-14zM156 14h4v2h-4zM166 14h4v2h-4zM156 16h4v2h-4zM166 16h4v2h-4zM156 18h4v2h-4zM166 18h4v2h-4z"/></svg>
+    <span class="spacer"></span>
+    <button id="user" title="Your account" hidden></button>
+  </header>
+  <aside id="side">
+    <div class="side-head">
+      <span id="files-head" title="Open the top folder">FILES</span>
+      <span id="target" class="muted"></span>
+      <span class="spacer"></span>
+      <span class="tree-actions">
+        <button id="new-file" class="icon-btn" title="New file"><svg viewBox="0 0 16 16"><path d="M9.5 1.5H4a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h4M9.5 1.5 13 5v3M9.5 1.5V5H13M12 10v5M9.5 12.5h5"/></svg></button>
+        <button id="new-folder" class="icon-btn" title="New folder"><svg viewBox="0 0 16 16"><path d="M8 13.5H2.5a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1h3.5l1.5 1.5h6a1 1 0 0 1 1 1V8M12 10v5M9.5 12.5h5"/></svg></button>
+        <button id="upload" class="icon-btn" title="Upload files (or drop them on the tree)"><svg viewBox="0 0 16 16"><path d="M8 11V2.5M4.5 6 8 2.5 11.5 6M2.5 10.5v3h11v-3"/></svg></button>
+        <button id="collapse-all" class="icon-btn" title="Collapse folders"><svg viewBox="0 0 16 16"><path d="M4.5 2.5h9v9M2.5 4.5h9v9h-9zM4.5 9h5"/></svg></button>
+      </span>
+      <input id="upload-input" type="file" multiple hidden>
+    </div>
+    <div id="tree" tabindex="0"></div>
+    <div class="side-head">
+      <span>CHATS</span>
+      <span class="spacer"></span>
+      <button id="new-channel" class="icon-btn" title="New chat or direct message"><svg viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg></button>
+    </div>
+    <div id="channels"></div>
+    <div id="voice-section" hidden>
+      <div class="side-head">
+        <span>VOICE</span>
+        <span class="spacer"></span>
+        <button id="new-voice" class="icon-btn" title="New voice chat"><svg viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg></button>
+      </div>
+      <div id="voice-list"></div>
+    </div>
+    <div id="live-section" hidden>
+      <div class="side-head">
+        <span>LIVE</span>
+        <span class="spacer"></span>
+        <button id="new-share" class="icon-btn" title="Share your screen"><svg viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg></button>
+      </div>
+      <div id="live-list"></div>
+    </div>
+    <div id="side-foot"></div>
+  </aside>
+  <div id="side-resize" title="Drag to resize (double-click: default)"></div>
+  <main id="main">
+    <div id="file-area">
+      <div id="toolbar"></div>
+      <div id="banner" hidden></div>
+      <div id="view"></div>
+    </div>
+    <div id="main-chat" hidden>
+      <div class="chat-head"><span id="main-chat-title"></span></div>
+      <div class="chat-body" id="main-chat-body"></div>
+    </div>
+    <div id="main-folder" hidden></div>
+    <div id="main-schems" hidden></div>
+    <div id="main-live" hidden></div>
+  </main>
+  <section id="chat">
+    <div id="chat-resize" title="Drag to resize"></div>
+    <div id="live-strip" hidden></div>
+    <div class="chat-head">
+      <select id="chat-select" aria-label="Channel in this panel"></select>
+      <button id="chat-hide" class="tool" title="Hide the chat panel"></button>
+    </div>
+    <div class="chat-body" id="chat-body"></div>
+  </section>
+  <div id="toast" hidden></div>
+  <div id="offline" role="status" hidden>Can’t reach the hub. Trying again…</div>
+  <div id="menu" hidden></div>
+  <div id="overlay" hidden><div id="dialog"></div></div>
+  <script src="/app.js"></script>
+</body>
+</html>
