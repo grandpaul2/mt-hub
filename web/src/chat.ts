@@ -713,8 +713,13 @@ class ChatView {
         done();
       }
     };
-    box.oninput = () => grow(box);
-    queueMicrotask(() => grow(box));
+    // The whole box and the line under it stay in view as it opens and as it gets taller.
+    const fit = () => {
+      grow(box);
+      box.parentElement?.scrollIntoView({ block: 'nearest' });
+    };
+    box.oninput = fit;
+    queueMicrotask(fit);
     const saveBtn = h('button', { class: 'primary' }, 'Save');
     saveBtn.onclick = save;
     const cancel = h('button', {}, 'Cancel');
@@ -2117,8 +2122,9 @@ function setDraft(name: string, text: string) {
   store('mt-drafts', JSON.stringify(drafts));
 }
 
-// grow fits a message box to its text (up to 200 px). A box that isn't on screen can't be
-// measured: it's left at its natural height, and layoutChanged fits it once it shows.
+// grow fits a message box to its text, up to half its chat's height (then it scrolls inside,
+// as Discord's does). A box that isn't on screen can't be measured: it's left at its natural
+// height, and layoutChanged fits it once it shows.
 // Measuring takes the box down to one line for a moment. An edit box is inside the feed, which
 // is shorter for that moment and, near its bottom, scrolls up to fit: put it back after.
 function grow(t: HTMLTextAreaElement) {
@@ -2129,8 +2135,10 @@ function grow(t: HTMLTextAreaElement) {
     t.style.height = '';
     return;
   }
+  const pane = t.closest('.composer, .messages-wrap')?.parentElement;
+  const most = Math.max(200, Math.floor((pane?.clientHeight ?? 0) / 2));
   const border = t.offsetHeight - t.clientHeight; // scrollHeight leaves it out
-  t.style.height = Math.min(t.scrollHeight + border, 200) + 'px';
+  t.style.height = Math.min(t.scrollHeight + border, most) + 'px';
   if (feed && feed.scrollTop !== top) feed.scrollTop = top!;
 }
 

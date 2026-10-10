@@ -69,7 +69,7 @@ export function openViewer(items: ViewItem[], index = 0, zoomed = false) {
 // SingleBar describes the bar over one item shown on its own in the main panel: a picture or
 // video, a text file, a schematic post. One look everywhere: back on the left, then the name
 // and details; previous/next and the icon buttons on the right: full window, forward,
-// download, open in new tab, edit, then Delete (red only on hover, as in chat). Each view
+// download, open in new tab, then Delete (red only on hover, as in chat). Each view
 // turns on what applies.
 export type SingleBar = {
   back?: { label: string; title: string; go: () => void };
@@ -81,7 +81,6 @@ export type SingleBar = {
   forward?: () => void; // forward to a chat
   download?: { href: string; name: string };
   newTab?: string;
-  edit?: () => void;
   del?: () => void;
   extra?: HTMLElement[]; // anything else (a text button), before the glyphs
 };
@@ -115,7 +114,6 @@ export function singleBar(o: SingleBar) {
     const url = o.newTab;
     tools.append(tool(ICON.newTab, 'Open in new tab', () => window.open(url, '_blank', 'noopener')));
   }
-  if (o.edit) tools.append(tool(ICON.edit, 'Edit', o.edit));
   if (o.del) tools.append(tool(ICON.trash, 'Delete', o.del, 'del'));
   if (tools.children.length) actions.append(tools);
   return bar;

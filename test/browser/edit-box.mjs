@@ -29,4 +29,26 @@ for (const c of 'more words') await typeText(c);
 await settle(300);
 check('typing near the start too', await where(), start);
 
+// The box is as tall as its text needs, up to half the chat's height (it was 200 px), and
+// the composer follows the same rule.
+const half = await ev(`Math.floor(document.querySelector('#chat-body').clientHeight / 2)`);
+check('the edit box grows to half the chat', [await ev(`${B}.offsetHeight`), half > 200], [half, true]);
+await key('Escape');
+await settle(300);
+await ev(`document.querySelector('#chat .compose').focus()`);
+await typeText(long);
+await settle(300);
+check('so does the composer; the feed stays at its bottom', await ev(`[document.querySelector('#chat .compose').offsetHeight, Math.round(${L}.scrollHeight - ${L}.scrollTop - ${L}.clientHeight)]`), [half, 0]);
+await ev(`(() => { const c = document.querySelector('#chat .compose'); c.value = ''; c.dispatchEvent(new Event('input')); })()`);
+
+// Scrolled up, an edit that opens taller than one line still ends up whole in the view.
+await api('POST', '/api/channels/general/messages', { text: 'short one after' }, 'Alex');
+await settle(800);
+const mine = await ev(`[...${L}.querySelectorAll('.msg')].findIndex((m) => m.textContent.includes('line 59'))`);
+await ev(`(() => { const l = ${L}, m = l.querySelectorAll('.msg')[${mine}]; l.scrollTop -= l.getBoundingClientRect().bottom - m.getBoundingClientRect().top - 60; })()`);
+await settle(300);
+await ev(`${L}.querySelectorAll('.msg')[${mine}].querySelector('.msg-tools [data-tool="edit"]').click()`);
+await settle(500);
+check('opened from the bottom edge: the box and its hint line are whole in the view', await ev(`(() => { const l = ${L}.getBoundingClientRect(), e = ${B}.parentElement.getBoundingClientRect();
+  return [Math.round(e.top) >= Math.round(l.top), Math.round(e.bottom) <= Math.round(l.bottom), ${B}.offsetHeight]; })()`), [true, true, half]);
 await done();
