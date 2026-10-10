@@ -2,8 +2,7 @@
 
 **Status (2026-10-09, S59): live on Survival and Creative.**
 - The relay (`voicelink`) runs on the VPS; runbook in `server/relay/README.md`.
-- Both servers run MT Hub Server 1.3.1 and Simple Voice Chat 2.6.24, on DatHost's Voice ports:
-  Creative 17135, Survival 17798.
+- Both servers run MT Hub Server 1.3.1 and Simple Voice Chat 2.6.24, each on its own voice port.
 - Checked end to end with the echo tool, locally and live through Creative.
 - Not yet checked: two real players on different servers.
 
@@ -109,8 +108,7 @@ The relay adds the source server name to everything it forwards. Each speaker's 
 1. Listens on `127.0.0.1:7890` only. Caddy adds `handle /voicelink*` to the `macrotechmc.com`
    block, so no new firewall port and no new certificate are needed.
 2. Config is `/etc/voicelink.json` (root:voicelink 640): `{"tokens": {"<token>": "survival", ...}}`.
-   Tokens are generated with `openssl rand -hex 32` and kept in KeePassXC with the other relay
-   credentials.
+   Tokens are generated with `openssl rand -hex 32`.
 3. The relay holds no state beyond the open connections and the last roster from each server.
    A restart only drops speech for the second it takes to reconnect.
 4. The plugin reconnects with backoff (1 s, doubling to 30 s) and resends its roster.
@@ -200,7 +198,6 @@ SVC group at a time, so being in a server room means not being in Link.
 3. One Link room.
 4. No message to henkelmax first.
 5. Joining Link stays manual (press V each session); no auto-rejoin for now.
-6. Relay tokens are kept in KeePassXC (done by Paul).
 
 ## Not in scope
 
