@@ -154,6 +154,9 @@ nothing from npm. A failed suite keeps its data and the hub's log in `/tmp/mthub
 
 Screenshots from the runs land in `test/browser/out/` for a person to look at.
 
+`CHROMIUM=<program>` drives another Chromium-based browser (CI uses `google-chrome`), and
+`CHROMIUM_FLAGS` adds flags for it.
+
 The browser has a fake microphone (beeps). `FAKE_AUDIO=<file.wav> node test/browser/run.mjs
 voice-lab` records that file instead: speech mixed with noise shows the filters and the speech
 gate doing their job in the screenshot.

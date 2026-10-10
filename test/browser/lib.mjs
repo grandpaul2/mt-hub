@@ -136,7 +136,9 @@ for (const [i, [title, file, date, credit]] of SEED.schems.entries()) {
 const profile = join(tmp, 'chrome');
 // A fake microphone that needs no permission prompt, and sound that plays without a click (the voice lab): Chromium's beeps, or the
 // WAV file in FAKE_AUDIO.
-chrome = spawn('chromium', ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`,
+// CHROMIUM names another Chromium-based browser to drive (CI uses google-chrome), and
+// CHROMIUM_FLAGS adds flags for it.
+chrome = spawn(process.env.CHROMIUM || 'chromium', [...(process.env.CHROMIUM_FLAGS?.split(' ').filter(Boolean) ?? []), '--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`,
   '--window-size=1200,800', '--hide-scrollbars', '--no-first-run',
   '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', '--autoplay-policy=no-user-gesture-required',
   ...(process.env.FAKE_AUDIO ? [`--use-file-for-fake-audio-capture=${process.env.FAKE_AUDIO}`] : []),

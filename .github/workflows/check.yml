@@ -21,13 +21,13 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - name: Chromium for the browser tests
-        run: |
-          sudo apt-get update -q
-          sudo apt-get install -y -q chromium-browser || sudo apt-get install -y -q chromium
-          chromium --version
       - run: make check
+      # The runner's own Chrome: Ubuntu's chromium is a snap, which can't use the tests'
+      # throwaway profile folders.
       - run: make browser-test
+        env:
+          CHROMIUM: google-chrome
+          CHROMIUM_FLAGS: --no-sandbox
       - name: Keep the screenshots of a failed run
         if: failure()
         uses: actions/upload-artifact@v7
