@@ -154,7 +154,7 @@ nothing from npm. A failed suite keeps its data and the hub's log in `/tmp/mthub
 
 Screenshots from the runs land in `test/browser/out/` for a person to look at.
 
-`CHROMIUM=<program>` drives another Chromium-based browser (CI uses `google-chrome`), and
+`CHROMIUM=<program>` drives another Chromium-based browser (`google-chrome`, say), and
 `CHROMIUM_FLAGS` adds flags for it.
 
 The browser has a fake microphone (beeps). `FAKE_AUDIO=<file.wav> node test/browser/run.mjs
@@ -402,7 +402,9 @@ Every call except `/api/login` answers 401 without a session, and writes are cre
 
 Open a pull request against `master` from a branch or a fork.
 
-- `make check` and `make browser-test` have to pass; CI runs both.
+- Run `make check` and `make browser-test` yourself first, and say in the pull request that
+  they pass. Nothing on GitHub builds or tests a pull request; a maintainer runs both again
+  before merging. The browser suites need Linux or macOS with `chromium` (on Windows, WSL).
 - A change comes with a check that fails on the old code: a Go test, or a browser suite in
   `test/browser/` (`lib.mjs` has the helpers).
 - `docs/style-guide.md` says how the hub looks and behaves, and it wins over the code. A
