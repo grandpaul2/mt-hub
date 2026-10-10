@@ -412,6 +412,8 @@ separate dialogs.
 - **Messages (Discord):**
   - **Layout:** a time gutter on the left; the name, then the text on the next line, never on
     the name's line; grouped messages show their time on hover.
+  - **Phones:** no time gutter. The time follows the name, a grouped message's time isn't
+    shown, and the text starts near the left edge.
   - **Hover toolbar:** top right.
   - **(edited):** with the time on hover.
   - **Replies:** the quote above the message; a click jumps to it.
@@ -499,6 +501,8 @@ separate dialogs.
   - Any file up to 50 MB is kept with the chat; the message holds a link
     (`#media/<chat>/<file>`), shown under it: pictures, video and sound as previews, anything
     else as a file card (icon, name in `--link`, size, a Download icon button).
+  - A preview is never wider than the message column: on a phone it shrinks to fit, keeping
+    its shape, and the feed never scrolls sideways.
   - Bigger files: "Add <name> to Files?" offers `large/` (Cancel, **Add and link** blue).
   - **Save to Files…** (toolbar icon, ⋯ and right-click, the viewer, the chat's file list)
     copies files into a folder picked as below.
