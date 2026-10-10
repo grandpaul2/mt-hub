@@ -1,10 +1,10 @@
-"""Makes message.mp3, the new-message sound (S49, picked by ear with Paul over nine rounds).
+"""Makes message.mp3, the new-message sound (picked by ear over nine rounds).
 
 Three soft glass notes, C#6 A5 E6, at 0, 70 and 200 ms: a quick pair, then the last after
 a breath. Each note is a few inharmonic partials (a glass bar), struck over 18 ms with the
 upper partials toned down, then "a hand on the bell": after 150 ms it dies away quickly,
 so it doesn't hang like a clock chime. A small, dry room. 120 ms of silence first, so a
-wireless headset waking up doesn't swallow the start. Paul picked the level as 70% in
+wireless headset waking up doesn't swallow the start. The level was picked as 70% in
 paplay, whose scale is cubic (0.7^3 = 0.34, -9.3 dB). The file is at full strength and the
 Sound Settings slider is cubic too, so its default of 70% is exactly that, with room above.
 
@@ -61,7 +61,7 @@ for i, (name, at) in enumerate([('C#6', 0), ('A5', 0.07), ('E6', 0.20)]):
     j = int(at * SR)
     x[j:j + len(s)] += s[: len(x) - j]
 x = room(x)
-x = x / np.sqrt(np.mean(x[: int(SR * 0.4)] ** 2)) * 0.06  # full strength: Sound Settings' default 70% brings it to Paul's level
+x = x / np.sqrt(np.mean(x[: int(SR * 0.4)] ** 2)) * 0.06  # full strength: Sound Settings' default 70% brings it to the chosen level
 keep = np.nonzero(np.abs(x) > 1e-4)[0]
 x = x[: keep[-1] + 1]
 x[-int(SR * 0.03):] *= np.linspace(1, 0, int(SR * 0.03))

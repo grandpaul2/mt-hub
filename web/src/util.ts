@@ -94,7 +94,7 @@ const sameHash = (a: string, b: string) => {
 // glyphs is text with the symbols our fonts lack drawn as small icons: ← → ↑ ↓ and ●.
 // Noto Sans and JetBrains Mono have none of them (Noto's CSS claims ↑ ↓, the file doesn't),
 // so the browser borrowed a system font, whose taller lines pushed a button's text down in
-// Firefox (S56). The character stays in the text, hidden, so textContent still reads it.
+// Firefox. The character stays in the text, hidden, so textContent still reads it.
 const GLYPHS: Record<string, string> = {
   '←': '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
   '→': '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',

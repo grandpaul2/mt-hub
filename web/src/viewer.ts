@@ -71,7 +71,7 @@ export function openViewer(items: ViewItem[], index = 0, zoomed = false) {
 // video, a text file, a schematic post. One look everywhere: back on the left, then the name
 // and details; previous/next and the icon buttons on the right: full window, forward,
 // download, open in new tab, edit, then Delete (red only on hover, as in chat) and ⋯, which
-// lists the same actions (Paul, S56). Each view turns on what applies.
+// lists the same actions. Each view turns on what applies.
 export type SingleBar = {
   back?: { label: string; title: string; go: () => void };
   name: string;

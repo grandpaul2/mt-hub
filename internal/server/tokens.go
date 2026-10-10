@@ -21,7 +21,7 @@ import (
 // here: it sits in a config file on a rented server.
 
 // tokenAllow: method and path (a trailing / means anything under it) each kind of token may
-// use. The release token (S60) posts, fixes and takes back mod release cards in
+// use. The release token posts, fixes and takes back mod release cards in
 // #mod-discussion, and nothing else.
 var tokenAllow = map[string][]string{auth.KindServer: serverAllow, auth.KindRelease: releaseAllow}
 

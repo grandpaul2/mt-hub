@@ -64,7 +64,7 @@ async function loadVoice() {
   renderBar();
 }
 
-// renderList draws VOICE in the sidebar (Paul, S55: its own section, there only while a voice
+// renderList draws VOICE in the sidebar (its own section, there only while a voice
 // chat is): each voice chat is its people, the first one with the speaker icon, the others
 // under it.
 function renderList() {
@@ -398,7 +398,7 @@ async function setDeafened(d: boolean) {
 // Short soft plucks made here (no sound files): two notes each, rising when you or someone
 // joins, falling when they leave (someone else's quieter and a little higher), a lower pair
 // for mute and unmute, and a deeper one for deafen. Only you hear them; Sound Settings has
-// their switch and volume (voiceSounds). Chosen by ear on Paul's wireless headset: pure tones and sliding pitches
+// their switch and volume (voiceSounds). Chosen by ear on a wireless headset: pure tones and sliding pitches
 // came through it buzzing, these plucks clean.
 type Sfx = 'join' | 'leave' | 'otherJoin' | 'otherLeave' | 'mute' | 'unmute' | 'deafen' | 'undeafen';
 // [first note Hz, second note Hz, when the second starts (s), loudness]

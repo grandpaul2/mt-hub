@@ -27,12 +27,12 @@ import (
 	"time"
 )
 
-// KindServer is a game server's token. (Per-player "game" tokens existed in S46 and were
-// removed in S47: the server talks to the hub for its players.)
+// KindServer is a game server's token: the server talks to the hub for its players, so
+// there are no per-player tokens.
 const KindServer = "server"
 
-// KindRelease is the release account's token (S60): Claude posts mod release cards to
-// #mod-discussion as ReleaseName with it, from Paul's PC. It's the only token of its kind
+// KindRelease is the release account's token: the maintainer's release tooling posts mod
+// release cards to #mod-discussion as ReleaseName with it. It's the only token of its kind
 // that matters; it isn't an account and can't log in to the page.
 const KindRelease = "release"
 
