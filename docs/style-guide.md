@@ -21,13 +21,15 @@ Sources:
 
 ## 1. Principles
 
-1. **Discord for talking, VS Code for files.**
+1. **Discord for talking, a file explorer for files.**
    - **Chat** follows Discord: layout, keys, wording, Markdown.
-   - **Files** follow VS Code: tree, menus, inline rename, history.
+   - **Files** borrow the file explorer from VS Code and nothing more: tree, menus, inline
+     rename, history. The hub is a place to keep and share files, with a plain text editor. It
+     is not a code editor or an IDE.
    - **Where the two meet,** the hub has one shared style: dialogs, menus, toasts, buttons,
      popups.
-   - A regular of either app should find their habits work. The hub doesn't invent a third way
-     where one of them already has an answer.
+   - A Discord regular's chat habits and a VS Code regular's file-tree habits should work. The
+     hub doesn't invent a third way where one of them already has an answer.
 2. **For non-technical players first.**
    - A non-technical member needs only the address. They never see git, a terminal, a security
      warning or a code-editor feature they didn't ask for.

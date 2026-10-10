@@ -9,7 +9,7 @@ game server, so add it to the host checklist in `hosting-migration.md`.
 
 ## Design (2026-10-01, Paul + Claude)
 
-**What it is:** a shared VS Code-style workspace with text channels. You pick a file to
+**What it is:** a shared file workspace with text channels. You pick a file to
 preview, download or edit, or you chat in a channel. We build and own it. It runs on
 home-server and is reached through the relay VPS. The relay (`server/relay/`) is the model:
 shell access, config files in git, a runbook in the ops repo, no GUI admin, no password prompts.
@@ -26,7 +26,7 @@ Working name "the hub"; the real name is TBD.
 - **Desktop web page:**
   - **Left sidebar:** the file tree, with text channels listed below it.
   - **Main pane:** the open file.
-    - Text and config files open in the Monaco editor (VS Code's editor component).
+    - Text and config files open in a plain text editor (Monaco).
     - Images and markdown get previewed.
     - `.litematic` shows an info card first: size, block counts, author. A 3D preview comes
       later; Schem-at/schematic-renderer (AGPL-3.0, Three.js + WASM) is the best base.
@@ -97,7 +97,7 @@ Working name "the hub"; the real name is TBD.
     - `#path` file links
     - chat-only phone layout
   - **S36–S37 (2026-10-01):** screenshots, map art and schematics galleries (Discord imports),
-    VS Code-style Files tree with moves, link previews, Discord-style chat list.
+    Files tree with moves, link previews, Discord-style chat list.
   - **S38 (2026-10-01/02):**
     - nightly backups to a USB stick (`server/hub/README.md` "Backups")
     - browser test suites in the repo (`make browser-test`, parallel, ~27 s)

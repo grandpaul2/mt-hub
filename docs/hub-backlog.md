@@ -238,7 +238,7 @@ code. Styling changes also get `make firefox-check` (ask Paul first: it opens a 
 
 ---
 
-# Stocktake (S43): what Discord and VS Code have that we don't
+# Stocktake (S43): what Discord and a file explorer have that we don't
 
 Taken stock before bots and mod integration.
 
@@ -261,7 +261,7 @@ Code's everyday features. "(code)" marks something found by reading the code, no
 - two panes (main and side) on different chats.
 
 **Files:**
-- VS Code-style tree: icons, F2 rename, Delete, drag to move, right-click menus,
+- File tree: icons, F2 rename, Delete, drag to move, right-click menus,
   Collapse Folders, Download as Zip;
 - every change in git: History with Restore this version; moves followed by old links;
 - conflict handling; a folder view; the full-window viewer; the Schematic Manager.
@@ -313,7 +313,7 @@ Code's everyday features. "(code)" marks something found by reading the code, no
     into the hub.
 14. **Threads.** Discord has them; we have replies. Probably later, if ever.
 
-## Files (VS Code, lighter)
+## Files
 
 15. **Back and Forward (code).**
     - The hub never adds browser history: the browser's Back button leaves the site instead of
@@ -324,7 +324,7 @@ Code's everyday features. "(code)" marks something found by reading the code, no
       deleted file and bring it back from the page.
     - VS Code has the system trash, plus Timeline in the explorer.
 17. **Several files open (tabs), or at least recent files.** One file at a time today. Tabs are
-    VS Code's core; a simpler "Recent" list may suit non-technical people better.
+    a code editor's thing; a simpler "Recent" list may suit non-technical people better.
 18. **Multi-select in the tree** (Ctrl/Shift+click), to move, delete or download several at once.
 19. **Copy, paste and duplicate in the tree** (Ctrl+C/Ctrl+V, Duplicate). Today a copy means
     download then upload.
