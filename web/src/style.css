@@ -603,12 +603,14 @@ img.emoji { width: 1.3em; height: 1.3em; margin: 0 .05em; vertical-align: -.3em;
 .reaction.add { display: none; color: var(--chat-muted); }
 .reaction.add svg { width: 15px; height: 15px; }
 .msg:hover .reaction.add { display: inline-flex; }
-/* Linked screenshots, map art and schematics under a message. */
+/* Linked screenshots, map art and schematics under a message. A preview is never wider than
+   the message column (a phone's is under 300 px), so the feed can't scroll sideways. */
 .refs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
-.ref-pic img { display: block; max-width: 320px; max-height: 240px; border-radius: 6px; cursor: pointer; background: var(--panel-2); }
+.refs > * { max-width: 100%; }
+.ref-pic img { display: block; max-width: min(320px, 100%); max-height: 240px; border-radius: 6px; cursor: pointer; background: var(--panel-2); }
 .ref-card {
-  min-width: 200px;
-  max-width: 360px;
+  min-width: min(200px, 100%);
+  max-width: min(360px, 100%);
   padding: 8px 12px;
   background: var(--panel-2);
   border-left: 3px solid #e8a33d;
@@ -620,17 +622,17 @@ img.emoji { width: 1.3em; height: 1.3em; margin: 0 .05em; vertical-align: -.3em;
 .ref-title { font-weight: 600; color: var(--chat-name); }
 .ref-file { font-family: var(--mono); font-size: 12px; color: var(--chat-text); }
 /* Chat media: a video or sound player under the message. */
-.ref-video video { display: block; max-width: 400px; max-height: 300px; border-radius: 6px; background: var(--media-bg); }
+.ref-video video { display: block; max-width: min(400px, 100%); max-height: 300px; border-radius: 6px; background: var(--media-bg); }
 .ref-audio { padding: 8px 10px; background: var(--panel-2); border-radius: 6px; }
-.ref-audio audio { display: block; margin-top: 4px; }
+.ref-audio audio { display: block; max-width: 100%; margin-top: 4px; }
 /* Any other file posted in chat: a card with its icon, name (a download link), size and a
    download button, as in Discord. */
 .file-card {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-width: 240px;
-  max-width: 400px;
+  min-width: min(240px, 100%);
+  max-width: min(400px, 100%);
   padding: 10px 12px;
   background: var(--panel-2);
   border: 1px solid var(--border);
@@ -809,6 +811,11 @@ body.chat-hidden #chat .pins-btn, body.chat-hidden #chat .files-btn { display: n
   body.chat-hidden #chat .chat-head { justify-content: normal; padding: 4px 8px 4px 12px; }
   #chat-select { padding: 6px; }
   .compose { font-size: 16px; } /* stops iOS zooming in on focus */
+  /* No time gutter: the time follows the name and a grouped message's time isn't shown, so
+     the text and previews get the width. */
+  #chat .msg { --gutter: 0px; padding-left: calc(var(--edge) + var(--indent)); }
+  #chat .msg > .msg-head .when { order: 1; width: auto; margin-left: 0; }
+  #chat .msg > .when.side { display: none; }
   .msg-edit .hint { display: none; }
   .msg-edit > button { display: inline-block; margin-left: auto; }
   .msg-edit > button + button { margin-left: 0; }
