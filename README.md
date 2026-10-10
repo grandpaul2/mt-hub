@@ -1,6 +1,6 @@
 # mt hub
 
-The MacroTech shared workspace: a file tree you can preview, download and edit (VS Code-style),
+The MacroTech shared workspace: a file tree you can preview, download and edit,
 plus text channels. It replaces Discord for the group.
 Design: `docs/discord-replacement.md`.
 
