@@ -54,7 +54,7 @@ await ev(`document.querySelector('#main-schems .schem-card').click()`);
 await settle(300);
 check('post', [await hash(), await ev(`document.querySelector('.schem-post h1').textContent`), await ev(`document.querySelector('.schem-bar').hidden`),
   await ev(`[...document.querySelectorAll('#main-schems .single-bar .vtool')].map((v) => v.title)`), await ev(`[...document.querySelectorAll('#main-schems .single-bar > button, #main-schems .single-actions > button')].map((b) => b.textContent)`)],
-  ['#schem=Build 6', 'Build 6', true, ['Previous (←)', 'Next (→)', 'Full window', 'Forward', 'Download', 'Edit', 'Delete', 'More'], ['← All schematics', 'Open folder']]);
+  ['#schem=Build 6', 'Build 6', true, ['Previous (←)', 'Next (→)', 'Full window', 'Forward', 'Download', 'Delete'], ['← All schematics', 'Edit', 'Open folder']]);
 await shot('post');
 await key('ArrowRight');
 await settle(200);
@@ -125,12 +125,15 @@ check('added to that folder', [(await tree()).filter((p) => p.startsWith('schema
 
 // Edit is in place: the same page, the title in a box where it was, Save grey until
 // something changes.
-const pressEdit = () => ev(`[...document.querySelectorAll('#main-schems .single-bar .vtool')].find((v) => v.title === 'Edit').click()`);
-const titleY = await ev(`Math.round(document.querySelector('.schem-post h1').getBoundingClientRect().y)`);
+const pressEdit = () => ev(`[...document.querySelectorAll('#main-schems .single-actions > button')].find((b) => b.textContent === 'Edit').click()`);
+// (Measured from the bar's bottom: in a narrow panel the bar's buttons take a second line in
+// View, and Edit's two fit on one.)
+const underBar = (sel) => `Math.round(document.querySelector('${sel}').getBoundingClientRect().y - document.querySelector('#main-schems .single-bar').getBoundingClientRect().bottom)`;
+const titleY = await ev(underBar('.schem-post h1'));
 await pressEdit();
 await settle(300);
 check('edits on the post\'s own page', [await ev(`document.querySelector('.schem-edit .schem-edit-title').value`),
-  await ev(`Math.abs(Math.round(document.querySelector('.schem-edit-title').getBoundingClientRect().y) - ${titleY}) <= 6`),
+  await ev(`Math.abs(${underBar('.schem-edit-title')} - ${titleY}) <= 6`),
   await ev(`document.querySelector('.schem-edit-desc').value`), await bar(), await hash()],
   ['Build 6', true, 'How to use Build 6.', ['Save', 'Cancel'], '#schem=Build 6']);
 await shot('edit');

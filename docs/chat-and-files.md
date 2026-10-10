@@ -51,8 +51,8 @@ are in [`style-guide.md`](style-guide.md).
   (`MA-001 MacroTech Logo.png`). The `#shots` and `#mapart` addresses open the folders.
 - **One item on its own** (a picture or video file, one schematic post) gets the same bar:
   back and the name on the left; previous/next (also ←/→, Esc goes back) and icon buttons on
-  the right: full window, forward, download, open in a new tab, edit (posts), delete (red on
-  hover), and ⋯ listing the same actions. The folder's own bar (filters, search, size) hides
+  the right: full window, forward, download, open in a new tab, and delete (red on
+  hover). A post's blue Edit is a text button before them, as on a text file. The folder's own bar (filters, search, size) hides
   meanwhile.
   Any other file opened on its own (text, Markdown, binaries) gets `← Back to <folder>/` and
   Esc too (Esc works from the tree as well, which keeps only its arrow keys; with a menu open,

@@ -8,7 +8,7 @@
 // is the same page, empty. Opened from the button in schematics/' folder bar.
 import { marked } from 'marked';
 import { $, ask, bytes, cleanHTML, GLYPH, glyphs, closeDialog, dialog, enc, fileURL, go, h, load, req, store, toast, toastError, typing, type Live, thumbOr } from './util';
-import { openViewer, singleBar, viewerOpen } from './viewer';
+import { ICON, openViewer, singleBar, viewerOpen } from './viewer';
 
 type Item = { name: string; size: number; mod: number };
 type Post = { dir: string; title: string; credit?: string; date: string; desc?: string; files: Item[]; images: Item[] };
@@ -225,6 +225,9 @@ function renderPost(dir: string) {
   }));
   const folder = h('button', { title: 'Show the folder in Files' }, 'Open folder');
   folder.onclick = () => hooks.openFolder(path(p));
+  // Edit is the bar's blue button, as on a text file.
+  const edit = h('button', { class: 'primary edit-toggle', title: 'Change this post', innerHTML: ICON.edit }, 'Edit');
+  edit.onclick = () => openForm(p.dir);
   const file = p.files[0];
   postBar.replaceChildren(singleBar({
     back: { label: '← All schematics', title: 'Back to the board (Esc)', go: backToBoard },
@@ -235,7 +238,6 @@ function renderPost(dir: string) {
     zoom: p.images.length ? () => openViewer(pictures(), 0) : undefined,
     forward: () => hooks.forward(pathRef(path(p))),
     download: file ? { href: fileURL(path(p, file.name), '', true), name: file.name } : undefined,
-    edit: () => openForm(p.dir),
     del: async () => {
       if (!await ask({ title: `Delete “${p.title}”?`, body: `Its folder (${path(p)}/) goes too. Its files stay in the hub’s history.`, confirm: 'Delete', danger: true })) return;
       const r = await req('DELETE', `/api/file/${enc(path(p))}?dir=1`);
@@ -243,7 +245,7 @@ function renderPost(dir: string) {
       backToBoard();
       refresh();
     },
-    extra: [folder],
+    extra: [edit, folder],
   }));
   // Every schematic file, each downloadable (the bar's button is the first).
   const files = h('div', { class: 'schem-meta' }, ...p.files.flatMap((f, n) => [

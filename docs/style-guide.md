@@ -82,8 +82,8 @@ the guide first, with the reason.
 - **Bars** (the strip at the top of a panel): one height (35 px minimum) and one padding.
   - **Single-item bar** (one file, picture or post), shared everywhere: back, name, details,
     then the buttons grouped on the right. The icon buttons, in order: full window,
-    forward, download, open in new tab, edit, **Delete** (grey, red only on hover, like the
-    chat toolbar's), then **⋯**, a menu of the same actions with Delete last in red.
+    forward, download, open in new tab, **Delete** (grey, red only on hover, like the
+    chat toolbar's). No **⋯** on a bar: every action is a button on it.
   - **Narrow panels:** the details shorten first, then the buttons drop to their own line.
   - **Folder and board bars** wrap rather than clip.
 - **Phones (under 700 px):** chat only, with the chat picker in the panel header.
@@ -453,6 +453,9 @@ separate dialogs.
     message; **Esc** cancels a reply.
   - Pasted or dropped files are posted in the chat (any file).
   - Drafts are kept per chat.
+  - **The box grows with its text** up to half the chat's height, then scrolls inside
+    (Discord). The same for a message being edited in place: the feed keeps its place while
+    you type, and the whole edit box with the line under it stays in view.
 - **Commands** (`commands.ts`): a message that is only `/name` of a command isn't
   posted; it runs. Typing `/` at the start of the message box lists them in the autocomplete
   popup (6.4; the name in mono, what it does muted). Anything else starting with `/` is an

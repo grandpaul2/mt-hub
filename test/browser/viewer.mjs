@@ -129,17 +129,11 @@ await key('Escape');
 check('file toolbar buttons', await ev(`[[...document.querySelectorAll('#toolbar .single-bar > button, #toolbar .single-actions > button')].map((b) => b.textContent),
   document.querySelector('#toolbar .single-name').textContent,
   [...document.querySelectorAll('#toolbar .single-bar .vtool')].map((b) => b.title)]`),
-  [['← Back to pics/', 'History'], 'a.png', ['Previous (←)', 'Next (→)', 'Full window', 'Forward', 'Download', 'Open in new tab', 'Delete', 'More']]);
-// Delete sits with the others and turns red only on hover, as in chat (Paul, S56); ⋯ lists
-// the same actions.
+  [['← Back to pics/', 'History'], 'a.png', ['Previous (←)', 'Next (→)', 'Full window', 'Forward', 'Download', 'Open in new tab', 'Delete']]);
+// Delete sits with the others and turns red only on hover, as in chat (Paul, S56). The bar has
+// no ⋯: every action is already a button on it.
 check('Delete is quiet until hovered', await ev(`(() => { const b = document.querySelector('#toolbar [title="Delete"]');
   return [getComputedStyle(b).backgroundColor, b.classList.contains('danger')]; })()`), ['rgba(0, 0, 0, 0)', false]);
-await ev(`document.querySelector('#toolbar [title="More"]').click()`);
-await settle(200);
-check('⋯ lists the same actions', await ev(`[...document.querySelectorAll('#menu button')].map((b) => b.firstChild.textContent + (b.classList.contains('danger') ? '!' : ''))`),
-  ['Full Window', 'Forward…', 'Download', 'Open in New Tab', 'Delete!']);
-await ev(`document.querySelector('#toolbar [title="More"]').click()`);
-check('⋯ again closes it', await ev(`document.getElementById('menu').hidden`), true);
 await shot('file-toolbar', { x: 260, y: 34, width: 940, height: 120 });
 await ev(`document.querySelector('#toolbar [title="Full window"]').click()`);
 await settle(400);
@@ -162,6 +156,6 @@ await settle(1200);
 // A text file has the same bar, with Edit, History and its text size.
 check('text files: the same bar', await ev(`[[...document.querySelectorAll('#toolbar .single-bar > button, #toolbar .single-actions > button, #toolbar .mode-switch button')].filter((b) => getComputedStyle(b).visibility === 'visible').map((b) => b.textContent),
   document.querySelector('#toolbar .single-name').textContent, [...document.querySelectorAll('#toolbar .single-bar .vtool')].map((b) => b.title)]`),
-  [['Edit', 'History'], 'notes.txt', ['Smaller text', 'Bigger text', 'Forward', 'Download', 'Open in new tab', 'Delete', 'More']]);
+  [['Edit', 'History'], 'notes.txt', ['Smaller text', 'Bigger text', 'Forward', 'Download', 'Open in new tab', 'Delete']]);
 
 await done();
