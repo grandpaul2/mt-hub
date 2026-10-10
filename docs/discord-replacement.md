@@ -114,7 +114,7 @@ Working name "the hub"; the real name is TBD.
     The separate gallery/schematics stores are gone. Every folder has a README.
   - **S41 (2026-10-02):** auth and public access. Accounts in `~/hub/users.json` (set with
     `mthub passwd`), signed session cookies, everything behind login; grandpaul and one other
-    are admins. Public at `https://macrotechmc.com` (Porkbun domain, Caddy on the relay
+    are admins. Public at `https://macrotechmc.com` (Caddy on the relay
     VPS, ssh tunnel from home-server), so a non-technical player only needs the address.
     Failed logins are limited per address. Chat authors `Paul` became `grandpaul`.
     Last 100 messages of #ongoing-project-discussion, #links and #music imported into
@@ -144,10 +144,9 @@ the tunnel to their own VPS if bandwidth ever competes).
   - systemd service
   - kept separate from `~/backups/minecraft/`
 - **Tunnel:** a systemd unit on home-server holds `ssh -N -R 127.0.0.1:<port>:localhost:<port>`
-  open to the VPS with a restricted key. No router changes; the Spectrum gateway can't
-  port-forward.
+  open to the VPS with a restricted key. No router changes.
 - **VPS:** Caddy reverse-proxies the domain to the tunnel port, with automatic HTTPS. This
-  needs a domain (about $10/yr).
+  needs a domain.
 - **Backups:** nightly copy of `/srv/mthub/` (git repo + `large/` + a SQLite `.backup`) to a
   second location. home-server is currently the only copy of everything.
 - **Source:** its own repo `~/mt-hub` with a private GitHub remote. The runbook and config
@@ -170,10 +169,10 @@ the tunnel to their own VPS if bandwidth ever competes).
 - Pick the domain and the name.
 
 ## History: Nextcloud trial, abandoned 2026-10-01
-We first tried managed Nextcloud on Hetzner Storage Share (`nx109294`, about €4.29/mo). Paul
+We first tried a managed Nextcloud instance. Paul
 stopped within an hour: "our actual solution needs to have a command line".
 - There's no shell; admin work happens in web settings pages.
 - Every admin API call needs a live password confirmation.
 
 That's where the requirement above comes from. Any replacement is command line first, on
-infrastructure we own. Billing is hourly; cancel before the 2026-10-08 invoice.
+infrastructure we own.

@@ -14,7 +14,7 @@ import (
 // The areas outside git have no history to fall back on, so deleting or replacing a file
 // there moves the old one to <trash>/<time> <who>/<its path> instead of erasing it, and
 // <trash>/log.jsonl records who did what. Entries older than TrashDays are purged; the log
-// stays. Restoring is by hand over ssh (server/hub/README.md in the macrotech-ops repo, "Trash").
+// stays. Restoring is by hand, on the hub's machine.
 const TrashDays = 30
 
 const trashStamp = "2006-01-02 15-04-05.000"
