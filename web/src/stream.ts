@@ -22,7 +22,7 @@ const ICON = {
   fullscreen: svg('<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>'),
 };
 
-// 1080p at 30 frames a second (Paul, S55: 720p looked too soft), 5 Mbit/s: enough for a game
+// 1080p at 30 frames a second (720p looked too soft), 5 Mbit/s: enough for a game
 // in motion.
 const MAX_BITRATE = 5_000_000;
 

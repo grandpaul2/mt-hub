@@ -1,5 +1,8 @@
 # In-browser noise suppression for hub voice rooms
 
+**Status:** research record. DeepFilterNet3 with RNNoise as the fallback was chosen and built
+(see [`README.md`](README.md)).
+
 Research date: 2026-10-03. Scope: free, self-hostable, runs client-side (WASM / AudioWorklet / ONNX), Firefox first, Chrome second.
 Case: 5-15 Minecraft players, open mic with voice activation, mechanical keyboards, mouse clicks, fans, game audio, sometimes speakers.
 

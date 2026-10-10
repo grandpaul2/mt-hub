@@ -11,6 +11,7 @@ import { execFileSync, spawn } from 'node:child_process';
 import { readdirSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
+import { ensureLivekit } from './support/livekit.mjs';
 
 const here = import.meta.dirname;
 const root = join(here, '..', '..');
@@ -29,6 +30,10 @@ const suites = named.length ? named : all.filter((s) => args.includes('--all') |
 const bin = join(root, 'bin', 'mthub-test');
 execFileSync('make', ['web'], { cwd: root, stdio: 'inherit' });
 execFileSync('go', ['build', '-o', bin, './cmd/mthub'], { cwd: root, stdio: 'inherit' });
+
+// The voice and stream suites share one LiveKit binary; fetch it here, once, so they don't both
+// download it at the same time.
+if (suites.some((s) => s === 'voice' || s === 'stream')) ensureLivekit();
 
 const runOne = (s) => new Promise((resolve) => {
   const start = Date.now();

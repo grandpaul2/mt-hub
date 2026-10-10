@@ -54,7 +54,7 @@ const pressedOn = (el: Element, e: MouseEvent) => e.detail === 0 || (pressStart 
 let hooks: Hooks;
 let channels: ChannelInfo[] = [];
 let renames: { from: string; to: string }[] = []; // every chat rename, oldest first
-// Unread markers are per browser while there are no accounts: last message ID seen per channel.
+// Unread markers are per browser, not on the account: last message ID seen per channel.
 const lastRead: Record<string, string> = JSON.parse(load('mt-read') ?? '{}');
 let side: ChatView;
 let main: ChatView;
@@ -1182,7 +1182,7 @@ export function renderChannels() {
   list.replaceChildren();
   select.replaceChildren();
   let count = 0;
-  // One list (Paul, S44): chats in the shared order admins set by dragging (the server's
+  // One list: chats in the shared order admins set by dragging (the server's
   // order), then DMs ("@" and who they're with), the most recent message first.
   const newest = (a: ChannelInfo, b: ChannelInfo) => (b.last_id > a.last_id ? 1 : b.last_id < a.last_id ? -1 : chatTitle(a.name).localeCompare(chatTitle(b.name)));
   const sorted = [...channels.filter((c) => c.kind !== 'dm'), ...channels.filter((c) => c.kind === 'dm').sort(newest)];
@@ -1778,7 +1778,7 @@ function plainText(text: string) {
 
 // ---- release cards ----
 
-// A mod release post (Paul, S60; the MacroTech release account posts them) is plain Markdown,
+// A mod release post (the MacroTech release account posts them) is plain Markdown,
 // so it reads fine anywhere, and is drawn as a card when it has this shape:
 //   ## <mod> <version>
 //   -# Client · Required          (Client, Server or Client + Server; Required or Optional)

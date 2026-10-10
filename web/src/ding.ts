@@ -1,5 +1,5 @@
-// The new-message sound (S49): three soft glass notes, picked by ear with Paul
-// (sounds/make-message.py makes the file). Rules, Paul's:
+// The new-message sound three soft glass notes, picked by ear
+// (sounds/make-message.py makes the file). Rules:
 //   - a new message from someone else, in a chat you can see (the server only sends those);
 //   - not if you're looking at that chat: a hub tab that's focused and showing it, in this
 //     tab or another (each focused tab notes what it shows in localStorage, every second);
@@ -21,7 +21,7 @@ const log: string[] = [];
 (window as unknown as { __ding: string[] }).__ding = log;
 
 export const dingOn = () => load('mt-ding') !== 'off';
-// 70% by default: the level Paul picked, with room to turn it up (the file is at full strength).
+// 70% by default: the chosen level, with room to turn it up (the file is at full strength).
 const dingVolume = () => Number(load('mt-ding-vol') ?? 70);
 
 function ready() {

@@ -15,7 +15,7 @@ const ACTIONS: Record<string, string> = {
   add: 'added', admin: 'made admin', unadmin: 'removed admin from', 'unlink-mc': 'unlinked the Minecraft name of',
   'voice-disconnect': 'disconnected {} from a voice chat', 'voice-mute': 'muted {} for everyone in a voice chat',
 };
-// logLine is one entry as words: "Paul banned Alex" ({} puts the name mid-sentence).
+// logLine is one entry as words: "Steve banned Alex" ({} puts the name mid-sentence).
 const logLine = (e: LogEntry) => {
   const did = ACTIONS[e.action] ?? e.action;
   return ` ${e.by} ${did.includes('{}') ? did.replace('{}', e.user) : `${did} ${e.user}`}`;

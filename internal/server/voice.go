@@ -36,7 +36,7 @@ import (
 	"time"
 )
 
-// maxVoiceChats is how many voice chats may exist at once (Paul).
+// maxVoiceChats is how many voice chats may exist at once.
 const maxVoiceChats = 3
 
 // An unused voice chat (started, but nobody connected) goes after this long.

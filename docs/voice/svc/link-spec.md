@@ -1,21 +1,17 @@
-# Voice Link — spec
+# Voice Link: spec
 
-**Status (2026-10-09, S59): live on Survival and Creative.**
-- The relay (`voicelink`) runs on the VPS; runbook in `server/relay/README.md`.
-- Both servers run MT Hub Server 1.3.1 and Simple Voice Chat 2.6.24, each on its own voice port.
-- Checked end to end with the echo tool, locally and live through Creative.
-- Not yet checked: two real players on different servers.
+**Status:** current spec, built. It runs between MacroTech's two game servers.
 
-A shared Simple Voice Chat (SVC) room across Survival and Creative. Written 2026-10-09 (S59).
-Background research is in the same folder: `plugins-and-bridge.md`.
-SVC source facts below were checked in the `1.21.11` branch (`f0a7f17`, mod 2.6.24).
+A shared Simple Voice Chat (SVC) room across two Minecraft servers (MacroTech Survival and
+MacroTech Creative). Background research is in the same folder: `plugins-and-bridge.md`. The
+SVC source facts below were checked against the `1.21.11` branch of SVC (mod 2.6.24).
 
 ## Rule this design follows
 
 **We never touch audio.** SVC does capture, noise handling, the codec and playback, end to end.
 The link only carries SVC's own Opus packets from one server to the other, untouched. There is no
-decoding, mixing, re-encoding, gain or bitrate setting anywhere in our code. (Paul, S59: audio
-has to be a complete drop-in system.)
+decoding, mixing, re-encoding, gain or bitrate setting anywhere in our code. Audio has to be a
+complete drop-in system.
 
 ## What players see
 
@@ -34,27 +30,30 @@ has to be a complete drop-in system.)
 
 **SVC limit:** remote speakers can't show up in SVC's group list or speaking icons. That list
 only holds players on the same server, and the API can't add others to it. Point 4 is the
-replacement. No action-bar "who's talking" line (Paul, S59).
+replacement. There is no action-bar "who's talking" line.
 
 ## Pieces
 
 ```
 Survival: SVC + MT Hub Server ──wss──┐            ┌──wss── Creative: SVC + MT Hub Server
-                                  └─ VPS: voicelink ─┘
-                     (Caddy: macrotechmc.com/voicelink → 127.0.0.1:7890)
+                                  └─ voicelink relay ─┘
+                     (reverse proxy: /voicelink → the relay's local port)
 ```
 
 1. **SVC 2.6.24** on both servers and on every client that wants voice. Server config:
-   `port=` the **Voice** port DatHost shows when you hover over the server address in the
-   panel. Leave `bind_address` blank and `force_voice_chat=false`. Everything else stays at
+   `port=` the voice port the host forwards to the server. Leave `bind_address` blank and
+   `force_voice_chat=false`. Everything else stays at
    SVC's defaults. Never use `port=-1`; the SVC wiki warns it can crash the server.
-2. **Link plugin**, a feature of **MT Hub Server**, the server-only jar from the MT Hub split
-   (step 0 below). It turns on only when SVC is installed and `voice_link` is set in
+2. **Link plugin**, a feature of **MT Hub Server**, the server-only jar of the MT Hub mod
+   ([`mthub-mod`](https://github.com/grandpaul2/mthub-mod)). It turns on only when SVC is
+   installed and `voice_link` is set in
    `config/mthub.json`. This is the same pattern as the WaterFrames aliases. Players need
    nothing from us beyond SVC.
-3. **`voicelink` relay**, a small Go program on the VPS (`cmd/voicelink` in `~/mt-hub`, since
-   the hub backend is Go). It runs as a sandboxed systemd service behind the existing Caddy.
-   It doesn't run on home-server: that would send every packet through the home tunnel.
+3. **`voicelink` relay**, a small Go program on a public server (`cmd/voicelink` in this repo,
+   since the
+   hub backend is Go). It runs on a machine with a good public connection, behind the reverse
+   proxy that already serves the hub, not behind a home connection that every packet would
+   have to cross.
 
 ## Link plugin (MT Hub Server)
 
@@ -90,7 +89,7 @@ only (the mod itself is All Rights Reserved; the API is published for plugins).
 
 ## Relay protocol
 
-One WebSocket per game server: `wss://macrotechmc.com/voicelink`, header
+One WebSocket per game server: `wss://<hub address>/voicelink`, header
 `Authorization: Bearer <link token>`. The relay knows each token's server name, so a server
 can't pretend to be the other one. Messages are binary, with the type in the first byte:
 
@@ -103,25 +102,22 @@ can't pretend to be the other one. Messages are binary, with the type in the fir
 The relay adds the source server name to everything it forwards. Each speaker's audio is about
 2–4 KB/s.
 
-## Relay (VPS)
+## Relay
 
-1. Listens on `127.0.0.1:7890` only. Caddy adds `handle /voicelink*` to the `macrotechmc.com`
-   block, so no new firewall port and no new certificate are needed.
-2. Config is `/etc/voicelink.json` (root:voicelink 640): `{"tokens": {"<token>": "survival", ...}}`.
-   Tokens are generated with `openssl rand -hex 32`.
+1. Listens on a local port only, and the reverse proxy forwards `/voicelink*` to it, so no new
+   firewall port and no new certificate are needed.
+2. Config is a JSON file of tokens and the server each one names:
+   `{"tokens": {"<token>": "survival", ...}}`. A token is a long random string.
 3. The relay holds no state beyond the open connections and the last roster from each server.
    A restart only drops speech for the second it takes to reconnect.
 4. The plugin reconnects with backoff (1 s, doubling to 30 s) and resends its roster.
 5. It logs connects and disconnects only, never audio.
-6. Install follows the LiveKit pattern: build on the PC, `scp` the binary to
-   `/usr/local/bin/voicelink`, systemd unit with `DynamicUser`/sandboxing. Runbook goes in
-   `server/relay/README.md`.
 
-## Config (`config/mthub.json`, new keys)
+## Config (`config/mthub.json` of the MT Hub Server mod)
 
 ```json
 "voice_link": {
-  "url": "wss://macrotechmc.com/voicelink",
+  "url": "wss://<hub address>/voicelink",
   "token": "",
   "group_id": "<fixed uuid>"
 }
@@ -129,7 +125,7 @@ The relay adds the source server name to everything it forwards. Each speaker's 
 
 If the key is missing or the token is empty, the feature is off and Link isn't created.
 
-### Server rooms (MT Hub Server 1.3.1, S61)
+### Server rooms
 
 ```json
 "voice_room": "Survival"
@@ -152,52 +148,10 @@ SVC group at a time, so being in a server room means not being in Link.
 
 | What breaks | Result |
 |---|---|
-| Relay or VPS down | Link works on each server separately; chat line says the other server isn't connected |
+| Relay down | Link works on each server separately; chat line says the other server isn't connected |
 | One game server down | The other server's Link players see the roster empty |
 | SVC missing on a server | MT Hub mod runs as today; no Link group |
 | Player without SVC on their client | No voice for them (SVC's normal behaviour) |
-
-## Build and test
-
-0. **Split MT Hub into two jars. Done S59 (`~/mthub-mod` `fa843c1`, both 1.3.0).**
-   - **MT Hub** (`mthub-1.3.0.jar`) is for players: the Litematica schematics folder and
-     screenshot upload.
-   - **MT Hub Server** (`mthub-server-1.3.0.jar`, mod id `mthub_server`) is for servers:
-     `/b`, the aliases and hub calls, and Link.
-   - Messages between the two are unchanged, so players' 1.2.0 jars keep working with the new
-     server jar.
-   - Not deployed yet. To deploy: swap `mthub-1.2.0.jar` for `mthub-server-1.3.0.jar` on both
-     servers, put the client jar on the hub, and update `/hubupdate`, `/health` and the
-     modlists.
-1. **Relay:** Go unit tests for auth and forwarding, then a run on the PC.
-2. **Plugin:** `./gradlew runServer` twice (two ports) plus the relay locally. Test with
-   two clients on two servers.
-3. **Throwaway server first** (load-test rule), on DatHost or local:
-   - two people talking at the same time across the link;
-   - start and stop talking, and checking that no voice is left hanging;
-   - join and leave Link while someone is talking;
-   - restart the relay mid-talk;
-   - restart a game server and check that Link and its id survive.
-4. Then deploy:
-   1. Install SVC on Creative and set the Voice port.
-   2. Install MT Hub Server with Link, the relay and Caddy.
-   3. Test it on Creative alone.
-   4. Do Survival the same way.
-5. **Housekeeping:**
-   - the server mod set goes from 29 to 30 jars (`server/mod-sources.md`, modlists, `/health`
-     expected values);
-   - add SVC to the hub's client mods as optional ("needed for voice");
-   - `/hubupdate` should check for it;
-   - add `voicelink` to `/health` (service active, both servers connected).
-
-## Decisions (Paul, S59)
-
-1. **Players need only SVC for voice.** Link ships in MT Hub Server. MT Hub is split into a
-   client jar and a server jar, so server changes never make players update.
-2. No action-bar "who's talking" line.
-3. One Link room.
-4. No message to henkelmax first.
-5. Joining Link stays manual (press V each session); no auto-rejoin for now.
 
 ## Not in scope
 

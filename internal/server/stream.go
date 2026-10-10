@@ -26,7 +26,7 @@ import (
 	"time"
 )
 
-// maxStreams is how many people may share at once (the relay's bandwidth; Paul).
+// maxStreams is how many people may share at once (the relay's bandwidth).
 const maxStreams = 3
 
 // A stream that never shows a picture (the person never got past connecting) goes after this.

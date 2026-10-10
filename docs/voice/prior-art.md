@@ -1,5 +1,7 @@
 # Voice rooms: what real open-source products ship, and how it goes for users
 
+**Status:** research record. Its lessons shaped the design in [`README.md`](README.md).
+
 Researched 2026-10-03. Web only. Primary sources (repos, issues, PRs, code read via `gh api`) are marked **[P]**.
 Secondary or anecdotal sources (blogs, vendor pages, search summaries) are marked **[S]**. Anything I could not confirm is marked **UNVERIFIED**.
 
@@ -183,7 +185,7 @@ All from the repo `fluxerapp/fluxer` [P], read 2026-10-03.
 | `Johni0702/mumble-web` | Browser Mumble client | MIT? (UNVERIFIED) | last push 2023-05 | Only as a reference for a gate with pre-roll. |
 | Krisp (JS SDK / LiveKit krisp-noise-filter) | Proprietary ML NS | Proprietary | n/a | Not OSS; LiveKit's variant is LiveKit Cloud only; Stoat was refused. Out of scope. |
 
-## 8. What I would take from all this (for the design, not a decision)
+## 8. What to take from all this (for the design, not a decision)
 
 1. Layer: browser AEC always on; NS choices `Off | Browser | Enhanced(RNNoise)`; AGC toggle; a separate gate/VAD stage you own.
 2. Run the gate after NS. Mumble's two-threshold plus hold, plus a pre-roll of about 100-150 ms, avoids clipped first syllables.

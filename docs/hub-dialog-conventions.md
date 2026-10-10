@@ -1,13 +1,16 @@
 # Hub dialogs: conventions research and layouts (Admin, Voice, Sound)
 
-Research only; no hub files were changed. Written 2026-10-04 against `~/mt-hub/docs/style-guide.md` (S43-S49)
+**Status:** research record. Its proposals were adopted as section 6.8 of the style guide; this
+is kept as the evidence.
+
+Research only; no hub files were changed. Written 2026-10-04 against `docs/style-guide.md`
 and `web/src` (`style.css`, `util.ts` openDialog, `admin.ts`, `voice.ts` openSettings, `sounds.ts`).
 
 Labels: **strong** = most systems agree. **One system** = one app's style, adopt only if it suits us.
 
 Source reliability: GNOME, Microsoft Learn, Material, NN/g, Carbon and Smashing were fetched. The Apple pages came back
-as a summary only. Discord, Slack and GitHub layouts come from help articles and third-party guides (I did not
-open those apps), so treat the details of their exact current UI as approximate.
+as a summary only. Discord, Slack and GitHub layouts come from help articles and third-party guides (the apps were
+not opened), so treat the details of their exact current UI as approximate.
 
 ---
 
@@ -78,7 +81,7 @@ open those apps), so treat the details of their exact current UI as approximate.
 | A3 | **Hover-revealed "..." (Discord) vs always-visible (Carbon default: "persistent on each row").** | split. Always-visible is safer for keyboard and non-technical users | Discord guide; Carbon |
 | A4 | **Confirm before executing**, with the name of the person and what happens; ban offers "delete messages?" and a reason on Discord. | strong | Discord guide, UX Movement, GNOME |
 | A5 | **Role badges are small pills next to the name** (owner, admin); one colour per role. | strong (Discord role colours; GitHub shows "Owner" labels in some views) | our `--owner`/`--admin` tokens already do this |
-| A6 | **Add/invite sits at the top of the list** (Discord "Invite", GitHub "Invite member" above People), not under it. | strong (my reading of both products; not confirmed in the fetched docs) | GitHub docs flow starts from People page |
+| A6 | **Add/invite sits at the top of the list** (Discord "Invite", GitHub "Invite member" above People), not under it. | strong (a reading of both products; not confirmed in the fetched docs) | GitHub docs flow starts from People page |
 | A7 | **Bans are a separate view on Discord** (Server Settings > Moderation > Bans, with unban). For 15 people a banned row in the same list with a "banned" badge and "Unban" in its menu is simpler. | one system (Discord); scale differs | [Discord moderation guide](https://www.groovypost.com/howto/kick-or-ban-someone-on-discord/) |
 | A8 | **Danger zone at the bottom of a settings page, red border, each action described.** Only for irreversible, page-level actions; "don't create a danger zone just to have one". | strong for settings pages (GitHub); not for per-person actions | [Smashing](https://www.smashingmagazine.com/2024/09/how-manage-dangerous-actions-user-interfaces/) |
 | A9 | **Audit log is its own place** (Discord: Audit Log tab; GitHub: org audit log), newest first, with actor, action, target, time. Ours is 5-20 lines, so a compact section at the bottom is enough. | strong that it is separate from the member list | general; Discord/GitHub |
@@ -106,7 +109,7 @@ open those apps), so treat the details of their exact current UI as approximate.
 - Sound Settings description in 8 (switch, slider, tick at 70%, Test) is exactly the layout below.
 - "No text glyphs as icons": use the stroke icon set for the "..." and close X.
 
-### 3.2 Guide changes for Paul to approve
+### 3.2 Guide changes proposed
 
 1. **Medium dialog width: 520 px** (add to 6.5 beside 380 and 720). Voice, Sound and Admin all use it. If Settings merges (section 6), that one is 680.
 2. **Dialog padding 24 px and a spacing scale 4 / 8 / 12 / 16 / 24** (today 22 and ad hoc 6/10/14). Dialog gets a header row: title left, close X (tooltip "Close (Esc)") right.
@@ -170,7 +173,7 @@ Structure, top to bottom:
    - Left: name 13 px/600 `--chat-name` + badges (owner `--owner`, admin `--admin`, banned `--danger` text on `--panel-2`); subtitle: "online" in `--ok` with a dot, or "Last seen 3 h ago" / "Never signed in" `--muted`.
    - Right: "..." icon button (24 px, always visible, tooltip "Actions for Alex"; menu opens downward, right-aligned to the button). Owner row and your own row show "You" (muted) and no menu.
    - Menu (for members): `Reset password` / separator / `Ban` (red text) or `Unban` (normal) / `Delete` (red text). Click arms ("Ban? Click again", red text, menu stays open 3 s); second click acts. Delete and Ban red text only; no red fills in rest state.
-6. Group "RECENT ACTIVITY": 5 lines max visible (max-height 120, scroll), 12 px: time muted fixed 64 px, then "Paul banned Alex". Empty: "Nothing yet." (`.muted.pad`).
+6. Group "RECENT ACTIVITY": 5 lines max visible (max-height 120, scroll), 12 px: time muted fixed 64 px, then "Eve banned Alex". Empty: "Nothing yet." (`.muted.pad`).
 7. Owner only: group "ADMINS (OWNER ONLY)": rows for each admin: name+badge, trailing grey "Remove admin" button and "..." (Reset password). Last row: `[ select member ........ ] [Make admin]` with a grey Make admin button. Empty admins: "No other admins." (muted).
 8. No footer; Esc and X close.
 
@@ -184,15 +187,15 @@ Structure, top to bottom:
 | Alex                                               ...   |
 | Never signed in                                          |
 | ---------------------------------------------------------|
-| Paul [owner]                                       You   |
+| Eve [owner]                                        You   |
 | ● online                                                 |
 | ---------------------------------------------------------|
 | Steve [banned]                                     ...   |
 | Last seen 3 h ago          +----------------+            |
 |                            | Reset password |            |
 | RECENT ACTIVITY            |----------------|            |
-| 3 h ago   Paul banned Steve| Unban          |            |
-| 2 d ago   Paul added Alex  | Delete (red)   |            |
+| 3 h ago   Eve banned Steve | Unban          |            |
+| 2 d ago   Eve added Alex   | Delete (red)   |            |
 |                            +----------------+            |
 | ADMINS (OWNER ONLY)                                      |
 | No other admins.                                         |
@@ -280,9 +283,9 @@ Reasons:
 - It makes the row, group, switch and slider parts one shared component set used in one place, and ends the "three layouts" feel.
 - Admin stays out: it is admin-only, wider-purpose, live-updating (`adminChanged()`), and not a personal setting; Discord also keeps Server Settings separate from User Settings.
 
-Counter-points (honest): with two sections the nav is more chrome than content (the rule of thumb in 2.5 says a nav starts to pay at 5-6 sections), it adds a layer (principle 4), and the S49 handoff explicitly split Sound out of Voice on purpose. Opening a specific page from the menu would need "Voice Settings" / "Sound Settings" to remain as direct links into sections (menu keeps both entries, both open the Settings dialog on that section), which costs a little code.
+Counter-points (honest): with two sections the nav is more chrome than content (the rule of thumb in 2.5 says a nav starts to pay at 5-6 sections), it adds a layer (principle 4), and the design record explicitly split Sound out of Voice on purpose. Opening a specific page from the menu would need "Voice Settings" / "Sound Settings" to remain as direct links into sections (menu keeps both entries, both open the Settings dialog on that section), which costs a little code.
 
-**Cheaper alternative: keep two dialogs, 520 px, with the shared row/group/switch parts from section 5.** It fixes everything Paul called amateur, needs no nav and no menu change, and the merge can be added later by wrapping the same two bodies in a nav. If Paul wants the least work now, take this and revisit the merge when a third section (Account, Notifications ...) appears.
+**Cheaper alternative: keep two dialogs, 520 px, with the shared row/group/switch parts from section 5.** It fixes everything that was called amateur, needs no nav and no menu change, and the merge can be added later by wrapping the same two bodies in a nav. If Paul wants the least work now, take this and revisit the merge when a third section (Account, Notifications ...) appears.
 
 Either way the Admin dialog and the two small forms follow the same frame (padding 24, header with close, groups).
 
