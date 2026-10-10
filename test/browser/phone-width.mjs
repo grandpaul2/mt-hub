@@ -8,7 +8,12 @@ import { api, check, COOKIE, done, ev, HUB, png, send, settle, shot } from './li
 
 for (const [name, body] of [['clip.mp4', 'not a real video'], ['wide.png', png(800, 200, [60, 160, 110])], ['tune.mp3', 'not a real sound'], ['notes.txt', 'text']])
   await fetch(`${HUB}/api/channels/general/media?name=${name}`, { method: 'POST', headers: { cookie: COOKIE.Paul }, body });
-await api('POST', '/api/channels/general/messages', { text: 'look #media/general/clip.mp4 #media/general/wide.png #media/general/tune.mp3 #media/general/notes.txt' }, 'Paul');
+const { id: first } = await (await api('POST', '/api/channels/general/messages', { text: 'look #media/general/clip.mp4 #media/general/wide.png #media/general/tune.mp3 #media/general/notes.txt' }, 'Paul')).json();
+// A grouped message (no head of its own) and a reply quoting a long line.
+await api('POST', '/api/channels/general/messages', { text: 'and a second line from the same person' }, 'Paul');
+await api('POST', '/api/channels/general/messages', { text: 'a long first line, the kind a quote has to cut short on a narrow screen, on and on and on' }, 'Paul');
+const { id: long } = await (await api('POST', '/api/channels/general/messages', { text: 'again '.repeat(30) }, 'Paul')).json();
+await api('POST', '/api/channels/general/messages', { text: 'replying', reply_to: long }, 'Alex');
 // The feed's own sideways overflow, and each preview's right edge against the feed's.
 const feed = () => ev(`(() => {
   const box = document.querySelector('#chat .messages'), edge = box.getBoundingClientRect().right;
@@ -28,6 +33,16 @@ for (const width of [320, 360, 375, 400, 700]) {
   await settle(1800);
   check(`fits ${width} px`, await fits(width), []);
   check(`chat previews fit ${width} px`, await feed(), []);
+  // The picture keeps its 4:1 shape when it shrinks; a grouped message lines up under the
+  // first one's text with no time of its own; a reply's quote and the toolbar stay in the feed.
+  check(`phone messages at ${width} px`, await ev(`(() => {
+    const box = document.querySelector('#chat .messages'), edge = box.getBoundingClientRect().right, at = (el) => el.getBoundingClientRect();
+    const head = box.querySelector('.msg[data-id="${first}"]'), next = head.nextElementSibling, img = at(head.querySelector('.ref-pic img'));
+    const quote = box.querySelector('.reply-quote'), tools = [...box.querySelectorAll('.msg')].at(-1).querySelector('.msg-tools');
+    tools.style.display = 'flex'; const t = at(tools); tools.style.display = '';
+    return [Math.abs(img.width / img.height - 4) < 0.1, next.classList.contains('grouped'), ${width < 700} ? getComputedStyle(next.querySelector('.when.side')).display : 'none',
+      Math.round(at(next.querySelector('.msg-body')).left - at(head.querySelector('.msg-body')).left), at(quote).left >= 0 && at(quote).right <= edge + 0.5, t.left >= 0 && t.right <= edge + 0.5];
+  })()`), [true, true, 'none', 0, true, true]);
   if (width < 700) check(`no time gutter at ${width} px`, await ev(`(() => { const m = [...document.querySelectorAll('#chat .msg:not(.grouped)')].at(-1), at = (sel) => m.querySelector(sel).getBoundingClientRect();
     return [at('.msg-body').left < 30, at('.msg-head .when').left > at('.msg-head .who').right]; })()`), [true, true]);
   if (width === 375) await shot('phone-375');
