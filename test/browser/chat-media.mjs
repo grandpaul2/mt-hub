@@ -110,6 +110,17 @@ await paul('POST', '/api/channels/general/messages', { text: '@Alex and @everyon
 await settle(800);
 const men = (await msgs('general')).pop();
 check('mention highlights', await ev(`[...${msgEl(men.id)}.querySelectorAll('.mention')].map((s) => s.textContent)`), ['@Alex', '@everyone']);
+// A message meant for you tints its whole row: it names you, @everyone or @here, or answers
+// one of yours. Not your own messages, and not a name inside code.
+const tinted = async (who, body) => {
+  const m = await (await api('POST', '/api/channels/general/messages', body, who)).json();
+  await settle(700);
+  return ev(`${msgEl(m.id)}.classList.contains('mentions-me')`);
+};
+check('rows meant for you are tinted', [await tinted('Alex', { text: 'hey @paul look' }), await tinted('Alex', { text: '@here now' }), await tinted('Alex', { text: 'answering', reply_to: posted.id }),
+  await tinted('Alex', { text: 'type `@Paul` to ping' }), await tinted('Alex', { text: 'nothing for anyone' }), await ev(`${msgEl(men.id)}.classList.contains('mentions-me')`)],
+  [true, true, true, false, false, false]);
+check('the tint: a wash and a line down the left', await ev(`(() => { const s = getComputedStyle(document.querySelector('${M} .msg.mentions-me')); return [s.backgroundColor, s.boxShadow.includes('2px 0px 0px 0px inset')]; })()`), ['rgba(88, 101, 242, 0.08)', true]);
 await shot('mentions');
 
 // The + button opens a file picker for any file.
