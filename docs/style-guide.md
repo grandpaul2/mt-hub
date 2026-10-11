@@ -473,6 +473,9 @@ separate dialogs.
     - The tray stays with its chat like a draft, but only while the page is open: a reload
       forgets it (the browser can't keep hold of a file).
   - Drafts are kept per chat.
+  - **Ctrl+B, Ctrl+I, Ctrl+U** (Discord) put `**`, `*` or `__` around the selected text, or
+    take them off if they're there; with nothing selected, an empty pair with the cursor
+    inside. Ctrl+Z undoes it. They work in a message being edited too.
   - **The box grows with its text** up to half the chat's height, then scrolls inside
     (Discord). The same for a message being edited in place: the feed keeps its place while
     you type, and the whole edit box with the line under it stays in view.
@@ -608,7 +611,7 @@ separate dialogs.
 | Single item | ←/→ previous or next picture or post, Esc back to its folder or the board |
 | Folder view | Esc up one folder, Ctrl+V paste pictures |
 | Text file | Ctrl+S save, Ctrl+wheel zoom |
-| Composer | Enter, Shift+Enter, ↑ edit last, Esc cancel reply |
+| Composer | Enter, Shift+Enter, ↑ edit last, Esc cancel reply, Ctrl+B / Ctrl+I / Ctrl+U bold, italic, underline (also while editing a message) |
 | Popups | ↑/↓, Enter/Tab, Esc |
 | Viewer | ←/→, Esc |
 

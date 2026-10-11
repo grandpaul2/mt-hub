@@ -50,4 +50,28 @@ await ev(`document.querySelector('#main-chat [title="Pinned Messages"], #main-ch
 await settle(800);
 check('pins: formatted', await ev(`document.querySelector('.pins-pop .pin-item h1')?.textContent`), 'Title');
 
+// Formatting keys in the message box (Discord): Ctrl+B, Ctrl+I, Ctrl+U put marks around the
+// selection or take them off; nothing selected gives an empty pair with the cursor inside.
+await ev(`document.querySelector('.pins-pop') && document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))`);
+const box = `document.querySelector('#main-chat .compose')`;
+const ctrl = async (k) => {
+  const e = { key: k, code: 'Key' + k.toUpperCase(), windowsVirtualKeyCode: k.toUpperCase().charCodeAt(0), modifiers: 2 };
+  await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', ...e });
+  await send('Input.dispatchKeyEvent', { type: 'keyUp', ...e });
+  return ev(`[${box}.value, ${box}.value.slice(${box}.selectionStart, ${box}.selectionEnd)]`);
+};
+await ev(`(() => { const b = ${box}; b.focus(); b.value = 'make this bold'; b.setSelectionRange(5, 9); })()`);
+check('Ctrl+B wraps the selection and keeps it selected', await ctrl('b'), ['make **this** bold', 'this']);
+check('the draft follows', JSON.parse(await ev(`localStorage.getItem('mt-drafts')`)).general, 'make **this** bold');
+check('Ctrl+B again takes it off', await ctrl('b'), ['make this bold', 'this']);
+check('Ctrl+I', await ctrl('i'), ['make *this* bold', 'this']);
+check('bold on top of italic', await ctrl('b'), ['make ***this*** bold', 'this']);
+check('Ctrl+I takes only the italic off', await ctrl('i'), ['make **this** bold', 'this']);
+check('Ctrl+U', await ctrl('u'), ['make **__this__** bold', 'this']);
+await ev(`document.execCommand('undo')`);
+check('undo takes the last one back', await ev(`${box}.value`), 'make **this** bold');
+await ev(`(() => { const b = ${box}; b.value = ''; b.setSelectionRange(0, 0); })()`);
+check('nothing selected: an empty pair, cursor inside', [await ctrl('b'), await ev(`${box}.selectionStart`)], [['****', ''], 2]);
+await ev(`(() => { const b = ${box}; b.value = ''; b.dispatchEvent(new Event('input')); })()`);
+
 await done();

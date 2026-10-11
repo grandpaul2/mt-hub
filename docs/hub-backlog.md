@@ -46,7 +46,6 @@ chat and voice. The style guide records the decision.
   silent, and phones pause background tabs. Real push notifications would be a separate,
   bigger job.
 - **Emoji skin tones and custom emoji.**
-- **Formatting keys in the message box:** Ctrl+B, Ctrl+I and Ctrl+U on selected text.
 - **A sent message shows at once,** greyed until the hub answers and red with Retry if it
   fails. Today it appears when the hub answers; a failure is a toast and the text goes back
   in the box.
