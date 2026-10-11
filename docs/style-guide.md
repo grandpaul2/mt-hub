@@ -473,6 +473,11 @@ separate dialogs.
     - The tray stays with its chat like a draft, but only while the page is open: a reload
       forgets it (the browser can't keep hold of a file).
   - Drafts are kept per chat.
+  - **A sent message shows at once** (Discord): in the feed, last, with its text and previews
+    at half strength and no toolbar, until the hub has it; then it is the real message.
+    One the hub refuses or can't be reached for stays, its text in `--danger`, with a line
+    under it: "Couldn’t send it: <why>. **Retry** · **Delete**" (the two in `--link`). The
+    box is empty either way. These live in the page only: a reload forgets them.
   - **Ctrl+B, Ctrl+I, Ctrl+U** (Discord) put `**`, `*` or `__` around the selected text, or
     take them off if they're there; with nothing selected, an empty pair with the cursor
     inside. Ctrl+Z undoes it. They work in a message being edited too.

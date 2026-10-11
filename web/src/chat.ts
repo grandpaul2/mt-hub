@@ -17,6 +17,7 @@ import { iconURL } from './icons';
 type Message = {
   id: string; channel: string; t: string; user: string; text: string; edited?: string;
   reply_to?: string; reply?: Quote; fwd?: Forward; reactions?: Reaction[]; pinned?: { by: string; t: string };
+  nonce?: string; // ours, on a message we sent and are waiting to see (see unsent)
   via?: string; // said in game on this server (SMP, CMP): the server link
 };
 type Quote = { user?: string; text?: string; deleted?: boolean };
@@ -382,23 +383,17 @@ class ChatView {
     setDraft(name, '');
     delete pending[name];
     drawTrays();
-    const r = await req('POST', `/api/channels/${name}/messages`, JSON.stringify({ text, reply_to: reply?.id ?? '' }));
-    if (!r.ok) {
-      toastError(`Couldn’t send it: ${(await r.json().catch(() => ({}))).error ?? r.status}.`);
-      // Give it back, unless they've moved on (another chat, or typing something new). The
-      // files are up already, so sending again doesn't upload them twice.
-      setDraft(name, typed);
-      pending[name] = [...files, ...(pending[name] ?? [])];
-      drawTrays();
-      if (here() && !this.compose.value) {
-        this.compose.value = typed;
-        if (reply) this.startReply(reply);
-        grow(this.compose);
-      }
-      return;
-    }
     for (const p of files) if (p.url) URL.revokeObjectURL(p.url);
-    // The message itself arrives over the event stream, like everyone else's.
+    // It shows at once, greyed, until the hub has it (see unsent).
+    const u: Unsent = { nonce: Date.now().toString(36) + Math.random().toString(36).slice(2), text, reply, t: new Date(), state: 'sending' };
+    (unsent[name] ??= []).push(u);
+    for (const v of [side, main]) {
+      if (v.channel !== name || !v.loaded) continue;
+      v.newAfter = null;
+      v.render();
+      v.scrollToBottom();
+    }
+    await deliver(name, u);
   }
 
   onMessage(m: Message) {
@@ -464,7 +459,8 @@ class ChatView {
 
   render() {
     const box = this.items;
-    if (!this.msgs.length) {
+    const waiting = this.loaded ? unsent[this.channel] ?? [] : [];
+    if (!this.msgs.length && !waiting.length) {
       this.nodes.clear();
       box.replaceChildren(h('div', { class: 'muted pad' }, `This is the start of ${chatTitle(this.channel, false)}.`), ...this.privates.map((p) => p.el));
       return;
@@ -481,6 +477,7 @@ class ChatView {
     const firstNew = this.firstNew();
     for (const a of accounts) knownNames.add(a.name.toLowerCase());
     for (const m of this.msgs) knownNames.add(m.user.toLowerCase());
+    if (!this.msgs.length) use('start', () => h('div', { class: 'muted pad' }, `This is the start of ${chatTitle(this.channel, false)}.`));
     for (const m of this.msgs) {
       const t = new Date(m.t);
       if (!prev || new Date(prev.t).toDateString() !== t.toDateString()) {
@@ -514,6 +511,18 @@ class ChatView {
     }
     // One whose message has gone (deleted) moves to the end.
     for (const p of this.privates) if (!want.includes(p.el)) want.push(p.el);
+    // Your messages the hub hasn't confirmed yet (or refused) come last, after everything.
+    for (const u of waiting) {
+      if (!prev || new Date(prev.t).toDateString() !== u.t.toDateString()) {
+        const label = dayLabel(u.t);
+        use(`day|${u.t.toDateString()}|${label}`, () => h('div', { class: 'day' }, label));
+        prev = null;
+      }
+      const grouped = !!prev && !u.reply && prev.user === user.name && !prev.via && u.t.getTime() - Date.parse(prev.t) < GROUP_MS;
+      const m: Message = { id: 'unsent-' + u.nonce, channel: this.channel, t: u.t.toISOString(), user: user.name, text: u.text, reply_to: u.reply?.id };
+      use(['unsent', u.nonce, u.state, u.error ?? '', grouped, linkTargets(u.text)].join('|'), () => this.renderUnsent(u, m, grouped));
+      prev = m;
+    }
     this.nodes = next;
     // Patch the list: drop what's gone, then put each wanted element in place. Elements that
     // are already in place aren't touched (moving an iframe would reload it).
@@ -525,7 +534,25 @@ class ChatView {
     queueMicrotask(() => this.showJump());
   }
 
-  renderMessage(m: Message, grouped: boolean) {
+  // renderUnsent is a message of yours on its way: drawn like any other but greyed, with no
+  // toolbar or menu. One the hub refused, or that couldn't reach it, turns red and gets a
+  // line under it to try again or drop it (Discord).
+  renderUnsent(u: Unsent, m: Message, grouped: boolean) {
+    const el = this.renderMessage(m, grouped, true);
+    el.classList.add('unsent');
+    if (u.state === 'failed') {
+      el.classList.add('failed');
+      const retry = h('button', { class: 'key', type: 'button' }, 'Retry');
+      retry.onclick = () => void deliver(this.channel, u);
+      const drop = h('button', { class: 'key', type: 'button' }, 'Delete');
+      drop.onclick = () => dropUnsent(this.channel, u.nonce);
+      el.append(h('div', { class: 'send-failed' }, `Couldn’t send it: ${u.error}. `, retry, ' · ', drop));
+    }
+    return el;
+  }
+
+  // bare: just the message (one that isn't on the hub yet has nothing to react to or edit).
+  renderMessage(m: Message, grouped: boolean, bare = false) {
     const t = new Date(m.t);
     const q = this.quote(m);
     const el = h('div', { class: 'msg' + (grouped ? ' grouped' : '') + (m.pinned ? ' pinned' : '') + (mentionsMe(m, q) ? ' mentions-me' : '') });
@@ -559,6 +586,7 @@ class ChatView {
     if (refs) el.append(refs);
     const links = previewLinks(all);
     if (links.length) el.append(this.embeds(links));
+    if (bare) return el;
     if (m.reactions?.length) el.append(this.reactions(m));
     if (m.pinned) el.append(h('span', { class: 'pin-mark', title: `Pinned by ${m.pinned.by}`, innerHTML: ICON.pin }));
     el.append(this.tools(m));
@@ -877,7 +905,9 @@ export function setupChat(events: Live, h_: Hooks) {
     const c = channels.find((x) => x.name === m.channel);
     if (c) c.last_id = m.id;
     else loadChannels(); // a DM that was hidden, or just started
+    if (m.nonce && m.user === user.name) dropUnsent(m.channel, m.nonce, false); // ours, confirmed
     views().forEach((v) => v.onMessage(m));
+    views().forEach((v) => v.channel === m.channel && v.loaded && v.render());
     markRead();
     renderChannels();
     dingFor(m.channel, m.user);
@@ -1026,6 +1056,46 @@ const canPin = (name: string) => isAdmin(user.name) || info(name)?.kind === 'dm'
 
 // MAX_POSTED is the biggest file chat takes (bigger ones go in Files, in large/).
 const MAX_POSTED = 50 << 20;
+
+// ---- messages on their way ----
+
+// unsent is your messages the hub hasn't confirmed, per chat: a message shows in the feed the
+// moment you send it (greyed), as in Discord, and is replaced by the real one when the hub
+// answers. Each carries a nonce, which the hub echoes on the message it stores, so the copy
+// arriving over the event stream is known to be this one. One that fails stays, in red,
+// until it's sent again or dropped. They live in the page only: a reload forgets them.
+type Unsent = { nonce: string; text: string; reply: Message | null; t: Date; state: 'sending' | 'failed'; error?: string };
+const unsent: Record<string, Unsent[]> = {};
+
+const redrawChat = (name: string) => { for (const v of [side, main]) if (v?.channel === name && v.loaded) v.render(); };
+
+function dropUnsent(name: string, nonce: string, redraw = true) {
+  const list = (unsent[name] ?? []).filter((u) => u.nonce !== nonce);
+  if (list.length) unsent[name] = list;
+  else delete unsent[name];
+  if (redraw) redrawChat(name);
+}
+
+// deliver posts a waiting message. The hub's answer (or the live event, whichever is first)
+// takes it off the waiting list; a failure marks it.
+async function deliver(name: string, u: Unsent) {
+  u.state = 'sending';
+  delete u.error;
+  redrawChat(name);
+  const r = await req('POST', `/api/channels/${name}/messages`, JSON.stringify({ text: u.text, reply_to: u.reply?.id ?? '', nonce: u.nonce }));
+  if (r.ok) {
+    const m = await json<Message>(r);
+    dropUnsent(name, u.nonce, false);
+    for (const v of [side, main]) v?.onMessage(m);
+    redrawChat(name);
+    return;
+  }
+  if (!(unsent[name] ?? []).includes(u)) return; // confirmed or dropped meanwhile
+  u.state = 'failed';
+  u.error = String((await r.json().catch(() => ({}))).error ?? r.status);
+  redrawChat(name);
+  for (const v of [side, main]) if (v?.channel === name && v.stuck) v.scrollToBottom();
+}
 
 // ---- files in the message box ----
 

@@ -50,7 +50,7 @@ instead of a login) are marked.
 | POST | `/api/dms` | `{members: [...]}`: the DM between you and them, the existing one or a new one |
 | GET | `/api/channel-renames` | `[{from, to, t, user}]` oldest first (`chat/renames.jsonl`); how old `#chan=` links find a renamed chat |
 | GET | `/api/channels/<name>/messages?before=<id>&limit=` | oldest first, up to 200 |
-| POST | `/api/channels/<name>/messages` | `{text, reply_to?, forward?: {channel, id}}`; a forward stores a copy of the original (`fwd`) and needs no text; files posted in another chat (one the poster can see) that it links are copied into this one, and its links point at the copies (also on edit) |
+| POST | `/api/channels/<name>/messages` | `{text, reply_to?, forward?: {channel, id}, nonce?}`; a `nonce` (64 characters at most) comes back on the message in the answer and the live event, and is not stored; a forward stores a copy of the original (`fwd`) and needs no text; files posted in another chat (one the poster can see) that it links are copied into this one, and its links point at the copies (also on edit) |
 | PATCH / DELETE | `/api/channels/<name>/messages/<id>` | edit: own messages only, and a file posted in the chat that the edit takes out and nothing else links goes to the trash; delete: own, or admins; `?files=1` also moves the files posted in chat only it links to the trash |
 | GET | `/api/channels/<name>/messages/<id>/orphans` | `{paths}`: files posted in chat that the message links and no other message (any chat, forwards included) does |
 | PUT / DELETE | `/api/channels/<name>/messages/<id>/reactions/<emoji>` | add or take back your reaction |
