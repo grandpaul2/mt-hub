@@ -55,6 +55,8 @@ const m = await say(peggy, { text: 'gypsy jiggly query piggy: typography quippin
 await say(paul, { text: 'replying, gauging the jig', reply_to: m.id });
 await say(paul, { text: 'grouped: piggyback jogging' });
 await say(peggy, { text: '**jiggy** *gyp* __pig__ ~~quip~~ `gyp jig` ||spy||\n> quoting a piggy\n- jig\n```\ngypsy query = jig;\n```' });
+// A message meant for Paul (who looks at the page): its whole row is tinted.
+await say(peggy, { text: 'hey @Paul, jiggy gyp query for you' });
 // Files posted in chat: a file card (a name with tails) and a picture.
 const posted = async (name, body) => { const r = await fetch(`${HUB}/api/channels/general/media?name=${encodeURIComponent(name)}`, { method: 'POST', headers: { cookie: peggy }, body }); if (!r.ok) throw new Error(`seeding ${name}: ${r.status}`); return (await r.json()).path; };
 await say(peggy, { text: `jiggy gyp files #[${await posted('piggy jig gyp.litematic', 'schem')}] #${await posted('gyp.png', png(160, 90, [200, 120, 40]))}` });
@@ -159,7 +161,7 @@ const VIEWS = [['tree and chat', 'gyp'], ['file', 'boards/Playground juggling gl
   ['schematics', 'schems'], ['picture', 'screenshots/2026-09-01 15.00.01 Peggy.png'], ['viewer', 'screenshots/2026-09-01 15.00.01 Peggy.png'],
   ['chat (main panel)', 'chan=general'], ['search', 'gyp'], ['mention popup', 'chan=general'], ['command popup', 'chan=general'], ['server status', 'chan=general'], ['emoji picker', 'chan=general'],
   ['new line and jump', 'chan=piggy-jig'], ['save to files', 'chan=general'], ['chat files', 'chan=general'], ['private chat', 'chan=jig-staff'], ['server link', 'chan=server-link'], ['delete question', 'gyp'],
-  ['minecraft name', 'gyp'], ['message edit', 'chan=general'], ['sound settings', 'gyp'], ['voice settings', 'gyp'], ['admin', 'gyp']];
+  ['minecraft name', 'gyp'], ['message edit', 'chan=general'], ['file tray', 'chan=general'], ['sending and failed', 'chan=general'], ['sound settings', 'gyp'], ['voice settings', 'gyp'], ['admin', 'gyp']];
 mkdirSync(OUT, { recursive: true });
 const T = {}; let t0 = Date.now();
 const lap = (k) => { const n = Date.now(); T[k] = (T[k] ?? 0) + n - t0; t0 = n; };
@@ -233,6 +235,32 @@ for (const [name, hash] of VIEWS) {
       c.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true })); })()`);
     await idle(600);
     if (!(await js(`!!document.querySelector('#main-chat .msg-edit .hint .key')`))) { console.log('FAIL message edit: the edit box didn’t open'); failed++; }
+  }
+  if (name === 'file tray') { // files waiting in the message box: a picture and a file
+    await js(`(async () => {
+      const c = document.createElement('canvas'); c.width = 320; c.height = 180;
+      const g = c.getContext('2d'); g.fillStyle = '#c87828'; g.fillRect(0, 0, 320, 180);
+      const dt = new DataTransfer();
+      dt.items.add(new File([await new Promise((r) => c.toBlob(r, 'image/png'))], 'jiggy gyp.png', { type: 'image/png' }));
+      dt.items.add(new File(['schem'], 'piggy jig query.litematic', { type: 'application/octet-stream' }));
+      document.querySelector('#main-chat .chat-body').dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }));
+    })()`);
+    await shown(name, 'the cards', `document.querySelectorAll('#main-chat .composer .pend').length === 2 && [...document.querySelectorAll('#main-chat .composer .pend-thumb img')].every((i) => i.complete && i.naturalWidth > 0)`);
+    await idle(800);
+  }
+  if (name === 'sending and failed') { // one message the hub refused (red, Retry · Delete), one still on its way (greyed)
+    await js(`(() => {
+      const real = window.fetch; let n = 0;
+      window.fetch = (u, o) => !(o?.method === 'POST' && /\\/messages$/.test(String(u))) ? real(u, o)
+        : n++ ? new Promise(() => {}) : Promise.resolve(new Response(JSON.stringify({ error: 'jiggy gyp query' }), { status: 400, headers: { 'Content-Type': 'application/json' } }));
+      const c = document.querySelector('#main-chat .compose');
+      for (const text of ['piggy jig gyp, refused', 'gypsy query, on its way']) {
+        c.focus(); c.value = text; c.dispatchEvent(new Event('input'));
+        c.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+      }
+    })()`);
+    await shown(name, 'the two messages', `!!document.querySelector('#main-chat .msg.unsent.failed .send-failed') && document.querySelectorAll('#main-chat .msg.unsent').length === 2`);
+    await idle(800);
   }
   if (name === 'save to files') {
     await js(`(() => { const m = [...document.querySelectorAll('#main-chat .msg')].find((e) => e.querySelector('.file-card'));
