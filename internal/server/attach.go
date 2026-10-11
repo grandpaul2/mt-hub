@@ -18,6 +18,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/grandpaul2/mt-hub/internal/chat"
 	"github.com/grandpaul2/mt-hub/internal/workspace"
@@ -355,4 +356,44 @@ func (s *Server) deleteAttached(paths []string, a workspace.Author) {
 			log.Printf("delete %s: %v", p, err)
 		}
 	}
+}
+
+// sweepAge is how long a file posted in a chat may sit linked by no message before the sweep
+// takes it: long enough for a message that is still being written or sent.
+const sweepAge = 24 * time.Hour
+
+// sweepMediaLoop runs the sweep a few minutes after the hub starts, then daily.
+func (s *Server) sweepMediaLoop() {
+	time.Sleep(5 * time.Minute)
+	for {
+		s.sweepMedia(time.Now().Add(-sweepAge))
+		time.Sleep(24 * time.Hour)
+	}
+}
+
+// sweepMedia moves the files posted in chats that no message links, and that were last
+// written before the given time, to the trash (as "hub"). These are leftovers: an upload
+// whose message was never sent. It returns their link paths.
+func (s *Server) sweepMedia(before time.Time) []string {
+	cands := map[string]bool{}
+	for _, c := range s.chat.Channels() {
+		probe, err := s.chat.MediaFile(c.Name, "x")
+		if err != nil {
+			continue
+		}
+		files, _ := os.ReadDir(filepath.Dir(probe))
+		for _, f := range files {
+			info, err := f.Info()
+			if err != nil || !info.Mode().IsRegular() || !info.ModTime().Before(before) {
+				continue
+			}
+			cands[attachPath(c.Name, f.Name())] = true
+		}
+	}
+	gone := s.unlinked(cands, func(chat.Message) bool { return false })
+	s.deleteAttached(gone, workspace.Author{Name: "hub"})
+	if len(gone) > 0 {
+		log.Printf("chat files: %d linked by no message moved to the trash: %s", len(gone), strings.Join(gone, ", "))
+	}
+	return gone
 }

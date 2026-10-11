@@ -46,6 +46,13 @@ chat and voice. The style guide records the decision.
   silent, and phones pause background tabs. Real push notifications would be a separate,
   bigger job.
 - **Emoji skin tones and custom emoji.**
+- **A message that mentions you is tinted** (Discord tints the whole row; the hub highlights
+  only the `@name`).
+- **Formatting keys in the message box:** Ctrl+B, Ctrl+I and Ctrl+U on selected text.
+- **A sent message shows at once,** greyed until the hub answers and red with Retry if it
+  fails. Today it appears when the hub answers; a failure is a toast and the text goes back
+  in the box.
+- **Rename a waiting file, or mark it a spoiler,** before sending (Discord's cards have both).
 - **Read markers are per browser,** so two accounts in one browser share them.
 - **Both chat panes can show the same chat at once.**
 - **The name box shows a special-folder icon while you type a new name.**
@@ -92,7 +99,8 @@ features. Items 1 to 5, 10, 12, 13 and 15 are built; the rest are in the list ab
 - reply (click the quote to jump), forward, edit (↑ edits your last message), delete (Shift
   skips the question), reactions, pins, Copy Link to a message, "(edited)" with the time;
 - the full date on hovering a time, day dividers, grouped messages;
-- paste, drop or upload pictures, video and sound; link previews (YouTube, images, pages);
+- paste, drop or upload any file, waiting as cards in the message box until the message is
+  sent; link previews (YouTube, images, pages);
 - `#path` links to files; @mention highlights; Twemoji;
 - unread dots per chat, Mark as read, and the unread count in the tab title;
 - older messages load as you scroll up; search with `in:`, `from:`, `mentions:` and `has:`;

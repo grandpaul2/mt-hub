@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/grandpaul2/mt-hub/internal/auth"
 	"github.com/grandpaul2/mt-hub/internal/chat"
@@ -33,7 +34,8 @@ func TestAttachments(t *testing.T) {
 		us.SetPassword(n, n+"-password")
 	}
 	us.Change("Paul", func(u *auth.User) { u.Admin = true })
-	srv := httptest.NewServer(New(us, ws, cs, ls, filepath.Join(dir, "thumbs"), fstest.MapFS{}, nil))
+	hub := New(us, ws, cs, ls, filepath.Join(dir, "thumbs"), fstest.MapFS{}, nil)
+	srv := httptest.NewServer(hub)
 	defer srv.Close()
 	cookie := map[string]string{}
 	for _, n := range []string{"Paul", "Steve", "Eve"} {
@@ -205,6 +207,42 @@ func TestAttachments(t *testing.T) {
 	if log, _ := os.ReadFile(filepath.Join(dir, "trash", "log.jsonl")); !strings.Contains(string(log), "chat/farms/media/once.txt") {
 		t.Errorf("trash log: %s", log)
 	}
+
+	// An edit that takes a file out of the message trashes it, unless something else links it.
+	for _, n := range []string{"a.txt", "b.txt", "c.txt"} {
+		call("Steve", "POST", "/api/channels/farms/media?name="+n, n)
+	}
+	both := post("Steve", "farms", "words #media/farms/a.txt #media/farms/b.txt #media/farms/c.txt")
+	post("Eve", "farms", "again #media/farms/c.txt")
+	code, _ = call("Steve", "PATCH", "/api/channels/farms/messages/"+both.ID, `{"text":"words #media/farms/a.txt"}`)
+	want("edit a file out", code, 200)
+	code, _ = call("Steve", "GET", "/api/channels/farms/media/a.txt", "")
+	want("the file the edit kept", code, 200)
+	code, _ = call("Steve", "GET", "/api/channels/farms/media/b.txt", "")
+	want("the file the edit took out", code, 404)
+	code, _ = call("Steve", "GET", "/api/channels/farms/media/c.txt", "")
+	want("taken out, but Eve's message links it", code, 200)
+	if log, _ := os.ReadFile(filepath.Join(dir, "trash", "log.jsonl")); !strings.Contains(string(log), "chat/farms/media/b.txt") {
+		t.Errorf("trash log after the edit: %s", log)
+	}
+
+	// The sweep: a file no message links goes to the trash once it's a day old.
+	old := time.Now().Add(-2 * sweepAge)
+	for _, n := range []string{"left.txt", "fresh.txt"} {
+		call("Steve", "POST", "/api/channels/farms/media?name="+n, n)
+	}
+	for _, n := range []string{"left.txt", "a.txt", "c.txt"} {
+		os.Chtimes(filepath.Join(dir, "chat", "farms", "media", n), old, old)
+	}
+	if got := hub.sweepMedia(time.Now().Add(-sweepAge)); len(got) != 1 || got[0] != "media/farms/left.txt" {
+		t.Errorf("swept: %v, want only media/farms/left.txt", got)
+	}
+	code, _ = call("Steve", "GET", "/api/channels/farms/media/left.txt", "")
+	want("old and linked by nothing", code, 404)
+	code, _ = call("Steve", "GET", "/api/channels/farms/media/fresh.txt", "")
+	want("linked by nothing, but new", code, 200)
+	code, _ = call("Steve", "GET", "/api/channels/farms/media/a.txt", "")
+	want("old, but linked", code, 200)
 }
 
 func jsonString(s string) string {

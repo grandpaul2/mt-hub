@@ -127,6 +127,7 @@ func New(us *auth.Store, ws *workspace.Workspace, cs *chat.Store, ls *preview.St
 	s.mux.HandleFunc("GET /api/preview/img/{id}", s.previewImage)
 
 	go s.watchFiles()
+	go s.sweepMediaLoop()
 
 	s.mux.Handle("GET /", staticFiles(static, etags))
 	return s

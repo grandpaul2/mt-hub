@@ -227,3 +227,10 @@ export function stripMarkdown(text: string): string {
 export function withoutCode(text: string): string {
   return text.replace(FENCE, ' ').replace(/``[^`]+?``|`[^`\n]+`/g, ' ');
 }
+
+// maskCode is the text with its code blanked out, at the same length: for finding links by
+// their place in the text while leaving code alone.
+export function maskCode(text: string): string {
+  const blank = (m: string) => ' '.repeat(m.length);
+  return text.replace(FENCE, blank).replace(/``[^`]+?``|`[^`\n]+`/g, blank);
+}

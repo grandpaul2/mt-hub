@@ -192,8 +192,10 @@ func (s *Server) edit(w http.ResponseWriter, r *http.Request) {
 	}
 	name, id := r.PathValue("name"), r.PathValue("id")
 	text := req.Text
+	had := map[string]bool{} // this chat's files the message linked before the edit
 	if old, err := s.chat.Get(name, id); err == nil && old.User == s.author(r).Name {
 		text = s.copyLinked(r, text, name) // only for an edit that will go through
+		had = s.ownMedia(old)
 	}
 	m, err := s.chat.Edit(name, id, s.author(r).Name, text)
 	if err != nil {
@@ -201,6 +203,8 @@ func (s *Server) edit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.publishChat("edit", m.Channel, m)
+	// A file the edit took out of the message, and that nothing else links, goes to the trash.
+	s.deleteAttached(s.unlinked(had, func(chat.Message) bool { return false }), s.author(r))
 	writeJSON(w, http.StatusOK, m)
 }
 
@@ -239,6 +243,11 @@ func (s *Server) orphanMedia(name, id string) []string {
 	if err != nil {
 		return nil
 	}
+	return s.unlinked(s.ownMedia(m), func(o chat.Message) bool { return o.Channel == name && o.ID == id })
+}
+
+// ownMedia is the files posted in a message's own chat that it links (link paths).
+func (s *Server) ownMedia(m chat.Message) map[string]bool {
 	moves, _ := s.ws.Moves()
 	mine := map[string]bool{}
 	for _, p := range s.linkPaths(messageText(m), moves) {
@@ -250,7 +259,7 @@ func (s *Server) orphanMedia(name, id string) []string {
 			}
 		}
 	}
-	return s.unlinked(mine, func(o chat.Message) bool { return o.Channel == name && o.ID == id })
+	return mine
 }
 
 // unlinked is the paths in cands that no message links, skipping the messages skip picks;

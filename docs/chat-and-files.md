@@ -19,8 +19,12 @@ are in [`style-guide.md`](style-guide.md).
   folder, or a card from the Manager onto a chat to insert its link.
 - **Files posted in chat:** anything dropped or pasted on a chat (or picked with its +
   button), up to 50 MB, is kept with the chat (`<data>/chat/<chat>/media/`, outside Files and
-  its history) and linked in the message box as `#media/<chat>/<file>`. Only people who can
-  see the chat can fetch it. Pictures, videos and sounds show as previews under the message
+  its history). It waits in the message box as a card and is uploaded when the message is
+  sent; the stored message links it as `#media/<chat>/<file>`, which the page adds on send
+  and hides wherever it shows the message's words (`splitFiles` / `joinFiles` in `chat.ts`).
+  Only people who can see the chat can fetch it. A file no message links (an upload whose
+  message never went) is moved to the trash by a daily sweep once it is a day old
+  (`sweepMedia`), and so is a file an edit takes out of its last message. Pictures, videos and sounds show as previews under the message
   (pictures as thumbnails), anything else as a file card (name, size, Download), instead of
   as links. A file over 50 MB is offered a place in `large/` instead. **Save to Files…**
   (message toolbar and menu, the viewer, the chat's file list) copies one into a Files

@@ -4,7 +4,7 @@
 // live event stream are shared.
 import { parse as findEmoji } from '@twemoji/parser';
 import { openViewer, type ViewItem } from './viewer';
-import { renderMarkdown, stripMarkdown, withoutCode } from './markdown';
+import { maskCode, renderMarkdown, stripMarkdown, withoutCode } from './markdown';
 import { emojiImg, emojiPicker as pickerContent } from './emoji';
 import { autocomplete } from './autocomplete';
 import { commandIn, type Command } from './commands';
@@ -102,6 +102,7 @@ class ChatView {
   readonly items = h('div', { class: 'messages-items' }); // inside list: its height is the content's
   readonly compose = h('textarea', { class: 'compose', rows: 1, maxLength: 4000 });
   readonly replyBar = h('div', { class: 'reply-bar', hidden: true });
+  readonly tray = h('div', { class: 'pend-tray', hidden: true }); // files waiting to go with the message
   readonly picker = h('input', { type: 'file', multiple: true, hidden: true });
   readonly jump = h('button', { class: 'jump', hidden: true, innerHTML: 'Jump to present ' + ICON.down });
   readonly note = h('div', { class: 'chat-privacy', hidden: true }); // who can see a private chat or DM
@@ -132,8 +133,9 @@ class ChatView {
         this.keepDraft();
       }, smile);
     };
-    root.append(this.note, h('div', { class: 'messages-wrap' }, this.list, this.jump), h('div', { class: 'composer' }, this.replyBar, h('div', { class: 'compose-row' }, attach, this.compose, smile), this.picker));
+    root.append(this.note, h('div', { class: 'messages-wrap' }, this.list, this.jump), h('div', { class: 'composer' }, this.replyBar, this.tray, h('div', { class: 'compose-row' }, attach, this.compose, smile), this.picker));
     this.compose.value = drafts[this.channel] ?? '';
+    this.drawTray();
 
     const c = this.compose;
     const ac = autocomplete(c, mentionNames, true);
@@ -197,15 +199,17 @@ class ChatView {
     };
   }
 
-  // attach posts files in this chat (kept with it, any kind) and links them in the box.
-  // Chat takes up to 50 MB a file; one question offers to put bigger ones in Files instead.
+  // attach puts files in the box's tray, to be posted in this chat (kept with it, any kind)
+  // when the message is sent. Chat takes up to 50 MB a file; one question offers to put
+  // bigger ones in Files instead, linked in the text.
   async attach(files: File[]) {
     // A "]" would end the #[...] link early (and line breaks aren't allowed in names).
     files = files.map((f) => (/[\]\p{Cc}]/u.test(f.name) ? new File([f], f.name.replace(/[\]\p{Cc}]/gu, '_'), { type: f.type }) : f));
     const fits = files.filter((f) => f.size <= MAX_POSTED);
     const big = files.filter((f) => f.size > MAX_POSTED);
     const priv = !!info(this.channel)?.kind;
-    if (fits.length) this.link(await postFiles(fits, this.channel));
+    if (fits.length) addPending(this.channel, fits);
+    this.compose.focus();
     if (big.length) addToLarge(big, async () => this.link(await hooks.uploadInto(big, 'large')), priv);
   }
 
@@ -239,6 +243,7 @@ class ChatView {
     this.gone.clear();
     this.cancelReply();
     this.compose.value = drafts[name] ?? '';
+    this.drawTray();
     grow(this.compose);
     this.labels();
     return this.load();
@@ -339,34 +344,60 @@ class ChatView {
     }
   }
 
+  // drawTray shows this chat's waiting files above the box (see pending). While they upload
+  // the box is locked and the cards can't be removed.
+  drawTray() {
+    const list = pending[this.channel] ?? [];
+    const busy = sending.has(this.channel);
+    this.tray.hidden = !list.length;
+    this.tray.replaceChildren(...list.map((p) => pendCard(p, busy ? null : () => removePending(this.channel, p), busy ? null : () => this.send())));
+    this.compose.readOnly = busy;
+  }
+
+  // send posts the box's text and its waiting files as one message. The files go up first,
+  // each showing its progress; if one fails nothing is posted, and the text and files stay.
   async send() {
-    const text = this.compose.value.trim();
-    if (!text) return;
     const name = this.channel;
-    const cmd = commandIn(text);
+    if (sending.has(name)) return;
+    const typed = this.compose.value.trim();
+    const files = pending[name] ?? [];
+    if (!typed && !files.length) return;
+    const cmd = files.length ? null : commandIn(typed);
     if (cmd) {
       this.compose.value = '';
       setDraft(name, '');
       grow(this.compose);
       return this.run(cmd);
     }
+    if (files.length && !await uploadPending(name, files)) return;
+    const text = joinFiles(typed, files.map((p) => p.path!));
     const reply = this.replyTo;
     // Empty the box at once, so a second Enter before the answer can't send it again.
-    this.compose.value = '';
+    const here = () => this.channel === name; // the pane may have moved on during the upload
+    if (here()) {
+      this.compose.value = '';
+      this.cancelReply();
+      grow(this.compose);
+    }
     setDraft(name, '');
-    this.cancelReply();
-    grow(this.compose);
+    delete pending[name];
+    drawTrays();
     const r = await req('POST', `/api/channels/${name}/messages`, JSON.stringify({ text, reply_to: reply?.id ?? '' }));
     if (!r.ok) {
       toastError(`Couldn’t send it: ${(await r.json().catch(() => ({}))).error ?? r.status}.`);
-      // Give it back, unless they've moved on (another chat, or typing something new).
-      setDraft(name, text);
-      if (this.channel === name && !this.compose.value) {
-        this.compose.value = text;
+      // Give it back, unless they've moved on (another chat, or typing something new). The
+      // files are up already, so sending again doesn't upload them twice.
+      setDraft(name, typed);
+      pending[name] = [...files, ...(pending[name] ?? [])];
+      drawTrays();
+      if (here() && !this.compose.value) {
+        this.compose.value = typed;
         if (reply) this.startReply(reply);
         grow(this.compose);
       }
+      return;
     }
+    for (const p of files) if (p.url) URL.revokeObjectURL(p.url);
     // The message itself arrives over the event stream, like everyone else's.
   }
 
@@ -578,7 +609,8 @@ class ChatView {
       btn('reply', 'Reply', () => this.startReply(m)),
       btn('forward', 'Forward', () => forwardDialog(m)));
     if (mine && m.text) box.append(btn('edit', 'Edit', () => this.startEdit(m.id)));
-    box.append(btn('copy', 'Copy text', () => copyText(m.text || m.fwd?.text || '')));
+    const words = splitFiles(m.text, m.channel).words || m.fwd?.text || '';
+    if (words) box.append(btn('copy', 'Copy text', () => copyText(words)));
     if (mine || canModerate(m.channel)) box.append(btn('trash', 'Delete (Shift+click: no question)', (_, e) => deleteMessage(m, e.shiftKey), 'danger'));
     const { posted, inFiles } = linkedFiles(m);
     if (posted.length) box.append(btn('save', 'Save to Files…', () => saveToFiles(posted)));
@@ -602,8 +634,10 @@ class ChatView {
     const { posted, inFiles } = linkedFiles(m);
     if (posted.length) items.push(['Save to Files…', () => saveToFiles(posted)]);
     if (inFiles.length) items.push(['Open Folder', () => hooks.revealMedia(inFiles[0])]);
-    items.push(null, ['Copy Text', () => copyText(m.text || m.fwd?.text || '')],
-      ['Copy Link', () => copyText(`${location.origin}/#chan=${m.channel}&msg=${m.id}`)]);
+    const words = splitFiles(m.text, m.channel).words || m.fwd?.text || '';
+    items.push(null);
+    if (words) items.push(['Copy Text', () => copyText(words)]);
+    items.push(['Copy Link', () => copyText(`${location.origin}/#chan=${m.channel}&msg=${m.id}`)]);
     if (canPin(m.channel)) items.push(m.pinned ? ['Unpin Message', () => setPinned(m, false)] : ['Pin Message', () => setPinned(m, true)]);
     if (mine || canModerate(m.channel)) items.push(null, ['Delete', () => deleteMessage(m, false)]);
     return items;
@@ -686,16 +720,26 @@ class ChatView {
     }
   }
 
+  // editBox edits a message's words. Its files aren't text here (as in Discord): they're
+  // cards under the box, each with an x that takes it out of the message on Save.
   editBox(m: Message) {
-    const box = h('textarea', { value: m.text, rows: 1, maxLength: 4000 });
+    const { words, files } = splitFiles(m.text, m.channel);
+    const kept = new Set(files);
+    const box = h('textarea', { value: words, rows: 1, maxLength: 4000 });
     const done = () => {
       this.editing = null;
       this.render();
       this.compose.focus();
     };
     const save = async () => {
-      const text = box.value.trim();
-      if (text === m.text) return done();
+      const typed = box.value.trim();
+      const keep = files.filter((f) => kept.has(f));
+      if (typed === words && keep.length === files.length) return done();
+      if (!typed && !keep.length && !m.fwd) { // nothing left: Discord asks to delete it instead
+        done();
+        return deleteMessage(m, false);
+      }
+      const text = joinFiles(typed, keep);
       const r = await req('PATCH', `/api/channels/${m.channel}/messages/${m.id}`, JSON.stringify({ text }));
       if (!r.ok) {
         toastError(`Couldn’t save it: ${(await r.json().catch(() => ({}))).error ?? r.status}.`);
@@ -730,7 +774,16 @@ class ChatView {
     enterKey.onclick = save;
     const escKey = h('button', { class: 'key', type: 'button', title: 'Cancel' }, 'Esc');
     escKey.onclick = done;
-    return h('div', { class: 'msg-edit' }, box,
+    const cards = h('div', { class: 'pend-tray edit-files', hidden: !files.length }, ...files.map((f) => {
+      const card = sentCard(f, () => {
+        kept.delete(f);
+        card.remove();
+        cards.hidden = !kept.size;
+        box.focus();
+      });
+      return card;
+    }));
+    return h('div', { class: 'msg-edit' }, box, cards,
       h('div', { class: 'hint' }, enterKey, ' to save · ', escKey, ' to cancel'),
       saveBtn, cancel);
   }
@@ -974,29 +1027,156 @@ const canPin = (name: string) => isAdmin(user.name) || info(name)?.kind === 'dm'
 // MAX_POSTED is the biggest file chat takes (bigger ones go in Files, in large/).
 const MAX_POSTED = 50 << 20;
 
-// postFiles posts files in a chat, kept with it (not in Files). A pasted picture (always
-// image.png) is named after the time and who posted it. Returns the paths to link.
-async function postFiles(files: File[], name: string): Promise<string[]> {
-  const out: string[] = [];
-  for (const f of files) {
-    const file = /^image\.\w+$/.test(f.name) ? hooks.stampName(f) : f.name;
-    let r;
-    try {
-      r = await hooks.send(`/api/channels/${enc(name)}/media?name=${encodeURIComponent(file)}`, f,
-        (x) => toast(`Uploading ${file}: ${Math.floor(x * 100)}% of ${bytes(f.size)}`, 0));
-    } catch (e) {
-      toastError(`Couldn’t upload ${file}: ${(e as Error).message}.`);
-      break;
-    }
-    if (r.status !== 200) {
-      toastError(`Couldn’t upload ${file}: ${r.body?.error ?? r.status}.`);
-      break;
-    }
-    out.push(r.body.path);
+// ---- files in the message box ----
+
+// pending is the files waiting in each chat's message box: added by paste, drop or the +
+// button, shown as cards above the text, and posted in the chat (kept with it, not in Files)
+// only when the message is sent. Until then a file is just the browser's handle on it, so
+// nothing is on the hub to clean up if it's removed, and a reload forgets it (as in Discord).
+type Pend = {
+  id: number; file: File; name: string;
+  url: string | null; // the browser's own preview of a picture or video
+  state: 'ready' | 'up' | 'done' | 'failed'; frac: number;
+  path?: string; // once it's up: the path to link
+  error?: string;
+};
+const pending: Record<string, Pend[]> = {};
+const sending = new Set<string>(); // chats whose files are going up now
+const MAX_FILES = 10; // a message's files, as in Discord
+let pendIds = 0;
+
+const drawTrays = () => { for (const v of [side, main]) v?.drawTray(); };
+
+// addPending puts files in a chat's tray. A pasted picture (always image.png) is named after
+// the time and who posted it.
+function addPending(name: string, files: File[]) {
+  const list = pending[name] ??= [];
+  const room = MAX_FILES - list.length;
+  if (files.length > room) toastError(`A message takes up to ${MAX_FILES} files.`);
+  for (const f of files.slice(0, Math.max(0, room))) {
+    const fname = /^image\.\w+$/.test(f.name) ? hooks.stampName(f) : f.name;
+    list.push({ id: ++pendIds, file: f, name: fname, state: 'ready', frac: 0,
+      url: IMAGE_EXT.test(fname) || VIDEO_EXT.test(fname) ? URL.createObjectURL(f) : null });
   }
-  if (out.length) toast(`Uploaded ${out.length} file${out.length > 1 ? 's' : ''}`);
-  return out;
+  if (!list.length) delete pending[name];
+  drawTrays();
 }
+
+function removePending(name: string, p: Pend) {
+  const list = (pending[name] ?? []).filter((x) => x !== p);
+  if (list.length) pending[name] = list;
+  else delete pending[name];
+  if (p.url) URL.revokeObjectURL(p.url);
+  drawTrays();
+}
+
+// uploadPending posts a chat's waiting files in it, one after another, each card showing how
+// far it is. False if any failed: those turn red, and nothing should be sent yet.
+async function uploadPending(name: string, files: Pend[]): Promise<boolean> {
+  sending.add(name);
+  for (const p of files) {
+    if (p.state === 'done') continue;
+    p.state = 'up';
+    p.frac = 0;
+    delete p.error;
+    drawTrays();
+    try {
+      const r = await hooks.send(`/api/channels/${enc(name)}/media?name=${encodeURIComponent(p.name)}`, p.file, (x) => {
+        p.frac = x;
+        for (const el of document.querySelectorAll<HTMLElement>(`.pend[data-pend="${p.id}"]`)) {
+          el.querySelector<HTMLElement>('.pend-bar i')!.style.width = `${Math.floor(x * 100)}%`;
+          el.querySelector('.pend-note')!.textContent = pendNote(p);
+        }
+      });
+      if (r.status === 200) {
+        p.state = 'done';
+        p.path = r.body.path;
+      } else {
+        p.state = 'failed';
+        p.error = String(r.body?.error ?? r.status);
+      }
+    } catch (e) {
+      p.state = 'failed';
+      p.error = (e as Error).message;
+    }
+  }
+  sending.delete(name);
+  drawTrays();
+  return files.every((p) => p.state === 'done');
+}
+
+const pendNote = (p: Pend) => p.state === 'up' ? `Uploading ${Math.floor(p.frac * 100)}%`
+  : p.state === 'failed' ? `Couldn’t upload: ${p.error}` : bytes(p.file.size);
+
+// fileChip is one file's card in a tray: its picture (or icon), its name, a line under it,
+// and its buttons in the top right corner.
+function fileChip(cls: string, media: HTMLElement, name: string, note: string, tools: HTMLElement[]) {
+  return h('div', { class: 'pend ' + cls, title: name }, h('div', { class: 'pend-thumb' }, media),
+    h('div', { class: 'pend-name' }, name), h('div', { class: 'pend-note' }, note),
+    h('div', { class: 'pend-bar' }, h('i')), h('div', { class: 'pend-tools' }, ...tools));
+}
+
+const fileIcon = (name: string) => h('img', { class: 'icon', src: iconURL(name, false, false), alt: '', draggable: false });
+
+// pendCard is a waiting file's card. remove and retry are null while files are going up.
+function pendCard(p: Pend, remove: (() => void) | null, retry: (() => void) | null) {
+  const media = p.url && IMAGE_EXT.test(p.name) ? h('img', { src: p.url, alt: '', draggable: false })
+    : p.url ? h('video', { src: p.url + '#t=0.1', preload: 'metadata', muted: true })
+    : fileIcon(p.name);
+  const tools: HTMLElement[] = [];
+  if (retry && p.state === 'failed') {
+    const again = h('button', { class: 'tool', title: 'Try again', innerHTML: ICON.retry });
+    again.onclick = retry;
+    tools.push(again);
+  }
+  if (remove) {
+    const x = h('button', { class: 'tool danger', title: 'Remove file', innerHTML: ICON.close });
+    x.onclick = remove;
+    tools.push(x);
+  }
+  const el = fileChip(p.state, media, p.name, pendNote(p), tools);
+  el.dataset.pend = String(p.id);
+  el.querySelector<HTMLElement>('.pend-bar i')!.style.width = `${Math.floor(p.frac * 100)}%`;
+  return el;
+}
+
+// sentCard is the card of a file a message already has (its link path), for the edit box.
+function sentCard(path: string, remove: () => void) {
+  const a = attachment(path)!;
+  const media = IMAGE_EXT.test(a.file)
+    ? thumbOr(h('img', { src: /\.gif$/i.test(a.file) ? attachURL(a) : `/api/channels/${enc(a.chat)}/thumb/${encodeURIComponent(a.file)}`, alt: '', draggable: false }), attachURL(a), () => fileIcon(a.file))
+    : fileIcon(a.file);
+  const x = h('button', { class: 'tool danger', title: 'Remove file', innerHTML: ICON.close });
+  x.onclick = remove;
+  return fileChip('done', media, a.file, '', [x]);
+}
+
+// A message is stored as text, and the files posted with it are #media/<chat>/<file> links in
+// that text. People never see or type those: splitFiles takes a message apart into its words
+// and its files (link paths, as they are now), and joinFiles puts one together. Links inside
+// code are left as text.
+function splitFiles(text: string, chat: string): { words: string; files: string[] } {
+  const own = resolveChannel(chat) ?? chat;
+  const files: string[] = [];
+  let words = '';
+  let last = 0;
+  for (const m of maskCode(text).matchAll(TOKEN)) {
+    const written = m[2] ?? m[3];
+    const path = written === undefined ? null : resolveRef(written);
+    if (!path || attachment(path)?.chat !== own) continue;
+    // The link goes, with the space before it (or after it, at the start of a line).
+    let from = m.index!;
+    let to = from + m[0].length;
+    if (from > last && /[ \t]/.test(text[from - 1])) from--;
+    else if (/[ \t]/.test(text[to] ?? '')) to++;
+    words += text.slice(last, from);
+    last = to;
+    if (!files.includes(path)) files.push(path);
+  }
+  return { words: (words + text.slice(last)).trim(), files };
+}
+
+const joinFiles = (words: string, files: string[]) => [words, files.map(pathRef).join(' ')].filter(Boolean).join(' ');
 
 // attachment: a link to a file posted in a chat (media/<chat>/<file>, following renames),
 // with the chat as it's named now and the file. null for anything else.
@@ -2098,6 +2278,7 @@ export const ICON = {
   more: svg('<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>'),
   pin: svg('<line x1="12" x2="12" y1="17" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>'),
   close: svg('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>'),
+  retry: svg('<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>'),
   link: svg('<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'),
   eye: svg('<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/>'),
   down: svg('<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>'),

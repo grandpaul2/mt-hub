@@ -105,6 +105,8 @@ Up / Move Down (`<data>/chat/order.json`). DMs come last, the most recent messag
   carry what you can see.
 - **Files posted** in a chat are kept with it (`<data>/chat/<chat>/media/`), outside Files,
   and served only to its people (see "Files posted in chat" in
-  [`chat-and-files.md`](chat-and-files.md)).
+  [`chat-and-files.md`](chat-and-files.md)). One that no message links goes to the trash
+  after a day: the hub checks a few minutes after it starts and then daily, and logs what
+  it moved.
 - **Private means private from other players:** the hub stores everything as plain files,
   so whoever runs it can read them all.
