@@ -29,7 +29,8 @@ const SITE = `http://127.0.0.1:${proxy.address().port}`;
 await send('Page.navigate', { url: `${SITE}/#chan=general` });
 await settle(2500);
 const line = () => ev(`!document.getElementById('offline').hidden`);
-const lastText = () => ev(`[...document.querySelectorAll('.msg .msg-body')].at(-1)?.textContent`);
+// The newest message the hub has (one of yours still waiting to be sent sits after it).
+const lastText = () => ev(`[...document.querySelectorAll('.msg:not(.unsent) .msg-body')].at(-1)?.textContent`);
 check('no connection line while the hub is there', await line(), false);
 await api('POST', '/api/channels/general/messages', { text: 'live before' });
 await settle(1500);
@@ -46,8 +47,9 @@ await ev(`document.querySelector('#chat-body .compose, #main-chat-body .compose'
 await typeText('sent while away');
 await key('Enter');
 await settle(500);
-check('the send says why it failed', await ev(`document.getElementById('toast').textContent`), 'Couldn’t send it: can’t reach the hub.');
-check('the text stays in the box', await ev(`document.querySelector('#chat-body .compose, #main-chat-body .compose').value`), 'sent while away');
+check('the message stays in the feed and says why it failed', await ev(`(() => { const m = document.querySelector('.msg.unsent.failed'); return [m?.querySelector('.msg-body').textContent, m?.querySelector('.send-failed').textContent]; })()`),
+  ['sent while away', 'Couldn’t send it: can’t reach the hub. Retry · Delete']);
+check('the box is empty', await ev(`document.querySelector('#chat-body .compose, #main-chat-body .compose').value`), '');
 
 // Back again: the line goes, and the page is live again without a reload.
 down = false;
@@ -57,6 +59,10 @@ check('the line goes when the hub is back', await line(), false);
 await api('POST', '/api/channels/general/messages', { text: 'live after the restart' });
 await settle(1500);
 check('live updates came back', await lastText(), 'live after the restart');
+// Retry sends the message that failed while the hub was away.
+await ev(`[...document.querySelectorAll('.msg.unsent.failed .send-failed .key')].find((b) => b.textContent === 'Retry').click()`);
+await settle(1200);
+check('Retry sends it', await ev(`[document.querySelectorAll('.msg.unsent').length, [...document.querySelectorAll('.msg .msg-body')].filter((b) => b.textContent === 'sent while away').length > 0]`), [0, true]);
 
 proxy.close();
 await done();

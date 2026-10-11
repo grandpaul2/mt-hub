@@ -46,9 +46,6 @@ chat and voice. The style guide records the decision.
   silent, and phones pause background tabs. Real push notifications would be a separate,
   bigger job.
 - **Emoji skin tones and custom emoji.**
-- **A sent message shows at once,** greyed until the hub answers and red with Retry if it
-  fails. Today it appears when the hub answers; a failure is a toast and the text goes back
-  in the box.
 - **Rename a waiting file, or mark it a spoiler,** before sending (Discord's cards have both).
 - **Read markers are per browser,** so two accounts in one browser share them.
 - **Both chat panes can show the same chat at once.**

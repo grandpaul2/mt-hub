@@ -496,6 +496,13 @@ button.glyph { padding: 3px 6px; }
 #chat .msg { --gutter: 48px; }
 #chat .msg > .msg-head .when, #chat .msg > .when.side { text-align: left; }
 .msg:hover { background: var(--hover); }
+/* Your message on its way to the hub: greyed until it's confirmed (Discord). One that failed
+   is in the error colour, with a line under it to try again or drop it. */
+.msg.unsent > .msg-body, .msg.unsent > .refs, .msg.unsent > .embeds { opacity: .5; }
+.msg.unsent.failed > .msg-body { opacity: 1; color: var(--danger); }
+.send-failed { font-size: 12px; color: var(--danger); }
+.send-failed .key { padding: 0; background: none; border: 0; color: var(--link); font: inherit; cursor: pointer; }
+.send-failed .key:hover { text-decoration: underline; }
 /* A message that mentions you or answers yours (Discord tints these gold; here it's the
    mention colour, so gold keeps its own meanings): a faint wash and a line down the left. */
 .msg.mentions-me { background: var(--mention-row); box-shadow: inset 2px 0 0 var(--mention); }

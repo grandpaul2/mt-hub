@@ -17,6 +17,9 @@ are in [`style-guide.md`](style-guide.md).
   A link to a schematic post's folder (`#[schematics/<title>]`) shows as the post's card and
   opens it in the Schematic Manager. Drag a file or folder from the tree, a tile from a
   folder, or a card from the Manager onto a chat to insert its link.
+- **Sending:** the page draws your message at once and posts it with a `nonce`; the hub puts
+  the nonce on the message it answers with and on the live event (it is never stored), so
+  whichever arrives first replaces the waiting copy (`unsent` and `deliver` in `chat.ts`).
 - **Files posted in chat:** anything dropped or pasted on a chat (or picked with its +
   button), up to 50 MB, is kept with the chat (`<data>/chat/<chat>/media/`, outside Files and
   its history). It waits in the message box as a card and is uploaded when the message is

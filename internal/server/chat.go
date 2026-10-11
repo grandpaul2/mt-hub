@@ -138,12 +138,15 @@ func (s *Server) messages(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, msgs)
 }
 
-// post: {"text": "...", "reply_to": "<id>", "forward": {"channel": "...", "id": "..."}};
-// all but text optional, and a forward needs no text.
+// post: {"text": "...", "reply_to": "<id>", "forward": {"channel": "...", "id": "..."},
+// "nonce": "..."}; all but text optional, and a forward needs no text. A nonce (at most 64
+// characters) comes back on the message, in the answer and the live event, so the page can
+// tell which of its waiting messages this is.
 func (s *Server) post(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Text    string
 		ReplyTo string `json:"reply_to"`
+		Nonce   string
 		Forward *struct{ Channel, ID string }
 	}
 	if !readJSON(w, r, &req) {
@@ -175,6 +178,9 @@ func (s *Server) post(w http.ResponseWriter, r *http.Request) {
 	s.sendMu.Lock()
 	m, err := s.chat.Send(r.PathValue("name"), s.author(r).Name, d)
 	if err == nil {
+		if len(req.Nonce) <= 64 {
+			m.Nonce = req.Nonce
+		}
 		s.publishChat("message", m.Channel, m)
 	}
 	s.sendMu.Unlock()

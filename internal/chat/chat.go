@@ -96,6 +96,9 @@ type Message struct {
 	Reactions []Reaction `json:"reactions,omitempty"` // in the order they were first added
 	Pinned    *Pin       `json:"pinned,omitempty"`
 	Via       string     `json:"via,omitempty"` // said in game on this server (its tag, "SMP"): the server link
+	// Nonce is the sender's own tag for a message it is waiting to see confirmed. It goes
+	// out once, with the answer and the live event, and is never stored.
+	Nonce string `json:"nonce,omitempty"`
 }
 
 // Quote is the start of a replied-to message, or Deleted if it's gone.
