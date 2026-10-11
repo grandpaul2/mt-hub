@@ -31,6 +31,8 @@
   --warn: #5a4a14;
   --mention: #5865f2;
   --mention-tint: rgba(88, 101, 242, .25);
+  --mention-row: rgba(88, 101, 242, .08); /* the row of a message that mentions you */
+  --mention-row-hi: rgba(88, 101, 242, .13);
   --mention-text: #c9cdfb;
   --flash: rgba(250, 200, 60, .25);
   /* admin tag colours (TAG_COLOURS in util.ts, server TagColours): admins pick one; the
@@ -494,6 +496,10 @@ button.glyph { padding: 3px 6px; }
 #chat .msg { --gutter: 48px; }
 #chat .msg > .msg-head .when, #chat .msg > .when.side { text-align: left; }
 .msg:hover { background: var(--hover); }
+/* A message that mentions you or answers yours (Discord tints these gold; here it's the
+   mention colour, so gold keeps its own meanings): a faint wash and a line down the left. */
+.msg.mentions-me { background: var(--mention-row); box-shadow: inset 2px 0 0 var(--mention); }
+.msg.mentions-me:hover { background: var(--mention-row-hi); }
 .msg-head { display: flex; gap: 8px; align-items: baseline; }
 .msg-head .who { font-weight: 600; color: var(--chat-name); }
 .msg-head .tag.op { align-self: center; margin-left: -2px; }

@@ -527,9 +527,9 @@ class ChatView {
 
   renderMessage(m: Message, grouped: boolean) {
     const t = new Date(m.t);
-    const el = h('div', { class: 'msg' + (grouped ? ' grouped' : '') + (m.pinned ? ' pinned' : '') });
-    el.dataset.id = m.id;
     const q = this.quote(m);
+    const el = h('div', { class: 'msg' + (grouped ? ' grouped' : '') + (m.pinned ? ' pinned' : '') + (mentionsMe(m, q) ? ' mentions-me' : '') });
+    el.dataset.id = m.id;
     if (q) el.append(this.quoteLine(m, q));
     // The time sits in a gutter left of the name; a grouped message shows its own there on hover.
     const when = h('span', { class: 'when', title: fullDate(t) }, time(t));
@@ -2206,13 +2206,15 @@ function renderLinks(text: string): Node[] {
   return out;
 }
 
+const MENTION = /(^|[^\w@])@(everyone|here|[A-Za-z0-9_-]{1,32})\b/g;
+
 // emojify is plain text with mentions of people highlighted (@name, for anyone who has
 // posted, and @everyone/@here) and emoji drawn as images. There are no notifications: the
 // highlight just makes them stand out, as in Discord.
 function emojify(text: string): Node[] {
   const out: Node[] = [];
   let last = 0;
-  for (const m of text.matchAll(/(^|[^\w@])@(everyone|here|[A-Za-z0-9_-]{1,32})\b/g)) {
+  for (const m of text.matchAll(MENTION)) {
     const name = m[2];
     if (name !== 'everyone' && name !== 'here' && !knownNames.has(name.toLowerCase())) continue;
     const at = m.index! + m[1].length;
@@ -2221,6 +2223,20 @@ function emojify(text: string): Node[] {
   }
   out.push(...emojiOnly(text.slice(last)));
   return out;
+}
+
+// mentionsMe: someone else's message that names you (@you, @everyone, @here; not in code) or
+// answers one of yours. Its whole row is tinted, as in Discord; there are no notifications,
+// so the tint is how you see it was meant for you.
+function mentionsMe(m: Message, q: Quote | null): boolean {
+  if (m.user === user.name) return false;
+  if (q?.user === user.name) return true;
+  const me = user.name.toLowerCase();
+  for (const x of withoutCode(m.text).matchAll(MENTION)) {
+    const name = x[2].toLowerCase();
+    if (name === me || name === 'everyone' || name === 'here') return true;
+  }
+  return false;
 }
 
 // mentionNames is who @ suggests: every account, then anyone else who has posted in a chat

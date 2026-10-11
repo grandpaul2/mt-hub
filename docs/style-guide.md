@@ -138,6 +138,7 @@ nearest token, and the three reds and four blues become one role each.
 | `--logo-frame` | #929eae | the logo's frame |
 | `--logo-red` · `-hi` · `-lo` | #c8161a · #e0393c · #8e0d10 | the logo's red M: middle, top and bottom rows |
 | `--mention-tint` | rgba(88,101,242,.25) | mention pill, your reactions |
+| `--mention-row` `--mention-row-hi` | rgba(88,101,242,.08) / .13 | the row of a message that mentions you, and on hover |
 | `--mention-text` | #c9cdfb | mention pill text |
 | `--media-bg` | #000000 | behind videos and pictures |
 | `--scrim` / `--scrim-soft` | rgba(0,0,0,.86) / .65 | behind the viewer / behind dialogs |
@@ -423,6 +424,10 @@ separate dialogs.
   - **Hover toolbar:** top right.
   - **(edited):** with the time on hover.
   - **Replies:** the quote above the message; a click jumps to it.
+  - **A message meant for you** (it has `@you`, `@everyone` or `@here`, or it answers one of
+    yours) has its whole row tinted, `--mention-row` with a 2 px `--mention` line down the
+    left. Discord's is gold; the hub keeps gold for its own meanings, as with the NEW line.
+    Your own messages are never tinted.
   - **Markdown tables**: GitHub's look: hairline cells, a shaded header row, left
     aligned, every column but the last on one line, wide ones scroll sideways.
   - **Day divider**: a hairline across the feed with the day (Today, Yesterday,
