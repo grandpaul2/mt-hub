@@ -72,11 +72,11 @@ await ev(`document.querySelector('#main-chat .msg-edit textarea').value = 'saved
 await ev(`[...document.querySelectorAll('#main-chat .msg-edit .hint .key')].find((k) => k.textContent === 'Enter').click()`);
 await settle(500);
 check('clicking Enter saves', await ev(`!document.querySelector('#main-chat .msg-edit') && [...document.querySelectorAll('#main-chat .msg')].some((m) => m.textContent.includes('saved by a click'))`), true);
-// Pressing Enter on an empty edit: an error toast.
+// Saving an edit the hub refuses (over 4000 characters): an error toast.
 await ev(`document.querySelector('#main-chat .compose').focus()`);
 await key('ArrowUp');
 await settle(300);
-await ev(`(() => { const t = document.querySelector('#main-chat .msg-edit textarea'); t.value = '   '; t.focus(); })()`);
+await ev(`(() => { const t = document.querySelector('#main-chat .msg-edit textarea'); t.value = 'x'.repeat(4001); t.focus(); })()`);
 await key('Enter');
 await settle(500);
 check('error toast', await ev(`(() => { const t = document.getElementById('toast'); return [t.hidden, t.classList.contains('error'), t.textContent.startsWith('Couldn’t save it')]; })()`), [false, true, true]);

@@ -3,7 +3,7 @@
 // screenshots, map art and schematics) show as previews, other files as a card. Also the
 // chat's file list, mention highlights, reply quotes of picture-only messages, a chat rename
 // taking its files along, and deleting a message with its files.
-import { api, check, COOKIE, done, ev, HUB, hub, key, SEED, send, settle, shot } from './lib.mjs';
+import { api, check, COOKIE, done, ev, HUB, hub, key, png, SEED, send, settle, shot } from './lib.mjs';
 
 const paul = (method, path, body) => api(method, path, body, 'Paul');
 const tree = async () => (await (await hub(`/api/tree`)).json()).map((e) => e.path);
@@ -46,27 +46,23 @@ const enter = async () => {
 };
 const msgEl = (id) => `document.querySelector('${M} .msg[data-id="${id}"]')`;
 
-// Drop a picture and a text file: both are posted in the chat, links go in the box; nothing
-// lands in Files.
-check('pane takes files', await dropFiles(['farm.png', 'notes.txt']), true);
-await settle(1500);
-check('posted in the chat', [(await tree()).filter((p) => p.startsWith('media')), await ev(`document.getElementById('toast').textContent`),
-  (await hub(`/api/channels/general/media/farm.png`)).status], [[], 'Uploaded 2 files', 200]);
-check('links in the box', await compose(), '#media/general/farm.png #media/general/notes.txt ');
-await clear();
-await dropFiles(['farm.png']);
-await settle(1500);
-check('same name gets (2)', await compose(), '#[media/general/farm (2).png] ');
-
+// Drop a picture, paste one, drop a text file: they wait in the box's tray (composer-files has
+// the tray's own checks) and are posted in the chat, not in Files, when the message is sent.
+await postFile('general', 'farm.png', png(200, 120, [50, 160, 110])); // the name is taken
+check('pane takes files', await dropFiles(['farm.png']), true);
 // Paste a picture (browsers call it image.png): named after the time and the poster.
 await ev(`(async () => {
   const dt = new DataTransfer(); dt.items.add(await ${fileJs('image.png')});
   document.querySelector('${M} .compose').dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: dt }));
 })()`);
-await settle(1500);
-check('pasted picture named by time', /#\[media\/general\/\d{4}-\d\d-\d\d \d\d\.\d\d\.\d\d Paul\.png\] $/.test(await compose()), true);
-await ev(`document.querySelector('${M} .compose').value = 'look at these ' + document.querySelector('${M} .compose').value + ' #media/general/notes.txt'`);
+await dropFiles(['notes.txt']);
+await settle(500);
+const waiting = await ev(`[...document.querySelectorAll('${M} .pend-tray .pend-name')].map((n) => n.textContent)`);
+check('waiting in the tray', [waiting.length, waiting[0], /^\d{4}-\d\d-\d\d \d\d\.\d\d\.\d\d Paul\.png$/.test(waiting[1]), waiting[2], await compose()], [3, 'farm.png', true, 'notes.txt', '']);
+await ev(`document.querySelector('${M} .compose').value = 'look at these'`);
 await enter();
+await settle(800);
+check('posted in the chat, not in Files; a taken name gets (2)', [(await tree()).filter((p) => p.startsWith('media')), (await hub(`/api/channels/general/media/${encodeURIComponent('farm (2).png')}`)).status], [[], 200]);
 const posted = (await msgs('general')).pop();
 const prev = () => ev(`[...${msgEl(posted.id)}.querySelectorAll('.refs > *')].map((e) => e.className)`);
 check('message: text only, no link chips', await ev(`[${msgEl(posted.id)}.querySelector('.msg-body').textContent.trim(), ${msgEl(posted.id)}.querySelectorAll('.file-link').length]`), ['look at these', 0]);

@@ -28,11 +28,11 @@ const dlg = () => ev(`(() => { if (document.getElementById('overlay').hidden) re
     text: d.textContent }; })()`);
 const button = (label) => ev(`[...document.querySelectorAll('#dialog .actions button')].find((b) => b.textContent === '${label}').click()`);
 
-// Any file goes straight into the chat, linked in the box: no question.
+// Any file waits in the chat's message box, to be posted in the chat: no question.
 await drop([['plan.txt']]);
 await settle(1200);
-check('a text file is posted in the chat', [await dlg(), await compose(), (await tree()).some((p) => p.endsWith('plan.txt'))], [null, '#media/general/plan.txt ', false]);
-await ev(`document.querySelector('${S} .compose').value = ''`);
+check('a text file waits in the box', [await dlg(), await compose(), await ev(`[...document.querySelectorAll('${S} .composer .pend-name')].map((n) => n.textContent)`), (await tree()).some((p) => p.endsWith('plan.txt'))], [null, '', ['plan.txt'], false]);
+await ev(`document.querySelector('${S} .composer .pend [title="Remove file"]').click()`);
 
 // A file card: its name, size and Download.
 check('file card', await ev(`(() => { const c = ${msgEl(m1.id)}.querySelector('.file-card');

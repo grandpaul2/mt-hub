@@ -457,7 +457,16 @@ separate dialogs.
 - **Composer** (Discord):
   - **Enter** sends; **Shift+Enter** is a new line; **↑** in an empty box edits your last
     message; **Esc** cancels a reply.
-  - Pasted or dropped files are posted in the chat (any file).
+  - **Files** (Discord): a pasted, dropped or picked file (any kind) waits in a tray that is the
+    top of the box, as a card: its picture, or its icon, then its name and size, and an x in
+    the corner. No link text goes in the box. Up to 10 files a message.
+    - Nothing reaches the hub until Enter. Then the box locks, each card shows its own
+      progress along its bottom edge, and the message is posted with its files. A message
+      can be files only.
+    - A file that fails turns its card's edge and line `--danger`, with Try again beside the
+      x. Nothing is posted, and the text stays, until every file is up or removed.
+    - The tray stays with its chat like a draft, but only while the page is open: a reload
+      forgets it (the browser can't keep hold of a file).
   - Drafts are kept per chat.
   - **The box grows with its text** up to half the chat's height, then scrolls inside
     (Discord). The same for a message being edited in place: the feed keeps its place while
@@ -481,6 +490,10 @@ separate dialogs.
   - The chat has a muted line at the top, like a private chat's, with a link icon: what it's
     linked to and how to send from the game.
 - **Editing a message**:
+  - The box holds the words only. The message's files are cards under it (the tray's cards),
+    each with an x; Save takes the removed ones out of the message, and the hub trashes
+    those nothing else links. Files can't be added. Saving with no words and no files left
+    asks "Delete this message?" instead (Discord).
   - Desktop has no buttons, only the hint "Enter to save · Esc to cancel", with **Enter** and
     **Esc** in `--mention` blurple. Both are clickable (like Discord's): Enter saves, Esc
     cancels.
@@ -507,8 +520,9 @@ separate dialogs.
   only shows them. The same tap never presses one that appeared under the finger. They act
   only for a press that began on them (`pressedOn` in `chat.ts`; the `phone-taps` suite).
 - **Files posted in chat**:
-  - Any file up to 50 MB is kept with the chat; the message holds a link
-    (`#media/<chat>/<file>`), shown under it: pictures, video and sound as previews, anything
+  - Any file up to 50 MB is kept with the chat; the stored message holds a link
+    (`#media/<chat>/<file>`) that people never see or type (not in the box, not while
+    editing, not in Copy Text), shown under it: pictures, video and sound as previews, anything
     else as a file card (icon, name in `--link`, size, a Download icon button).
   - A preview is never wider than the message column: on a phone it shrinks to fit, keeping
     its shape, and the feed never scrolls sideways.

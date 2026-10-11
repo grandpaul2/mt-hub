@@ -50,7 +50,7 @@ await api('POST', '/api/channels/general/messages', { text: 'while away' });
 await settle(6000);
 check('after a restart: history and place kept, and caught up', [await count(), await firstShown()], [161, place]);
 
-// A pasted picture named with "]" links properly.
+// A pasted picture named with "]" is renamed, so its link can be written.
 await ev(`(() => {
   const dt = new DataTransfer();
   dt.items.add(new File([new Uint8Array([137, 80, 78, 71])], 'a]b.png', { type: 'image/png' }));
@@ -59,8 +59,8 @@ await ev(`(() => {
   box.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
 })()`);
 await settle(1500);
-check('the link names a_b.png', await ev(`document.querySelector('#main-chat-body .compose').value.trim()`), '#media/general/a_b.png');
-await ev(`document.querySelector('#main-chat-body .compose').value = ''`);
+check('the file is named a_b.png', await ev(`document.querySelector('#main-chat-body .composer .pend-name')?.textContent`), 'a_b.png');
+await ev(`document.querySelector('#main-chat-body .composer .pend [title="Remove file"]').click()`);
 
 // Quotes: one level; ">" inside one is just text.
 await api('POST', '/api/channels/general/messages', { text: '> > > deep' });

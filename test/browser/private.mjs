@@ -55,7 +55,8 @@ await ev(`(async () => {
   document.querySelector('${M} .chat-body').dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }));
 })()`);
 await settle(1200);
-check('linked in the box', await ev(`document.querySelector('${M} .compose').value`), `#media/${dm}/secret.png `);
+check('waiting in the box', await ev(`[document.querySelector('${M} .compose').value, document.querySelector('${M} .composer .pend-name')?.textContent]`), ['', 'secret.png']);
+await ev(`document.querySelector('${M} .compose').focus()`);
 await key('Enter');
 await settle(1200);
 check('not in Files', (await tree()).some((p) => p.includes('secret')), false);
@@ -69,8 +70,10 @@ const dropIn = (name, size) => ev(`(() => { const dt = new DataTransfer(); dt.it
   document.querySelector('${M} .chat-body').dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt })); })()`);
 await dropIn('notes.txt', 0);
 await settle(1200);
-check('a text file stays in the DM', [await ev(`document.querySelector('${M} .compose').value`), (await tree()).some((p) => p.includes('notes.txt'))], [`#media/${dm}/notes.txt `, false]);
-await ev(`document.querySelector('${M} .compose').value = ''`);
+await ev(`document.querySelector('${M} .compose').focus()`);
+await key('Enter');
+await settle(1200);
+check('a text file stays in the DM', [await ev(`[...document.querySelectorAll('${M} .msg')].at(-1).querySelector('.file-card .file-name')?.textContent`), (await tree()).some((p) => p.includes('notes.txt'))], ['notes.txt', false]);
 await dropIn('huge.bin', (50 << 20) + 1);
 await settle(600);
 check('too big for chat: Files warns from a DM', await ev(`document.querySelector('#dialog .warn-line')?.textContent ?? null`), 'This is a private conversation, but Files is visible to everyone in the hub.');
