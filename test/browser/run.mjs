@@ -12,6 +12,7 @@ import { readdirSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
 import { ensureLivekit } from './support/livekit.mjs';
+import { ensureMediamtx } from './support/mediamtx.mjs';
 
 const here = import.meta.dirname;
 const root = join(here, '..', '..');
@@ -34,6 +35,7 @@ execFileSync('go', ['build', '-o', bin, './cmd/mthub'], { cwd: root, stdio: 'inh
 // The voice and stream suites share one LiveKit binary; fetch it here, once, so they don't both
 // download it at the same time.
 if (suites.some((s) => s === 'voice' || s === 'stream')) ensureLivekit();
+if (suites.includes('relay')) ensureMediamtx();
 
 const runOne = (s) => new Promise((resolve) => {
   const start = Date.now();

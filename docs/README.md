@@ -17,13 +17,14 @@ Contributors and their agents start with [`../AGENTS.md`](../AGENTS.md).
 | [`admin.md`](admin.md) | reference | Accounts, the Admin page, game-server tokens, release cards, private chats and DMs. |
 | [`chat-and-files.md`](chat-and-files.md) | reference | How chat, pictures, the folder view and the Schematic Manager behave. |
 | [`storage.md`](storage.md) | reference | How files and chats are stored on disk, and the limits. |
-| [`voice-and-streams.md`](voice-and-streams.md) | reference | How voice chats and screen sharing run, and the voice lab. |
+| [`voice-and-streams.md`](voice-and-streams.md) | reference | How voice chats, screen sharing and relay streams run, and the voice lab. |
 | [`api.md`](api.md) | reference | The HTTP API. |
 | [`testing.md`](testing.md) | reference | Go tests, browser tests, the Firefox check. |
 | [`style-guide.md`](style-guide.md) | current spec | How the hub looks and behaves. Agreed by the maintainers; it wins over the code. |
 | [`hub-backlog.md`](hub-backlog.md) | current spec | Ideas not built yet (the **Later** list) and the stocktake they came from. |
 | [`voice/rooms-design.md`](voice/rooms-design.md) | current spec | Voice chats as built. |
 | [`stream/screen-share-spec.md`](stream/screen-share-spec.md) | current spec | Screen sharing as built. |
+| [`stream/relay-streams-spec.md`](stream/relay-streams-spec.md) | current spec | Relay streams (sent with OBS, also shown on screens in the game) watched in the hub. |
 | [`voice/svc/link-spec.md`](voice/svc/link-spec.md) | current spec | Voice Link: a Simple Voice Chat room shared between game servers. |
 
 ## Research records

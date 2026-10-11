@@ -37,6 +37,8 @@ for a test hub so it does not touch a real one. For page work, run `npm run watc
   The download gives up after two minutes and names the file and host.
 - **For the browser tests:** `chromium` on the PATH, and for the `voice` and `stream` suites a
   Linux x86-64 machine with `curl`, `tar` and `sha256sum` (they download a LiveKit server).
+  The `relay` suite needs the same and `ffmpeg` (with libx264 and libopus) on the PATH; it
+  downloads a MediaMTX server.
 
 ## How it runs
 
@@ -45,7 +47,8 @@ directory, as plain files. It speaks plain http, so put a reverse proxy in front
 trusted for `X-Forwarded-Proto` and `X-Forwarded-For` when it connects from the same machine.
 Unless started with `-lan`, the hub answers only its own machine and Tailscale addresses.
 Everything is behind a login. Voice chats and screen sharing need a LiveKit server that you run
-and name in `<data>/voice.json`; without that file they are off. Setting up a hub for another
+and name in `<data>/voice.json`; without that file they are off. Streams sent to a MediaMTX
+relay with OBS can be watched too, with `<data>/relay.json` (`docs/voice-and-streams.md`). Setting up a hub for another
 group (the proxy, LiveKit, backups) is not documented here.
 
 How the pieces fit together: [`docs/architecture.md`](docs/architecture.md).
