@@ -97,6 +97,7 @@ func (s *Server) streamRoutes() {
 func (s *Server) streamChanged() { s.bus.publish("stream", struct{}{}) }
 
 func (s *Server) streamList(w http.ResponseWriter, r *http.Request) {
+	relayed, delay := s.relayList() // streams sent to the stream relay with OBS (relay.go)
 	s.streams.mu.Lock()
 	defer s.streams.mu.Unlock()
 	out := []*stream{}
@@ -107,6 +108,7 @@ func (s *Server) streamList(w http.ResponseWriter, r *http.Request) {
 	}
 	slices.SortFunc(out, func(a, b *stream) int { return a.Started.Compare(b.Started) })
 	resp := map[string]any{"enabled": s.voice.config() != nil, "streams": out, "max": maxStreams, "full": s.streamsFull(who(r).Name)}
+	resp["relay"], resp["relayDelay"] = relayed, delay
 	writeJSON(w, http.StatusOK, resp)
 }
 

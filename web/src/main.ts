@@ -18,7 +18,7 @@ import { adminChanged, openAdmin } from './admin';
 import { setupSearch } from './search';
 import { layoutChanged, mainChannel, onFilesChanged as chatFilesChanged, onUsersChanged as chatUsersChanged, openInMain, setupChat, shareLink } from './chat';
 import { openSettings, setupVoice } from './voice';
-import { setupStreams, stopWatching, watchStream } from './stream';
+import { setupStreams, stopWatching, watchRelay, watchStream } from './stream';
 import { openSoundSettings } from './sounds';
 
 type Entry = { path: string; dir: boolean; size: number; mod?: number; large?: boolean };
@@ -1388,7 +1388,7 @@ function setMode(m: typeof mainMode) {
   renderTree();
 }
 
-// openHash opens whatever the address points at: #chan=<name>, #live=<name>, #schems, #schem=<folder>
+// openHash opens whatever the address points at: #chan=<name>, #live=<name>, #stream=<name>, #schems, #schem=<folder>
 // (a post), #folder=<path> or #<file or folder path>.
 // dec decodes part of an address; a malformed one (a stray %) is taken as written.
 const dec = (s: string) => {
@@ -1439,6 +1439,10 @@ async function openHash() {
     // #live=<name>: watch their screen.
     setMode('live');
     void watchStream(h.slice(5));
+  } else if (h.startsWith('stream=')) {
+    // #stream=<name>: watch the stream they send to the stream relay.
+    setMode('live');
+    void watchRelay(h.slice(7));
   } else if (h.startsWith('chan=')) {
     // #chan=<name>, or #chan=<name>&msg=<id> for one message (Copy Link).
     const [name, msg] = h.slice(5).split('&msg=');

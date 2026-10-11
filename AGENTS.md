@@ -41,7 +41,9 @@ PATH (`CHROMIUM=google-chrome` uses another browser).
   `cdn.mezon.ai` into `fetched/` (about 25 MB, checked against pinned SHA-256 hashes; it gives
   up after two minutes and names the file). The `voice` and `stream` suites download a LiveKit
   server from github.com on their first run; they work on Linux x86-64 only and need `curl`,
-  `tar` and `sha256sum`. Elsewhere, name the other suites on the command line.
+  `tar` and `sha256sum`. The `relay` suite downloads a MediaMTX server the same way and needs
+  `ffmpeg` (with libx264 and libopus) on the PATH. Elsewhere, name the other suites on the
+  command line.
 - **Always build the page before Go.** `web/dist` is generated, and the Go code embeds it. On a
   fresh clone `go vet` or `go test` alone fails with `pattern dist: no matching files found`;
   run `make` or `make check` first.
@@ -142,7 +144,7 @@ tested something you did not run.
   Run `make check`, which bundles the page first.
 - **Running a suite file directly** (`node test/browser/tree.mjs`). It stops with "MTHUB_BIN
   is not set". Go through `node test/browser/run.mjs tree`.
-- **Reading "42 suites" as all of them.** `previews` is skipped unless you pass `--all`
+- **Reading "43 suites" as all of them.** `previews` is skipped unless you pass `--all`
   (it fetches real sites). Naming suites prints the rest as "skipped": that is normal.
 - **`voice` or `stream` failing on a Mac or ARM machine.** They run a Linux x86-64 LiveKit
   binary. Run the other suites and say so.

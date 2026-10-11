@@ -51,6 +51,7 @@ type Server struct {
 	sendMu    sync.Mutex // a message is stored and sent out in one step, so all see the same order
 	voice     *voice
 	streams   *streams
+	relay     *relay
 	status    *gameStatus // what the game servers last reported (status.go)
 	linkNew   linkWake    // a new message in #server-link (link.go)
 	linkPosts *limiter    // lines posted to it per game server token
@@ -65,9 +66,11 @@ func New(us *auth.Store, ws *workspace.Workspace, cs *chat.Store, ls *preview.St
 	s := &Server{users: us, logins: newLimiter(loginTries, loginWindow), accounts: newLimiter(accountTries, accountWindow), previews: newLimiter(previewTries, previewWindow), shots: newLimiter(shotsPerDay, 24*time.Hour), ws: ws, chat: cs, links: ls, thumbs: thumbs, bus: newBroker(), mux: http.NewServeMux()}
 	s.voice = loadVoice(filepath.Dir(thumbs)) // the data directory
 	s.streams = loadStreams(filepath.Dir(thumbs))
+	s.relay = loadRelay(filepath.Dir(thumbs))
 	s.accountRoutes()
 	s.voiceRoutes()
 	s.streamRoutes()
+	s.relayRoutes()
 	s.tokenRoutes()
 	s.status = newGameStatus()
 	s.statusRoutes()

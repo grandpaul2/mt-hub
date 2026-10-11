@@ -33,6 +33,8 @@ Needs:
   checksum). That needs network access to github.com, `curl`, `tar` and `sha256sum`, and the
   download is the Linux x86-64 build, so on other systems these two suites cannot run: name
   the others instead.
+- The `relay` suite runs a MediaMTX server, downloaded the same way into `fetched/mediamtx`
+  (Linux x86-64), and `ffmpeg` from the PATH (with libx264 and libopus) as the streamer.
 
 The browser has a fake microphone (beeps). `FAKE_AUDIO=<file.wav> node test/browser/run.mjs
 voice-lab` records that file instead: speech mixed with noise shows the filters and the speech

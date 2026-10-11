@@ -821,6 +821,7 @@ body.chat-hidden #chat .pins-btn, body.chat-hidden #chat .files-btn { display: n
   .msg-edit > button + button { margin-left: 0; }
   /* Someone sharing their screen: a line at the top of the chat; watching covers the screen. */
   #live-strip:not([hidden]) { display: flex; flex-direction: column; border-bottom: 1px solid var(--border); }
+  #main-live .live-sound input[type=range] { display: none; } /* a phone has its own volume keys */
   .live-strip-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 0; border-radius: 0; background: var(--panel-2); color: var(--chat-text); font-size: 14px; text-align: left; }
   .live-strip-item svg { flex: none; width: 18px; height: 18px; color: var(--ok); }
   .live-strip-item span:first-of-type { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1365,6 +1366,11 @@ h3.md-h { font-size: 15px; }
 .live-body { position: relative; flex: 1; min-height: 0; background: #000; }
 .live-body video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .live-note { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--chat-muted); font-size: 15px; }
+/* A relay stream's sound: mute and a volume bar in the head; "Turn sound on" over the picture
+   when the browser wouldn't play sound without a click. */
+#main-live .live-sound:not([hidden]) { display: flex; align-items: center; gap: 6px; }
+#main-live .live-sound input[type=range] { width: 90px; margin: 0; padding: 0; border: 0; background: none; }
+.live-sound-on { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 1; }
 #live-strip { display: none; }
 #voice-bar { margin-bottom: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); }
 #voice-bar .voice-where { display: flex; flex-direction: column; gap: 2px; margin-bottom: 6px; font-size: 13px; }

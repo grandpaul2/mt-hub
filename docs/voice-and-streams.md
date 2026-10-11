@@ -50,6 +50,40 @@ closes, when the page closes or reloads, or when the connection drops. At most 3
 - **Tests:** `TestStreams`, `TestStreamCheck`, and the `stream` browser suite (Chromium's fake
   screen capture, two profiles, a phone).
 
+## Relay streams
+
+A stream someone sends with OBS to a MediaMTX relay, the kind a video screen in the game
+plays, watched in the hub with sound (design and measurements:
+[`stream/relay-streams-spec.md`](stream/relay-streams-spec.md)). While one is live it has a row
+in LIVE with its own icon; clicking it plays it in the main panel (`#stream=<name>`) with a
+mute button and a volume bar. Screen shares and relay streams sit side by side.
+
+- **`<data>/relay.json`** turns it on: `{"url": "https://…/relay", "user": "hub", "pass": "…",
+  "channels": {"<relay channel>": "<hub account>"}, "delay_ms": 700}`. `url` is where the
+  relay's WHEP is (`<url>/<channel>-web/whep`); its API is taken to be `<url>/api` unless
+  `"api"` says otherwise. Read again when the file changes; without it there are no relay
+  streams and nothing in the page changes.
+- **What the relay has to do** (MediaMTX): republish each channel as `<channel>-web` with Opus
+  sound (browsers take no AAC over WebRTC; an ffmpeg started by `runOnAvailable` that copies
+  the picture), serve WebRTC, answer its API, and let only the hub's account read the `-web`
+  channels and the API.
+- **`internal/server/relay.go`:** every 5 seconds the hub asks the relay which `-web`
+  channels are ready and which WebRTC sessions read them. A viewer's offer goes to
+  `POST /api/relay/<name>/watch`; the hub posts it to the relay with its account (so watching
+  needs a hub login) and tags the session, which is how viewers get their names. The picture
+  and sound go from the relay to the browser directly.
+- **In step with the game:** the page sets `jitterBufferTarget = relayDelay` on both
+  receivers. The game's player shows a frame about 0.7 s after WebRTC would; held back by
+  that, the hub and a screen in the game are within a few hundredths of a second.
+- **B-frames:** MediaMTX will not send H.264 with B-frames over WebRTC. The streamer sets
+  `bframes=0` in OBS's x264 options; without it the row shows but the viewer is told the
+  stream can't be shown and why.
+- **Sound** plays on the speaker chosen in Voice Settings where the browser can choose one. A
+  browser that refuses sound without a click (the address opened directly) plays muted with a
+  **Turn sound on** button.
+- **Tests:** `TestRelay` (a stub relay) and the `relay` browser suite (a local MediaMTX, ffmpeg
+  as the streamer, a stream with B-frames, a phone).
+
 ## The voice lab
 
 `voicelab.ts` + `voicelab.html` are the voice lab at `/voice-lab/`, a test page that records

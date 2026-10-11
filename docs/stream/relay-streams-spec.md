@@ -1,6 +1,6 @@
 # Relay streams in the hub: design
 
-**Status:** spec agreed; step 1 (the lab measurement) done and passed, 2026-10-11; the rest not built.
+**Status:** current spec, built. How the hub runs it: [`../voice-and-streams.md`](../voice-and-streams.md).
 
 A stream that someone sends to the stream relay with OBS, the kind that plays on a video
 screen in the game, can also be watched in the hub: with sound, and in step with the game's
@@ -74,9 +74,9 @@ OBS ──RTMP (H.264 + AAC)──► relay: channel "live" ──► the game's
 - **Routes** (all need a login):
   - `GET /api/streams` gains `relay: [{name, started, viewers}]` and `relayDelay` (ms) beside
     `streams`.
-  - `POST /api/relay/{name}/watch` with an SDP offer as the body: the hub posts it to the
+  - `POST /api/relay/{name}/watch` with `{"sdp": <offer>}`: the hub posts the offer to the
     relay's WHEP address for that person's `-web` channel with the `hub` account, remembers
-    session → viewer, and returns the answer and a session id. `404` when that person is not
+    session → viewer, and returns `{"id", "sdp"}` (the answer). `404` when that person is not
     live.
   - `DELETE /api/relay/sessions/{id}`: ends your own session on the relay.
 - **Viewers:** the names of the sessions the relay reports for a channel, through the hub's
@@ -105,13 +105,13 @@ OBS ──RTMP (H.264 + AAC)──► relay: channel "live" ──► the game's
   both receivers. No LiveKit client is loaded.
 - **States:** "Connecting…", "Waiting for the picture…", "<name> stopped streaming." (with
   Back), "Couldn't connect: …", "<name> isn't streaming right now.", and when the relay ends the
-  connection before any picture (what a stream with B-frames does): "<name>'s stream can't
-  be shown in the hub. It needs one OBS setting; see the streaming guide."
+  connection before any picture, or none comes within 10 seconds (what a stream with B-frames
+  does): "<name>'s stream can't be shown in the hub: it needs the OBS setting bframes=0."
 - Leaving the panel closes the connection and deletes the session. Phones watch from the
   strip at the top of the chat, as with screen shares.
 
 Words: "Streaming", "You're streaming", "Watch", "Stop watching", "Turn sound on". No
-"relay", "channel", "WHEP" or "OBS" in the page.
+"relay", "channel" or "WHEP" in the page; "OBS" only in the message about B-frames.
 
 ## The streamer's side
 
@@ -150,10 +150,10 @@ message above. The hub cannot tell beforehand (the relay does not report it).
   names; unknown channels are ignored; watch needs a login, passes the offer on with the
   account, returns the answer, `404` when not live; viewers come from the session table;
   delete only ends your own session; the relay unreachable; no `relay.json`.
-- **Browser (`test/browser/relay.mjs`):** a local MediaMTX fed a generated picture and tone by
-  ffmpeg (both fetched like the local LiveKit): the row appears with its icon, `#stream=`
-  plays frames and sound, volume and mute persist, the row goes when the feed stops, a phone
-  watches, and a signed-out browser gets nothing.
+- **Browser (`test/browser/relay.mjs`):** a local MediaMTX (fetched like the local LiveKit)
+  fed a generated picture and tone by ffmpeg: the row appears with its icon, `#stream=` plays
+  picture and sound, the viewer count, volume and mute kept, a browser refusing sound, a stream
+  with B-frames, the row going when the feed stops, your own stream, and a phone.
 
 ## Limits and costs
 
