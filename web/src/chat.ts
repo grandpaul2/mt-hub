@@ -140,7 +140,7 @@ class ChatView {
     const c = this.compose;
     const ac = autocomplete(c, mentionNames, true);
     c.onkeydown = (e) => {
-      if (ac.key(e)) return;
+      if (ac.key(e) || formatKey(e, c)) return;
       if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
         e.preventDefault();
         this.send();
@@ -749,7 +749,7 @@ class ChatView {
     };
     const ac = autocomplete(box, mentionNames);
     box.onkeydown = (e) => {
-      if (ac.key(e)) return;
+      if (ac.key(e) || formatKey(e, box)) return;
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         save();
@@ -2337,6 +2337,43 @@ function grow(t: HTMLTextAreaElement) {
   const border = t.offsetHeight - t.clientHeight; // scrollHeight leaves it out
   t.style.height = Math.min(t.scrollHeight + border, most) + 'px';
   if (feed && feed.scrollTop !== top) feed.scrollTop = top!;
+}
+
+// formatKey handles Discord's formatting keys in a message box: Ctrl+B, Ctrl+I and Ctrl+U put
+// **bold**, *italic* or __underline__ marks around the selected text, or take them off if
+// they're there; with nothing selected, an empty pair with the cursor inside. True if it was
+// one of them (the browser's own use of the key is then skipped).
+const FORMAT_KEYS: Record<string, string> = { b: '**', i: '*', u: '__' };
+function formatKey(e: KeyboardEvent, t: HTMLTextAreaElement): boolean {
+  const mark = (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey ? FORMAT_KEYS[e.key.toLowerCase()] : undefined;
+  if (!mark) return false;
+  e.preventDefault();
+  if (t.readOnly) return true;
+  const v = t.value;
+  const from = t.selectionStart;
+  const to = t.selectionEnd;
+  // How many of the mark's character sit right against the selection on each side: * and **
+  // share one, so italic is on when that's 1 or 3 and bold when it's 2 or more.
+  const ch = mark[0];
+  let before = 0;
+  while (v[from - 1 - before] === ch) before++;
+  let after = 0;
+  while (v[to + after] === ch) after++;
+  const n = Math.min(before, after);
+  const on = mark === '*' ? n === 1 || n === 3 : n >= 2;
+  const inner = v.slice(from, to);
+  // One replacement the browser can undo (Ctrl+Z), then the same text selected again.
+  const put = (a: number, b: number, text: string, selFrom: number) => {
+    t.setSelectionRange(a, b);
+    if (!document.execCommand('insertText', false, text)) {
+      t.setRangeText(text, a, b, 'end');
+      t.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    t.setSelectionRange(selFrom, selFrom + inner.length);
+  };
+  if (on) put(from - mark.length, to + mark.length, inner, from - mark.length);
+  else put(from, to, mark + inner + mark, from + mark.length);
+  return true;
 }
 
 function insert(t: HTMLTextAreaElement, s: string) {

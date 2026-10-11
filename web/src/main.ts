@@ -156,7 +156,7 @@ function shortcuts() {
     ['A picture or post', '← / →: the one before or after · Esc: back to its folder or the board'],
     ['Folder view', 'Esc: up one folder · Ctrl+V: paste pictures'],
     ['Text file', 'Ctrl+S: save · Ctrl+wheel: zoom'],
-    ['Message box', 'Enter: send · Shift+Enter: new line · ↑ in an empty box: edit your last message · Esc: cancel a reply'],
+    ['Message box', 'Enter: send · Shift+Enter: new line · ↑ in an empty box: edit your last message · Esc: cancel a reply · Ctrl+B, Ctrl+I, Ctrl+U: bold, italic, underline'],
     ['Typing a message', '@: mention someone · : and two letters: emoji · ↑ / ↓ and Enter or Tab: pick'],
     ['Menus and popups', '↑ / ↓ move · Enter: pick · Esc: close'],
     ['Picture viewer', '← / →: the one before or after · Esc: close'],
