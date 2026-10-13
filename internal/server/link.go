@@ -17,8 +17,9 @@ import (
 
 // The server link: one chat, #text-link, shared with game chat on our servers. A line a
 // player starts with "$ " in game is posted here by their server (MT Hub Server), and every
-// message here is printed in game on each server. Nothing else crosses, and nothing here
-// runs a command. A server reads the chat by long poll: it asks for what's newer than the
+// message here is printed in game on each server. A server can also report something by
+// itself, a notice (a bot died): that is a message from MacroTech with the server's tag.
+// Nothing else crosses, and nothing here runs a command. A server reads the chat by long poll: it asks for what's newer than the
 // last message it has, and the hub answers when there is something, or after the wait.
 
 // LinkChat is the chat's name. It was "server-link" until October 2026: a hub that still has
@@ -132,15 +133,23 @@ func (s *Server) linkServer(w http.ResponseWriter, r *http.Request) bool {
 // under the hub account that Minecraft name is linked to, else the Minecraft name, marked
 // with the server's tag. In game it's the other way round: everyone shows by their Minecraft
 // name (gameName).
+//
+// Or {"notice": "…"}: one line the server reports by itself. Every row has an author, so the
+// hub posts it as auth.ReleaseName (MacroTech); the server never names one.
 func (s *Server) linkSay(w http.ResponseWriter, r *http.Request) {
 	if !s.linkServer(w, r) {
 		return
 	}
-	var req struct{ Player, Text string }
+	var req struct{ Player, Text, Notice string }
 	if !readJSON(w, r, &req) {
 		return
 	}
-	if !auth.MCNameRE.MatchString(req.Player) {
+	notice := req.Notice != ""
+	if notice && (req.Player != "" || req.Text != "") {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "a notice has no player and no text"})
+		return
+	}
+	if !notice && !auth.MCNameRE.MatchString(req.Player) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "player must be a Minecraft name"})
 		return
 	}
@@ -149,12 +158,14 @@ func (s *Server) linkSay(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "too many lines; wait a minute"})
 		return
 	}
-	user := req.Player
-	if name, ok := s.users.ByMC(user); ok {
+	user, text := req.Player, req.Text
+	if notice {
+		user, text = auth.ReleaseName, linkOneLine(req.Notice)
+	} else if name, ok := s.users.ByMC(user); ok {
 		user = name
 	}
 	s.sendMu.Lock()
-	m, err := s.chat.Send(LinkChat, user, chat.Draft{Text: req.Text, Via: linkTag(who(r).Name)})
+	m, err := s.chat.Send(LinkChat, user, chat.Draft{Text: text, Via: linkTag(who(r).Name), Notice: notice})
 	if err == nil {
 		s.publishChat("message", m.Channel, m)
 	}
@@ -172,6 +183,8 @@ type linkLineOut struct {
 	Tag  string `json:"tag"`  // SMP, CMP or HUB: where it was said
 	User string `json:"user"` // their Minecraft name, if the hub knows it
 	Text string `json:"text"` // one plain line
+	// Notice: a server reported it by itself; it's printed without a name.
+	Notice bool `json:"notice,omitempty"`
 }
 
 // linkFeed: ?after=<message id>&wait=<seconds>. The messages newer than after that this
@@ -203,7 +216,7 @@ func (s *Server) linkFeed(w http.ResponseWriter, r *http.Request) {
 				if tag == "" {
 					tag = linkHubTag
 				}
-				out = append(out, linkLineOut{ID: m.ID, Tag: tag, User: s.gameName(m.User), Text: linkText(m)})
+				out = append(out, linkLineOut{ID: m.ID, Tag: tag, User: s.gameName(m.User), Text: linkText(m), Notice: m.Notice})
 			}
 		}
 		if len(out) > 0 || !r.URL.Query().Has("after") || secs <= 0 {
@@ -252,6 +265,13 @@ func linkText(m chat.Message) string {
 	t = linkMediaRef.ReplaceAllString(t, "[$1]")
 	t = linkCodes.ReplaceAllString(t, "") // no game colour codes
 	t = linkMarks.Replace(t)              // the commonest Markdown marks; game chat has none
+	return linkOneLine(t)
+}
+
+// linkOneLine is text as one game chat line: no colour codes, line breaks are spaces, cut to
+// a chat line.
+func linkOneLine(t string) string {
+	t = linkCodes.ReplaceAllString(t, "")
 	t = strings.TrimSpace(linkSpaces.ReplaceAllString(t, " "))
 	if r := []rune(t); len(r) > linkLine {
 		t = string(r[:linkLine-1]) + "…"

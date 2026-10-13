@@ -96,6 +96,8 @@ type Message struct {
 	Reactions []Reaction `json:"reactions,omitempty"` // in the order they were first added
 	Pinned    *Pin       `json:"pinned,omitempty"`
 	Via       string     `json:"via,omitempty"` // said in game on this server (its tag, "SMP"): the server link
+	// Notice: that server reported it by itself (a bot's death); nobody said it.
+	Notice bool `json:"notice,omitempty"`
 	// Nonce is the sender's own tag for a message it is waiting to see confirmed. It goes
 	// out once, with the answer and the live event, and is never stored.
 	Nonce string `json:"nonce,omitempty"`
@@ -135,6 +137,7 @@ type Draft struct {
 	ReplyTo string
 	Forward *Forward
 	Via     string // see Message.Via
+	Notice  bool   // see Message.Notice
 }
 
 // event is one line in a channel file. For react, unreact, pin and unpin, ID is the
@@ -149,6 +152,7 @@ type event struct {
 	Fwd   *Forward  `json:"fwd,omitempty"`
 	Emoji string    `json:"emoji,omitempty"`
 	Via   string    `json:"via,omitempty"`
+	Note  bool      `json:"notice,omitempty"`
 }
 
 type ChannelInfo struct {
@@ -263,7 +267,7 @@ func (s *Store) load(name string) error {
 func (ch *channel) apply(name string, ev event) *Message {
 	switch ev.Type {
 	case "msg":
-		m := &Message{ID: ev.ID, Channel: name, Time: ev.Time, User: ev.User, Text: ev.Text, ReplyTo: ev.Reply, Forward: ev.Fwd, Via: ev.Via}
+		m := &Message{ID: ev.ID, Channel: name, Time: ev.Time, User: ev.User, Text: ev.Text, ReplyTo: ev.Reply, Forward: ev.Fwd, Via: ev.Via, Notice: ev.Note}
 		ch.msgs = append(ch.msgs, m)
 		ch.byID[m.ID] = m
 		return m
@@ -754,7 +758,7 @@ func (s *Store) Send(name, user string, d Draft) (Message, error) {
 			return Message{}, ErrBadReply
 		}
 	}
-	ev := event{Type: "msg", ID: s.newID(), Time: time.Now().UTC(), User: user, Text: text, Reply: d.ReplyTo, Fwd: d.Forward, Via: d.Via}
+	ev := event{Type: "msg", ID: s.newID(), Time: time.Now().UTC(), User: user, Text: text, Reply: d.ReplyTo, Fwd: d.Forward, Via: d.Via, Note: d.Notice}
 	m, err := s.write(name, ev)
 	// A new message brings a hidden DM back into everyone's list.
 	if ch := s.chans[name]; err == nil && len(ch.meta.Hidden) > 0 {

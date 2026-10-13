@@ -17,6 +17,7 @@ type Message = {
   reply_to?: string; reply?: Quote; fwd?: Forward; reactions?: Reaction[]; pinned?: { by: string; t: string };
   nonce?: string; // ours, on a message we sent and are waiting to see (see unsent)
   via?: string; // said in game on this server (SMP, CMP): the server link
+  notice?: boolean; // that server reported it by itself (a bot died); it's from MacroTech
 };
 type Quote = { user?: string; text?: string; deleted?: boolean };
 type Forward = { channel: string; id: string; user: string; t: string; text: string };
@@ -561,7 +562,7 @@ class ChatView {
     if (!grouped) {
       el.append(h('div', { class: 'msg-head' }, when, h('span', { class: 'who' }, m.user),
         isAdmin(m.user) ? opTag(tagOf(m.user)) : '',
-        m.via ? h('span', { class: 'tag via', title: `Said in game on ${SERVER_NAMES[m.via] ?? 'a server'}` }, m.via) : ''));
+        m.via ? h('span', { class: 'tag via', title: `${m.notice ? 'Reported by' : 'Said in game on'} ${SERVER_NAMES[m.via] ?? 'a server'}` }, m.via) : ''));
     } else {
       when.classList.add('side');
       el.append(when);
