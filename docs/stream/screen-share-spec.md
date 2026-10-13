@@ -101,8 +101,8 @@ button. Losing the connection toasts "Screen sharing stopped: the connection dro
 FILES and CHATS are always there. **VOICE** appears only while a voice chat you can see
 exists, and **LIVE** only while anyone is sharing; both sit under CHATS. A LIVE row is a
 screen icon and the streamer's name; your own row reads "You're sharing your screen", and
-clicking it watches it. Right-click a row: Watch; Stop Watching (on the one you are
-watching); Message; Stop Stream for an admin who
+clicking it watches it. Right-click a row: Watch, or Stop Watching on the one you are
+watching; Message; Stop Stream for an admin who
 outranks the streamer. Sections appear and go with the `voice` and `stream` events, without
 animation.
 
@@ -124,7 +124,7 @@ animation.
   a chat still counts and still takes the full picture.
 - "Reconnecting…" while LiveKit reconnects by itself; if it gives up and the screen is still
   shared, the page joins again (after 1, 2 and 4 seconds, then every 5).
-- **Full screen** has the bar relay streams have, without the sound: **Exit full screen**.
+- **Full screen** has what relay streams have, without the sound: **Exit full screen**.
 - Phones watch from a strip at the top of the chat.
 
 Words (style guide, Words): "Share Your Screen…", "Sharing your screen", "Stop", "Watch", "Stop

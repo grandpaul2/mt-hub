@@ -80,7 +80,7 @@ function renderList() {
   const rows = info.streams.map((s) => {
     const mine = s.name === user.name;
     const row = h('div', {
-      class: 'row channel live' + (mine ? ' here' : '') + (watching && !watching.relay && watching.name === s.name ? ' active' : ''),
+      class: 'row channel live' + (mine ? ' here' : ''),
       title: mine ? 'You’re sharing your screen' : `Watch ${s.name}’s screen`,
     }, h('span', { class: 'hash', innerHTML: ICON.screen }), h('span', { class: 'name' }, s.name));
     row.dataset.who = s.name;
@@ -94,18 +94,19 @@ function renderList() {
   for (const s of relays()) {
     const mine = s.name === user.name;
     const row = h('div', {
-      class: 'row channel live relay' + (mine ? ' here' : '') + (watching?.relay && watching.name === s.name ? ' active' : ''),
+      class: 'row channel live relay' + (mine ? ' here' : ''),
       title: mine ? 'You’re streaming' : `Watch ${s.name}’s stream`,
     }, h('span', { class: 'hash', innerHTML: ICON.radio }), h('span', { class: 'name' }, s.name));
     row.dataset.who = s.name;
     row.onclick = () => openWatch(s.name, true);
     row.oncontextmenu = (e) => {
       e.preventDefault();
-      showMenu(e, [['Watch', () => openWatch(s.name, true)], ...stopItem(s.name, true), ...(mine ? [] : [null, ['Message', () => void messageUser(s.name)]] as MenuItem[])]);
+      showMenu(e, [watchItem(s.name, true), ...(mine ? [] : [null, ['Message', () => void messageUser(s.name)]] as MenuItem[])]);
     };
     rows.push(row);
   }
   $('live-list').replaceChildren(...rows);
+  markRows();
   $('live-section').hidden = !rows.length;
   const strip = $('live-strip');
   const item = (icon: string, text: string, open: () => void) => {
@@ -121,7 +122,7 @@ function renderList() {
 
 function rowMenu(s: Stream): MenuItem[] {
   const mine = s.name === user.name;
-  const items: MenuItem[] = [['Watch', () => openWatch(s.name)], ...stopItem(s.name, false)];
+  const items: MenuItem[] = [watchItem(s.name, false)];
   if (!mine) items.push(null, ['Message', () => void messageUser(s.name)]);
   if (mine) items.push(null, ['Stop Sharing', () => void stopShare(true), undefined, undefined, { danger: true }]);
   else if (user.owner || (user.admin && !isAdmin(s.name))) {
@@ -134,9 +135,20 @@ function rowMenu(s: Stream): MenuItem[] {
   return items;
 }
 
-// Stop Watching, on the row of what you're watching.
-const stopItem = (name: string, relay: boolean): MenuItem[] =>
-  watching && !watching.over && watching.name === name && watching.relay === relay ? [['Stop Watching', stop]] : [];
+// A row's first menu item: Watch, or Stop Watching on the one you're watching.
+const watchItem = (name: string, relay: boolean): MenuItem =>
+  watching && !watching.over && watching.name === name && watching.relay === relay ? ['Stop Watching', stop] : ['Watch', () => openWatch(name, relay)];
+
+// markRows marks the row of what you're watching: the open one (grey) while its panel is the
+// main panel, an outline while it plays behind something else.
+function markRows() {
+  const w = watching;
+  for (const row of document.querySelectorAll<HTMLElement>('#live-list .row.live')) {
+    const it = !!w && row.dataset.who === w.name && row.classList.contains('relay') === w.relay;
+    row.classList.toggle('active', it && shown);
+    row.classList.toggle('playing', it && !shown && !w!.over);
+  }
+}
 
 function openWatch(name: string, relay = false) {
   cameByClick = true;
@@ -288,9 +300,7 @@ function renderPanelHead() {
   count.textContent = s && !w.over ? `${s.viewers.length} watching` : '';
   if (s) count.title = s.viewers.join(', ');
   for (const box of soundBoxes) box.hidden = !w.relay;
-  for (const row of document.querySelectorAll<HTMLElement>('#live-list .row.live')) {
-    row.classList.toggle('active', row.dataset.who === w.name && row.classList.contains('relay') === w.relay);
-  }
+  markRows();
 }
 
 // streamPanel says whether the stream panel is the main panel (main.ts calls it on every
@@ -300,6 +310,7 @@ export function streamPanel(on: boolean) {
   shown = on;
   if (!on && watching?.over) stopWatching();
   place();
+  markRows();
   renderWatchBar();
 }
 
@@ -309,15 +320,15 @@ function place() {
   $('main-live').hidden = !shown && !behind;
 }
 
-// The bar at the bottom of the sidebar while a stream plays behind something else: back to
-// the picture, mute (a relay stream), Stop.
+// The bar at the bottom of the sidebar for as long as you're watching, in the panel or behind
+// something else: back to the picture, mute (a relay stream), Stop.
 const watchBar = h('div', { id: 'watch-bar', hidden: true });
 const barMute = h('button', { class: 'tool' });
 
 function renderWatchBar() {
   const w = watching;
-  watchBar.hidden = !w || shown;
-  if (!w || shown) return watchBar.replaceChildren();
+  watchBar.hidden = !w || w.over;
+  if (!w || w.over) return watchBar.replaceChildren();
   const state = w.live ? 'Watching' : w.away ? 'Waiting…' : w.shown ? 'Reconnecting…' : 'Connecting…';
   const where = h('button', { class: 'share-where', title: 'Back to the picture' },
     h('span', { class: w.live ? 'share-ok' : 'muted' }, state), h('span', { class: 'muted' }, what(w)));
@@ -368,6 +379,7 @@ function finish(w: Watch, text: string, bad = false) {
   video.srcObject = null;
   soundOn.hidden = true;
   count.textContent = '';
+  renderWatchBar();
   if (shown) return setNote(text, true);
   stopWatching();
   if (bad) toastError(text);
@@ -636,7 +648,7 @@ function stopWatching() {
   soundOn.hidden = true;
   video.srcObject = null;
   if (document.fullscreenElement === body) void document.exitFullscreen().catch(() => {});
-  for (const row of document.querySelectorAll('#live-list .row.live.active')) row.classList.remove('active');
+  markRows();
   place();
   renderWatchBar();
 }
