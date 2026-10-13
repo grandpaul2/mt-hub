@@ -26,7 +26,9 @@ The audio choices come from the research and the lab (`README.md` in this folder
 - **While in one:** a bar at the bottom of the sidebar, Discord style, with mute, deafen, leave
   and a settings gear. The gear holds:
   - mic choice
-  - mic level (quiet mics: one USB microphone peaks at −31 dBFS)
+  - automatic level, on by default (the browser's own automatic gain; without it a quiet
+    microphone reaches the filter and the gate too low for either to work)
+  - mic level, extra on top (one USB microphone peaks at −31 dBFS)
   - noise filter on/off
   - voice gate sensitivity
   - echo cancellation, off by default (Firefox's chops up voices on headphones)
