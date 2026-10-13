@@ -83,7 +83,7 @@ secret (as in the hub's `voice.json`); the room (`voice-link`).
 
 **In LiveKit**
 
-- One **listener** participant, identity `link`, hidden, always connected. It subscribes to
+- One **listener** participant, identity `link:listener`, hidden, always connected. It subscribes to
   the microphone track of every participant that is not the bridge's own, and publishes
   nothing.
 - One participant **per player** in the group on a game server, identity
@@ -96,7 +96,9 @@ secret (as in the hub's `voice.json`); the room (`voice-link`).
 **Game to hub**
 
 - A frame from the relay (speaker uuid + Opus bytes) is written to that player's track as one
-  RTP packet, payload untouched. RTP timestamps advance 960 per frame.
+  RTP packet, payload untouched. RTP timestamps advance 960 per frame. Each carries the same
+  moderate "audio level" in its RTP header, which is how LiveKit knows who is talking (the
+  bridge does not decode, so it cannot know the real one): a player's name lights up.
 - "Stopped talking" (an empty frame), or 100 ms without a frame, ends a talk spurt. The next
   frame's timestamp jumps by the time that passed, rounded to whole frames, so a listener's
   player treats the pause as a pause and not as a slow network.
@@ -144,9 +146,9 @@ It logs connects, disconnects and joins, never audio.
   `maxVoiceChats`, listed first. It exists when voice chats are set up and `link_voice` is on
   in `voice.json` (so a hub without game servers has no such room).
 - **People.** LiveKit's webhooks and the 20-second check already report who is in a room.
-  An identity starting `link:` is a player: kept in the list as `{name, server}` (not looked
-  up as an account, never removed as "banned or deleted"), and the identity `link` (the
-  listener) is left out. `GET /api/voice` gives each voice chat `link: true` where it is this
+  An identity `link:<server>:<name>` is a player: kept in the list with their Minecraft name
+  and server tag (not looked up as an account, never removed as "banned or deleted"), and
+  `link:listener` is left out. `GET /api/voice` gives each voice chat `link: true` where it is this
   one, and each person `via: "SMP"` where they are a player (tags as in `link.go`).
 - **Bridge up or down:** the listener's presence in the room, from the same reports;
   `linked: true|false` on the voice chat.
@@ -253,7 +255,9 @@ measurements, the page's audio thread included (no stalls in any run).
 
 1. The bridge, with its Go tests. **Built** (`cmd/voicebridge`, `internal/voicebridge`; the
    relay's code moved to `internal/voicelink` so the tests can run one). Not deployed.
-2. The hub: the permanent voice chat, people, the page; browser suite.
+2. The hub: the permanent voice chat, people, the page; browser suite. **Built**
+   (`voice.go`, `voice.ts`, `TestVoiceLink`, `test/browser/voice-link.mjs`). It shows only
+   with `"link_voice": true` in `voice.json`.
 3. MT Utils: the group's name; checked on a throwaway server with the bridge.
 4. Deploy: the bridge and its token beside the relay, then the hub; then the mod on both
    servers at a restart. #voice-link appears in the hub with step 4, not before.

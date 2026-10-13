@@ -59,7 +59,7 @@ instead of a login) are marked.
 | GET | `/api/preview?url=<link>` | link preview `{kind: page/image/youtube/none, site, title, desc, color, image, w, h, large, video}`; fetched once (public internet only), cached in `previews/`; 60 new links per person per 10 minutes (429 past that) |
 | GET | `/api/preview/img/<id>` | a cached preview image |
 | GET | `/api/search?q=<query>` | search: words (all must appear, any case; `"quoted"` together) plus filters `in:#chat` / `in:folder/`, `from:`, `mentions:`, `has:link/image/video/file/schematic/pin`. Returns `{error?, words, chat, files, text, schematics}`, each `{total, items}` (first 50; 20 posts). `from`/`mentions`/`has` search chat only. Reads everything each time (text files cached by size+time) |
-| GET | `/api/voice` | `{enabled, chats, max, full, url}`: the voice chats you can see (see [`voice-and-streams.md`](voice-and-streams.md)) |
+| GET | `/api/voice` | `{enabled, chats, max, full, url}`: the voice chats you can see (see [`voice-and-streams.md`](voice-and-streams.md)). `#voice-link`, where it is set up, is first, with `link: true`, `linked` (the bridge to the game servers is in it), and for each player in game a person with `show` (their Minecraft name) and `via` (their server's tag); it is not counted in `full` |
 | POST | `/api/voice` | `{private, invite?: [names]}` starts a voice chat and returns a LiveKit token; 409 at the limit of 3, 503 when voice is not set up |
 | POST | `/api/voice/<id>/join` | a token for joining one you can see |
 | POST | `/api/voice/<id>/leave` | takes you off the list at once |

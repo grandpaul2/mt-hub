@@ -45,8 +45,9 @@ const (
 	msgStatus = 3
 
 	// ListenerIdentity is the bridge's own participant; PlayerPrefix starts a player's
-	// ("link:<server>:<Minecraft name>"). Hub account names cannot contain ":".
-	ListenerIdentity = "link"
+	// ("link:<server>:<Minecraft name>"). Hub account names cannot contain ":", so neither
+	// can be a member. The hub knows both (internal/server/voice.go).
+	ListenerIdentity = "link:listener"
 	PlayerPrefix     = "link:"
 
 	// A talk spurt ends after this long without a speech frame.
@@ -56,6 +57,9 @@ const (
 	// The relay pings every 20 s; this long without anything from it and it is gone.
 	relayDead = 60 * time.Second
 )
+
+// talkingLevel is what every frame from the game says about its loudness: -30 dBov (see toHub).
+var talkingLevel uint8 = 30
 
 // A Minecraft name: what a player's participant is called. Anything else in a roster is
 // dropped (a game server's token sits on a rented host).
@@ -89,7 +93,7 @@ func Load(path string) (Config, error) {
 
 // Ours says whether a participant identity is one of the bridge's own.
 func Ours(identity string) bool {
-	return identity == ListenerIdentity || strings.HasPrefix(identity, PlayerPrefix)
+	return strings.HasPrefix(identity, PlayerPrefix)
 }
 
 // Bridge is one running bridge.
@@ -657,5 +661,9 @@ func (b *Bridge) toHub(id string, opus []byte) {
 	p.gap, p.last = false, now
 	ts, track := p.ts, p.track
 	b.mu.Unlock()
-	_ = track.WriteSample(media.Sample{Data: opus, Duration: frameDur, PacketTimestamp: ts}, nil)
+	// The level is the RTP header's "how loud" note, which is how LiveKit knows who is talking
+	// (it never decodes either). The bridge cannot know the real level without decoding, so
+	// every frame of speech says the same moderate one: a player's name lights up while they
+	// talk. It is not part of the sound.
+	_ = track.WriteSample(media.Sample{Data: opus, Duration: frameDur, PacketTimestamp: ts}, &lksdk.SampleWriteOptions{AudioLevel: &talkingLevel})
 }

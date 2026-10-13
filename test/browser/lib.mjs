@@ -141,6 +141,10 @@ const profile = join(tmp, 'chrome');
 chrome = spawn(process.env.CHROMIUM || 'chromium', [...(process.env.CHROMIUM_FLAGS?.split(' ').filter(Boolean) ?? []), '--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`,
   '--window-size=1200,800', '--hide-scrollbars', '--no-first-run',
   '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', '--autoplay-policy=no-user-gesture-required',
+  // Headless Chromium still plays on the computer's real sound output: a suite with voices
+  // (the beeps, a stand-in player's made-up frames) would be heard by whoever sits there.
+  // (AUDIBLE=1 leaves the sound on, for checking that this flag is what silences it.)
+  ...(process.env.AUDIBLE ? [] : ['--mute-audio']),
   ...(process.env.FAKE_AUDIO ? [`--use-file-for-fake-audio-capture=${process.env.FAKE_AUDIO}`] : []),
   'about:blank'], { stdio: 'ignore' });
 const cdpPort = await until('Chromium to start', () =>
