@@ -462,6 +462,9 @@ separate dialogs.
     aligned, every column but the last on one line, wide ones scroll sideways.
   - **Day divider**: a hairline across the feed with the day (Today, Yesterday,
     or the date) centred on it, as in Discord.
+  - **Every row has an author.** A row with no name looks like a bug. What the hub or a game
+    server posts by itself, with no person behind it, is a message from **MacroTech**, the
+    name release cards are posted under, and is drawn like any other message.
 - **Cards and tiles:**
   - **Folder tiles:** 16:9 thumbnails.
   - **Schematic cards:** text left, render right, on grey.
@@ -534,6 +537,9 @@ separate dialogs.
     hover. The same name from another place starts a new header.
   - The chat has a muted line at the top, like a private chat's, with a link icon: what it's
     linked to and how to send from the game.
+  - What a server reports by itself (a bot's death) is a message from **MacroTech** with that
+    server's tag: `MacroTech SMP`, then the game's own line, "squidbot was slain by Drowned".
+    In game it is `[SMP] squidbot was slain by Drowned`, with no name.
 - **Editing a message**:
   - The box holds the words only. The message's files are cards under it (the tray's cards),
     each with an x; Save takes the removed ones out of the message, and the hub trashes
