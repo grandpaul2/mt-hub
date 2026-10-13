@@ -160,7 +160,7 @@ await sleep(800);
 const VIEWS = [['tree and chat', 'gyp'], ['file', 'boards/Playground juggling glyphs query.md'], ['folder', 'folder=screenshots'], ['schematics folder', 'folder=schematics'], ['new file tile', 'folder=boards'],
   ['schematics', 'schems'], ['picture', 'screenshots/2026-09-01 15.00.01 Peggy.png'], ['viewer', 'screenshots/2026-09-01 15.00.01 Peggy.png'],
   ['chat (main panel)', 'chan=general'], ['search', 'gyp'], ['mention popup', 'chan=general'], ['command popup', 'chan=general'], ['server status', 'chan=general'], ['emoji picker', 'chan=general'],
-  ['new line and jump', 'chan=piggy-jig'], ['save to files', 'chan=general'], ['chat files', 'chan=general'], ['private chat', 'chan=jig-staff'], ['server link', 'chan=text-link'], ['delete question', 'gyp'], ['delete message question', 'chan=general'], ['rows selected', 'gyp'], ['delete several', 'gyp'], ['tiles picked and the box', 'folder=screenshots'],
+  ['new line and jump', 'chan=piggy-jig'], ['save to files', 'chan=general'], ['chat files', 'chan=general'], ['private chat', 'chan=jig-staff'], ['server link', 'chan=text-link'], ['delete question', 'gyp'], ['delete message question', 'chan=general'], ['rows selected', 'gyp'], ['rows cut', 'gyp'], ['delete several', 'gyp'], ['tiles picked and the box', 'folder=screenshots'],
   ['minecraft name', 'gyp'], ['message edit', 'chan=general'], ['file tray', 'chan=general'], ['sending and failed', 'chan=general'], ['sound settings', 'gyp'], ['voice settings', 'gyp'], ['admin', 'gyp']];
 mkdirSync(OUT, { recursive: true });
 const T = {}; let t0 = Date.now();
@@ -219,6 +219,12 @@ for (const [name, hash] of VIEWS) {
     await js(`[...document.querySelectorAll('#main-chat .msg')].find((m) => m.querySelector('.refs img') && m.querySelector('[data-tool="trash"]')).querySelector('[data-tool="trash"]').click()`);
     await shown(name, 'the message in the question', `!!document.querySelector('#dialog.ask .del-preview .msg-head .who')`);
     await idle(800);
+  }
+  if (name === 'rows cut') { // Ctrl+X on two rows: dimmed until pasted
+    await js(`(() => { for (const r of [...document.querySelectorAll('#tree .row')].slice(3, 5)) r.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
+      document.getElementById('tree').dispatchEvent(new KeyboardEvent('keydown', { key: 'x', ctrlKey: true, bubbles: true, cancelable: true })); })()`);
+    await shown(name, 'the cut rows', `document.querySelectorAll('#tree .row.cut').length >= 1`);
+    await idle(3500); // the "Cut 2 items" toast goes
   }
   if (name === 'rows selected' || name === 'delete several') {
     // Rows picked with Ctrl+click (beside the open folder's own); then the question Delete asks.
