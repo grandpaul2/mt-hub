@@ -18,14 +18,17 @@ The lab below checked that byte for byte.
 
 ## Open decisions
 
-1. **The microphone chain in #voice-link** (see Lab → Hub to game). The hub page's default
-   chain (DeepFilterNet3, then the speech gate) lowered one test voice by 9 dB and let almost
-   nothing of the other through. With the filter off and only the speech gate, both arrived
-   intact. Proposed: in #voice-link the page sends the microphone with the filter off, whatever
-   Voice Settings says; the speech gate stays, so typing alone still opens nothing.
-2. **The mod release that renames the group.** The in-game group becomes `voice-link`
-   (decided). It is a change on the game servers only, but it is a release and a restart of
-   each. Proposed: one MT Utils release carries it.
+1. **How a hub member's microphone gets to the right level** (see Lab → Hub to game). The
+   hub's page asks the browser for its automatic gain **off** and has a manual level slider
+   that starts at 0, so hub voices reach the game 20 to 30 dB under a player's, and at that
+   level the page's own chain misbehaves (a quiet microphone is shut for the first 30 seconds
+   with the default filter). The filter itself is not the problem and no setting is
+   overridden. Proposed: the page asks the browser for its automatic gain **on**, in every
+   voice chat, with a switch in Voice Settings. Measured in Chromium only; Firefox's must be
+   checked before this is settled.
+
+Decided: the in-game group is renamed `voice-link`, in one MT Utils release that also
+carries the settings-tab cleanup already queued for that mod.
 
 ## What people see
 
@@ -108,6 +111,12 @@ secret (as in the hub's `voice.json`); the room (`voice-link`).
   relay as a speaker: uuid = name-based UUID of `hub:<account name>`, stable across restarts.
 - Not sent: packets of one or two bytes (a browser's DTX, "nothing to send"), and the Opus
   silence frame `f8 ff fe` followed by zeros (LiveKit's libraries send it on an idle track).
+- Not sent either: **lone silence frames.** With DTX on, a browser whose microphone is shut
+  still sends one ordinary-looking frame of encoded silence about every 400 ms (35 bytes,
+  420 ms apart in the lab). Each would open the speaker in game for one silent frame. They
+  cannot be told from speech by their bytes, so the first frame after a pause is held until
+  the next one follows within 60 ms: speech does and both go out; a lone frame does not and
+  is dropped. Nothing after the first frame of a talk spurt is delayed.
 - After 100 ms without a speech packet the bridge sends "stopped talking", which the game
   servers need to end the sound cleanly.
 - If a track arrives as `audio/red`, the newest block is taken out (RFC 2198) and sent; the
@@ -144,9 +153,9 @@ It logs connects, disconnects and joins, never audio.
 - **Tokens** are as for any voice chat. A member's token cannot publish as a `link:` identity
   because the hub signs tokens for account names only.
 - **The page** (`voice.ts`): the named row with its icon, players listed after members with
-  their tag, the "Not connected to the game servers" line, the shorter menu on a player's row,
-  and the microphone chain for this room (open decision 1). A player's audio plays like any
-  member's.
+  their tag, the "Not connected to the game servers" line, and the shorter menu on a player's
+  row. A player's audio plays like any member's. The microphone chain is the same as in any
+  voice chat (open decision 1 is about the chain everywhere, not this room).
 - Banning or deleting an account takes them out of #voice-link as out of any voice chat.
 
 ## MT Utils (server side)
@@ -181,43 +190,57 @@ It logs connects, disconnects and joins, never audio.
 ## Lab (2026-10-13)
 
 A prototype bridge, a stand-in game server speaking the relay's protocol with frames from
-SVC's own encoder, and a real hub page in a headless browser with recorded speech as its
+SVC's own encoder, and a real hub page in headless Chromium with recorded speech as its
 microphone. Two people's recordings: one with a clear voice, one with a quiet voice in a loud
-room.
+room; for each, room noise, typing, mouse clicks, talking, talking while typing, quiet
+talking, and their typing laid over their talking. Every browser run checked its own
+measurements, the page's audio thread included (no stalls in any run).
 
 - **Byte for byte:** 986 frames each way arrived in order and identical. The relay and bridge
   add 0.1 ms on one machine.
-- **A browser's packets:** Opus, mono, 20 ms, 3 to 161 bytes. SVC's native decoder and its
-  Java fallback both decoded every frame of five runs (about 2,300 each) to 960 samples.
+- **A browser's packets:** Opus, mono, 20 ms. SVC's native decoder and its Java fallback both
+  decoded every frame to 960 samples.
 - **Game to hub** (what a member's browser plays, against what the player said): level
   −0.2 to −0.9 dB, no speech cut, 50 to 57 ms from the game server to the browser's speaker.
-  SVC's own codec alone gives the same figures.
-- **Hub to game** (what the game server is sent, decoded by SVC's decoder, against the
-  microphone recording):
+- **Hub to game** (what the game server is sent, decoded by SVC's decoder), against the same
+  recordings sent the way a player's microphone sends them (SVC's own chain: RNNoise,
+  automatic gain, its gate). Scores are DNSMOS overall (1 to 5; 0.05 is the test's own
+  noise) for talking / quiet talking / typing laid over talking / talking while typing, and
+  the level talking arrives at. Default filter (DeepFilterNet3) throughout:
 
-  | Voice | Hub microphone chain | Level | Speech cut | Loudness shape match |
-  |---|---|---|---|---|
-  | clear | filter off, speech gate | −0.4 dB | 0% | 0.99 |
-  | clear | RNNoise, speech gate | −6.6 dB | 0% | 0.98 |
-  | clear | DeepFilterNet3, speech gate (the default) | −9.4 dB | 1.1% | 0.77 |
-  | quiet, loud room | filter off, speech gate | −1.0 dB | 0.3% | 0.77 |
-  | quiet, loud room | DeepFilterNet3, speech gate | almost nothing is sent | | |
+  | | Clear voice | Quiet voice |
+  |---|---|---|
+  | as a player (SVC) | 2.88 / 2.66 / 2.87 / 2.82 at −26 dBFS | 2.99 / 2.18 / 2.56 / 2.37 at −25 |
+  | hub, as it is (level 0, no automatic gain) | 2.93 / 1.91 / 2.44 / 2.06 at −46 | nothing for 30 s, then 2.57 / nothing / 2.53 / 2.17 at −52 |
+  | hub, level slider +12 dB | 3.16 / 2.09 / 2.93 / 2.60 at −34 | 2.94 / 2.97 / 3.02 / 2.91 at −41 |
+  | hub, level slider +24 dB | 3.17 / 2.68 / 2.94 / 2.83 at −21 | 3.28 / 3.08 / 2.86 / 2.95 at −28 |
+  | hub, the browser's automatic gain on | 3.16 / 2.72 / 2.97 / 2.83 at −24 | 3.08 / 3.10 / 2.96 / 2.97 at −34 |
 
-  "Speech cut" is the share of 20 ms speech frames that arrived more than 20 dB low.
+- **The level is the root.** With it right, the default filter matches or beats the
+  speaker's own in-game microphone on every recording. With it low: the quiet voice sends
+  nothing for the first 30 seconds after joining (whichever recording came first was lost),
+  and its quiet talking is never sent.
+- **Other filters, level 0:** filter off keeps the voice (0.1% cut) but passes typing between
+  words at nearly full level (−3 dB, where a player's microphone sends it 29 dB down) and the
+  gate alone cuts 40% of the quiet voice's quiet talking; RNNoise lowers both voices another
+  6 to 8 dB.
+- **Typing alone and clicks alone are never sent**, for either voice at any setting tried.
+- **Lost packets:** up to 10% of frames lost and closed up leaves the scores unchanged.
 - Not measured: a real game client (it receives the same packets Voice Link already delivers
-  between servers), Firefox, a phone, and anything by ear.
+  between servers), Firefox, a phone, a real microphone, and anything by ear.
 
 ## Tests
 
 - **Go (`cmd/voicebridge`):** against a local relay and a local LiveKit, as the lab's
   byte-for-byte run: both directions identical and in order; a pause keeps its length game
-  to hub; silence packets and DTX never reach the relay; "stopped talking" within 150 ms;
+  to hub; silence packets, DTX and lone silence frames never reach the relay, and speech after
+  one is whole; "stopped talking" within 150 ms;
   rosters both ways; a player joining and leaving; the relay or LiveKit restarting.
 - **Go (`TestVoiceLink`):** the permanent voice chat (always listed, not ended, outside the
   limit, absent without `link_voice`), `link:` identities kept and tagged, the listener left
   out, `linked`.
 - **Browser (`voice-link.mjs`):** the row and its icon, joining, a player listed with a tag
-  and lighting up, the player's menu, the not-connected line, the microphone chain used.
+  and lighting up, the player's menu, the not-connected line.
 - **Before release:** two people, one in game and one in the hub, for a minute each way.
 
 ## Build order
