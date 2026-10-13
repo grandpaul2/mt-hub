@@ -44,6 +44,9 @@ PATH (`CHROMIUM=google-chrome` uses another browser).
   `tar` and `sha256sum`. The `relay` suite downloads a MediaMTX server the same way and needs
   `ffmpeg` (with libx264 and libopus) on the PATH. Elsewhere, name the other suites on the
   command line.
+- **`internal/voicebridge`'s tests need the LiveKit server** the `voice` suite downloads
+  (`fetched/livekit-server`). Without it they print `NOT TESTED` and are skipped: run
+  `make browser-test` once, or say they were not run.
 - **Always build the page before Go.** `web/dist` is generated, and the Go code embeds it. On a
   fresh clone `go vet` or `go test` alone fails with `pattern dist: no matching files found`;
   run `make` or `make check` first.
@@ -68,7 +71,10 @@ PATH (`CHROMIUM=google-chrome` uses another browser).
 ## Where things are
 
 - `cmd/mthub`: the program and its `passwd`, `user`, `token` commands. `cmd/voicelink`: a
-  separate small relay for Simple Voice Chat between game servers.
+  separate small relay for Simple Voice Chat between game servers (`internal/voicelink`).
+  `cmd/voicebridge`: a separate program that joins one hub voice chat to that relay
+  (`internal/voicebridge`; it is the only thing that uses LiveKit's Go library, which the
+  hub's own binary does not carry).
 - `internal/server/`: every route, headers (`headers.go`), disk limits (`limits.go`), tokens
   (`tokens.go`), the event stream (`events.go`).
 - `internal/auth`: accounts, sessions, tokens. `internal/workspace`: the Files tree (a git
