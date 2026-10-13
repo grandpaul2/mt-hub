@@ -185,6 +185,80 @@ func TestServerLink(t *testing.T) {
 	}
 }
 
+// A notice: what a server reports by itself (a bot died) is a message from MacroTech with the
+// server's tag, and the other server prints it without a name.
+func TestServerLinkNotice(t *testing.T) {
+	dir := t.TempDir()
+	us, _ := auth.Open(filepath.Join(dir, "users"))
+	ws, _ := workspace.Open(filepath.Join(dir, "workspace"))
+	cs, _ := chat.Open(filepath.Join(dir, "chat"))
+	ls, _ := preview.Open(filepath.Join(dir, "previews"))
+	us.SetPassword("Paul", "Paul-password")
+	srv := httptest.NewServer(New(us, ws, cs, ls, filepath.Join(dir, "thumbs"), fstest.MapFS{}, nil))
+	defer srv.Close()
+	cookie, _ := us.Login("Paul", "Paul-password")
+	survival, _, _ := us.NewToken("survival", "")
+	creative, _, _ := us.NewToken("creative", "")
+	call := func(token, method, path, body string) (int, string) {
+		t.Helper()
+		r, _ := http.NewRequest(method, srv.URL+path, strings.NewReader(body))
+		if token == "" {
+			r.AddCookie(&http.Cookie{Name: sessionCookie, Value: cookie})
+		} else {
+			r.Header.Set("Authorization", "Bearer "+token)
+		}
+		res, err := http.DefaultClient.Do(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		b, _ := io.ReadAll(res.Body)
+		return res.StatusCode, string(b)
+	}
+	call(survival, "GET", "/api/server-link", "")
+
+	for _, c := range []struct {
+		label, token, body string
+		want               int
+	}{
+		{"a server's notice", survival, `{"notice":"squidbot was slain by §cDrowned\n"}`, 200},
+		{"a person's", "", `{"notice":"squidbot was slain by Drowned"}`, 403},
+		{"a notice naming a player", survival, `{"notice":"x died","player":"Steve"}`, 400},
+		{"a blank one", survival, `{"notice":"  "}`, 400},
+	} {
+		if code, body := call(c.token, "POST", "/api/server-link", c.body); code != c.want {
+			t.Errorf("%s: %d %s, want %d", c.label, code, body, c.want)
+		}
+	}
+	msgs, _ := cs.Messages(LinkChat, "", 10)
+	if len(msgs) != 1 || msgs[0].User != auth.ReleaseName || msgs[0].Via != "SMP" || !msgs[0].Notice || msgs[0].Text != "squidbot was slain by Drowned" {
+		t.Fatalf("stored: %+v", msgs)
+	}
+	// It survives a restart of the hub as a notice.
+	again, _ := chat.Open(filepath.Join(dir, "chat"))
+	if m, _ := again.Messages(LinkChat, "", 10); len(m) != 1 || !m[0].Notice {
+		t.Errorf("read back from the file: %+v", m)
+	}
+
+	read := func(token string) []linkLineOut {
+		_, body := call(token, "GET", "/api/server-link?after=", "")
+		var f struct{ Messages []linkLineOut }
+		json.Unmarshal([]byte(body), &f)
+		return f.Messages
+	}
+	if got := read(creative); len(got) != 1 || !got[0].Notice || got[0].Tag != "SMP" || got[0].Text != "squidbot was slain by Drowned" {
+		t.Errorf("creative reads: %+v", got)
+	}
+	if got := read(survival); len(got) != 0 {
+		t.Errorf("survival got its own notice back: %+v", got)
+	}
+	// A line a player says is not a notice.
+	call(survival, "POST", "/api/server-link", `{"player":"Steve","text":"hi"}`)
+	if got := read(creative); len(got) != 2 || got[1].Notice {
+		t.Errorf("a player's line: %+v", got)
+	}
+}
+
 // From the hub, one person can't flood the link chat (every line is printed in both games);
 // a game server's own lines aren't counted.
 func TestLinkChatRate(t *testing.T) {

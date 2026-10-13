@@ -48,6 +48,23 @@ const feed = async (tok) => (await (await asServer(tok, 'GET', '?after=' + start
 check('survival reads', await feed(survival), ['[CMP] Steve: yep, over here', '[CMP] gypsy_jay: hi', '[HUB] Steve: on in ten', '[HUB] Paul: storage hall']);
 check('creative reads', await feed(creative), ['[SMP] Steve: anyone on creative?', '[SMP] Steve: hello?', '[HUB] Steve: on in ten', '[HUB] Paul: storage hall']);
 
+// What a server reports by itself (a bot died) is a message from MacroTech with that server's
+// tag, a row like any other; the other server prints it without a name. Seen from another
+// chat, it marks this one unread.
+await send('Page.navigate', { url: HUB + '/#chan=general' });
+await settle(800);
+const unread = () => ev(`[...document.querySelectorAll('#channels .row')].find((r) => r.querySelector('.name').textContent === 'text-link').classList.contains('unread')`);
+const before = await unread();
+check('a server reports a bot\'s death', (await asServer(survival, 'POST', '', { notice: 'squidbot was slain by Drowned' })).status, 200);
+await settle(600);
+check('it marks the chat unread', [before, await unread()], [false, true]);
+await send('Page.navigate', { url: HUB + '/#chan=text-link' });
+await settle(1200);
+check('it is from MacroTech, with the server\'s tag', [(await rows()).at(-1), await ev(`[...document.querySelectorAll('#main-chat .tag.via')].at(-1).title`)],
+  [['MacroTech', 'SMP', 'squidbot was slain by Drowned'], 'Reported by Survival']);
+check('creative prints it without a name', (await (await asServer(creative, 'GET', '?after=' + start.last)).json()).messages.filter((m) => m.notice).map((m) => `[${m.tag}] ${m.user}|${m.text}`), ['[SMP] MacroTech|squidbot was slain by Drowned']);
+await shot('notice');
+
 // Other chats are untouched: no note, no tags.
 await send('Page.navigate', { url: HUB + '/#chan=general' });
 await settle(800);
