@@ -251,7 +251,8 @@ measurements, the page's audio thread included (no stalls in any run).
 
 ## Build order
 
-1. The bridge, with its Go tests.
+1. The bridge, with its Go tests. **Built** (`cmd/voicebridge`, `internal/voicebridge`; the
+   relay's code moved to `internal/voicelink` so the tests can run one). Not deployed.
 2. The hub: the permanent voice chat, people, the page; browser suite.
 3. MT Utils: the group's name; checked on a throwaway server with the bridge.
 4. Deploy: the bridge and its token beside the relay, then the hub; then the mod on both
