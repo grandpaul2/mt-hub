@@ -10,8 +10,8 @@
 // (and can't put them away while one is set). New File / New Folder
 // name the new one in a tile, as the tree does in a row.
 import { iconURL } from './icons';
-import { ICON } from './viewer';
-import { $, GLYPH, glyphs, baseName, date, dateTime, bytes, enc, go, h, load, showMenu, store, user, typing, thumbOr } from './util';
+import { ICON, viewerOpen } from './viewer';
+import { $, GLYPH, glyphs, baseName, date, dateTime, bytes, dragData, enc, go, h, load, showMenu, store, user, typing, thumbOr } from './util';
 
 // mod: when a file last changed; a folder's is its newest file's, however deep.
 export type FolderFile = { path: string; size: number; mod?: number; dir: boolean };
@@ -25,6 +25,11 @@ type Hooks = {
   manager(): void; // open the Schematic Manager (from schematics/)
   make(path: string, folder: boolean): Promise<boolean>; // create it (false: it wasn't, a toast says why)
   menu(e: MouseEvent, path: string): void; // a tile's right-click menu (the tree's)
+  menuMany(e: MouseEvent, paths: string[]): void; // the menu for several picked tiles
+  removeMany(paths: string[]): void; // delete them, after asking
+  drag(paths: string[]): void; // these are being dragged (the tree can take them too)
+  canDrop(dir: string): boolean; // what's being dragged could move into dir
+  drop(dir: string): void; // move it there
 };
 
 const IMAGE = /\.(png|jpe?g|gif|webp)$/i;
@@ -126,6 +131,145 @@ const readme = h('button', { class: 'vtool', innerHTML: ICON.readme });
 
 export const folderDir = () => dir;
 
+// The picked tiles: the folder view's own selection, apart from the tree's, and gone when
+// another folder opens. Ctrl+click puts a tile in or takes it out, Shift+click picks from
+// the tile last clicked to this one, a box dragged from empty space picks what it touches,
+// Ctrl+A picks everything shown, Esc lets go.
+let picked = new Set<string>();
+let pickFrom = ''; // where a Shift range starts
+let shownPaths: string[] = []; // the tiles on screen, in order
+const pickedPaths = () => shownPaths.filter((p) => picked.has(p));
+
+function paintPicked() {
+  for (const t of grid.querySelectorAll<HTMLElement>('.shot[data-path]')) t.classList.toggle('picked', picked.has(t.dataset.path!));
+}
+
+// pickClick is a click on a tile: true when it picked (Ctrl, Shift) and so mustn't open.
+function pickClick(e: MouseEvent, p: string) {
+  const opens = !(e.shiftKey || e.ctrlKey || e.metaKey);
+  if (e.shiftKey) {
+    const a = shownPaths.indexOf(pickFrom);
+    const b = shownPaths.indexOf(p);
+    const from = a < 0 ? b : a;
+    if (a < 0) pickFrom = p;
+    picked = new Set(shownPaths.slice(Math.min(from, b), Math.max(from, b) + 1));
+  } else if (opens) picked.clear();
+  else {
+    if (!picked.delete(p)) picked.add(p);
+    pickFrom = p;
+  }
+  paintPicked();
+  return !opens;
+}
+
+// tileMenu: on one of several picked tiles the menu is for all of them; on any other tile
+// it picks just that one.
+function tileMenu(e: MouseEvent, p: string) {
+  e.preventDefault();
+  if (picked.size > 1 && picked.has(p)) return hooks.menuMany(e, pickedPaths());
+  picked = new Set([p]);
+  pickFrom = p;
+  paintPicked();
+  hooks.menu(e, p);
+}
+
+// tileDrag: a tile drags into a chat (a link) or onto a folder (a move); a picked one takes
+// the rest of the picked along.
+function tileDrag(el: HTMLElement, p: string) {
+  el.draggable = true;
+  el.ondragstart = (e) => {
+    const paths = picked.size > 1 && picked.has(p) ? pickedPaths() : [p];
+    hooks.drag(paths);
+    dragData(e, p, paths);
+  };
+}
+
+// dropInto makes el (a folder's tile, the Back button) a place to drop tiles or tree rows:
+// they move into the folder to() names.
+function dropInto(el: HTMLElement, to: () => string) {
+  el.ondragover = (e) => {
+    if (!hooks.canDrop(to())) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+    el.classList.add('drop-target');
+  };
+  el.ondragleave = () => el.classList.remove('drop-target');
+  el.ondrop = (e) => {
+    el.classList.remove('drop-target');
+    if (!hooks.canDrop(to())) return;
+    e.preventDefault();
+    e.stopPropagation();
+    hooks.drop(to());
+  };
+}
+
+const parentDir = () => dir.slice(0, Math.max(0, dir.lastIndexOf('/')));
+
+// pickBox is the box dragged from empty space: tiles it touches are picked (with Ctrl held,
+// added to what was picked), and near the top or bottom edge the folder scrolls. A plain
+// click on empty space picks nothing.
+function pickBox(down: MouseEvent) {
+  if (down.button !== 0 || (down.target as Element).closest('.shot, input, button')) return;
+  const edge = () => scroller.getBoundingClientRect();
+  if (down.clientX >= edge().left + scroller.clientWidth) return; // the scrollbar
+  down.preventDefault(); // no text selection; so the focus is moved by hand
+  (document.activeElement as HTMLElement | null)?.blur();
+  const keep = down.ctrlKey || down.metaKey ? new Set(picked) : new Set<string>();
+  // Everything in the scroller's own coordinates, so scrolling mid-drag keeps the start put.
+  const at = (e: MouseEvent) => ({ x: e.clientX - edge().left + scroller.scrollLeft, y: e.clientY - edge().top + scroller.scrollTop });
+  const start = at(down);
+  const tiles = [...grid.querySelectorAll<HTMLElement>('.shot[data-path]')].map((el) => {
+    const r = el.getBoundingClientRect();
+    return { p: el.dataset.path!, x: r.left - edge().left + scroller.scrollLeft, y: r.top - edge().top + scroller.scrollTop, w: r.width, h: r.height };
+  });
+  let box: HTMLElement | null = null;
+  let last = down;
+  let frame = 0;
+  const draw = () => {
+    const now = at(last);
+    const x = Math.min(start.x, now.x);
+    const y = Math.min(start.y, now.y);
+    const w = Math.abs(now.x - start.x);
+    const t = Math.abs(now.y - start.y);
+    if (!box) {
+      if (w < 4 && t < 4) return; // still a click
+      box = h('div', { class: 'pick-box' });
+      scroller.append(box);
+    }
+    Object.assign(box.style, { left: `${x}px`, top: `${y}px`, width: `${w}px`, height: `${t}px` });
+    picked = new Set(keep);
+    for (const tile of tiles) if (tile.x < x + w && tile.x + tile.w > x && tile.y < y + t && tile.y + tile.h > y) picked.add(tile.p);
+    paintPicked();
+  };
+  const scroll = () => {
+    const r = edge();
+    const by = last.clientY < r.top + 30 ? -14 : last.clientY > r.bottom - 30 ? 14 : 0;
+    if (by && box) {
+      scroller.scrollTop += by;
+      draw();
+    }
+    frame = requestAnimationFrame(scroll);
+  };
+  const move = (e: MouseEvent) => {
+    last = e;
+    draw();
+  };
+  const up = () => {
+    document.removeEventListener('mousemove', move);
+    document.removeEventListener('mouseup', up);
+    cancelAnimationFrame(frame);
+    if (box) box.remove();
+    else if (!keep.size) {
+      picked.clear();
+      paintPicked();
+    }
+  };
+  document.addEventListener('mousemove', move);
+  document.addEventListener('mouseup', up);
+  frame = requestAnimationFrame(scroll);
+}
+
 // New File / New Folder: a tile with a name box, like the tree's (Enter or clicking away
 // creates it, Esc cancels; a new file starts as ".md", left at just that it's a cancel).
 // draft keeps what's typed across re-renders (live updates).
@@ -209,6 +353,28 @@ export function setupFolder(h_: Hooks) {
     picker.value = '';
   };
   back.onclick = goUp;
+  dropInto(back, parentDir);
+  scroller.onmousedown = pickBox;
+  // (Shift+click would select the text in between.)
+  grid.onmousedown = (e) => {
+    if (e.shiftKey) e.preventDefault();
+  };
+  // Ctrl+A picks every tile shown, Delete deletes the picked: while the folder view has the
+  // keys (nothing else is focused, and nobody is typing).
+  document.addEventListener('keydown', (e) => {
+    if (e.defaultPrevented || $('main-folder').hidden || !$('menu').hidden || viewerOpen() || typing(e) || e.altKey) return;
+    const at = document.activeElement;
+    if (at && at !== document.body && !$('main-folder').contains(at)) return;
+    const mod = e.ctrlKey || e.metaKey;
+    if (mod && e.key.toLowerCase() === 'a') {
+      e.preventDefault();
+      picked = new Set(shownPaths);
+      paintPicked();
+    } else if (!mod && e.key === 'Delete' && picked.size) {
+      e.preventDefault();
+      hooks.removeMany(pickedPaths());
+    }
+  });
   manager.onclick = () => hooks.manager();
   $('main-folder').append(h('div', { class: 'chat-head shot-bar' }, back, title, count, openPost, picker,
     h('span', { class: 'spacer' }), filters, filtersBtn, manager, tools, searchSlot, sortBtn,
@@ -252,11 +418,17 @@ export function setupFolder(h_: Hooks) {
     store('mt-folder-w', size.value);
     sizeGrid();
   };
-  // Esc goes up a folder, unless you're typing somewhere (the search, chat) or a menu is open.
+  // Esc lets go of the picked tiles; with none picked it goes up a folder. Not while you're
+  // typing somewhere (the search, chat) or a menu is open.
   document.addEventListener('keydown', (e) => {
     // (defaultPrevented: the same Esc just brought you here from the Schematic Manager.)
     if (e.key !== 'Escape' || e.defaultPrevented || $('main-folder').hidden || e.ctrlKey || e.metaKey || e.altKey) return;
     if (typing(e)) return;
+    if (picked.size) {
+      picked.clear();
+      paintPicked();
+      return e.preventDefault();
+    }
     if (goUp()) e.preventDefault();
   });
   scroller.ondragover = (e) => {
@@ -279,6 +451,7 @@ export function openFolder(path: string, item = '') {
   const fresh = path !== dir;
   dir = path;
   if (fresh) creating = null;
+  if (fresh) picked.clear();
   if (fresh) who.value = from.value = to.value = search.value = '';
   if (fresh) filtersOpen = false;
   hooks.show();
@@ -298,8 +471,7 @@ export function openFolder(path: string, item = '') {
 // goUp opens the parent folder (a top-level folder's is Files, the top); false at the top.
 function goUp() {
   if (!dir) return false;
-  const parent = dir.slice(0, Math.max(0, dir.lastIndexOf('/')));
-  hooks.open(parent);
+  hooks.open(parentDir());
   return true;
 }
 
@@ -364,7 +536,12 @@ function render() {
   };
   const shown = all.filter((f, i) => fits(f, stamps[i])).sort(folderOrder(dir));
   count.textContent = shown.length === all.length ? String(all.length) : `${shown.length} of ${all.length}`;
+  // What's picked keeps to what is shown: a search or a filter lets go of what it hides.
+  shownPaths = shown.map((f) => f.path);
+  const here = new Set(shownPaths);
+  picked = new Set([...picked].filter((p) => here.has(p)));
   grid.replaceChildren(...shown.map((f) => (f.dir ? folderTile(f) : fileTile(f))));
+  paintPicked();
   // The new tile goes first among its kind (folders, then files).
   if (creating) grid.insertBefore(createTile(), creating.folder ? grid.firstChild : grid.children[shown.filter((f) => f.dir).length] ?? null);
   else if (!all.length) grid.append(h('div', { class: 'muted pad' }, 'Empty folder. Drop files here to upload them.'));
@@ -380,11 +557,10 @@ function folderTile(f: FolderFile) {
       // Sorted by date, a folder shows the date it's sorted by.
       sort === 'date' && f.mod ? h('span', { class: 'when' }, date(new Date(f.mod))) : ''));
   el.dataset.path = f.path;
-  el.onclick = () => hooks.open(f.path);
-  el.oncontextmenu = (e) => {
-    e.preventDefault();
-    hooks.menu(e, f.path);
-  };
+  el.onclick = (e) => pickClick(e, f.path) || hooks.open(f.path);
+  el.oncontextmenu = (e) => tileMenu(e, f.path);
+  tileDrag(el, f.path);
+  dropInto(el, () => f.path);
   return el;
 }
 
@@ -411,13 +587,8 @@ function fileTile(f: FolderFile) {
   const el = h('div', { class: 'shot', title: `${name} · ${bytes(f.size)}` }, media,
     h('div', { class: 'shot-meta' }, h('span', { class: 'who' }, st?.who ?? name), h('span', { class: 'when' }, when)));
   el.dataset.path = f.path;
-  el.onclick = () => hooks.openFile(f.path);
-  el.oncontextmenu = (e) => {
-    e.preventDefault();
-    hooks.menu(e, f.path);
-  };
-  // Drag onto a chat to link it.
-  el.draggable = true;
-  el.ondragstart = (e) => e.dataTransfer?.setData('text/x-mt-path', f.path);
+  el.onclick = (e) => pickClick(e, f.path) || hooks.openFile(f.path);
+  el.oncontextmenu = (e) => tileMenu(e, f.path);
+  tileDrag(el, f.path);
   return el;
 }

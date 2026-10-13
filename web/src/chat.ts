@@ -9,7 +9,7 @@ import { emojiImg, emojiPicker as pickerContent } from './emoji';
 import { autocomplete } from './autocomplete';
 import { commandIn, type Command } from './commands';
 import { dingFor, setupDing } from './ding';
-import { $, accounts, ask, bytes, opTag, tagOf, dateTime, fullDate, GLYPH, time, closeDialog, copyText, dialog, enc, h, isAdmin, json, labels, load, req, showMenu, store, toast, toastError, user, type MenuItem, type Live, thumbOr } from './util';
+import { $, accounts, ask, bytes, opTag, tagOf, dateTime, fullDate, GLYPH, time, closeDialog, copyText, dialog, enc, h, isAdmin, json, labels, load, req, showMenu, store, toast, toastError, user, type MenuItem, type Live, thumbOr, draggedPaths } from './util';
 import { iconURL } from './icons';
 
 type Message = {
@@ -178,12 +178,12 @@ class ChatView {
     };
     root.ondrop = (e) => {
       root.classList.remove('drop');
-      const p = e.dataTransfer?.getData('text/x-mt-path');
+      const paths = draggedPaths(e); // a selection links every one of them
       const files = [...(e.dataTransfer?.files ?? [])];
-      if (!p && !files.length) return;
+      if (!paths.length && !files.length) return;
       e.preventDefault();
-      if (p) {
-        insert(c, (c.value && !/\s$/.test(c.value) ? ' ' : '') + pathRef(p) + ' ');
+      if (paths.length) {
+        insert(c, (c.value && !/\s$/.test(c.value) ? ' ' : '') + paths.map(pathRef).join(' ') + ' ');
         this.keepDraft();
       } else this.attach(files);
     };

@@ -160,7 +160,7 @@ await sleep(800);
 const VIEWS = [['tree and chat', 'gyp'], ['file', 'boards/Playground juggling glyphs query.md'], ['folder', 'folder=screenshots'], ['schematics folder', 'folder=schematics'], ['new file tile', 'folder=boards'],
   ['schematics', 'schems'], ['picture', 'screenshots/2026-09-01 15.00.01 Peggy.png'], ['viewer', 'screenshots/2026-09-01 15.00.01 Peggy.png'],
   ['chat (main panel)', 'chan=general'], ['search', 'gyp'], ['mention popup', 'chan=general'], ['command popup', 'chan=general'], ['server status', 'chan=general'], ['emoji picker', 'chan=general'],
-  ['new line and jump', 'chan=piggy-jig'], ['save to files', 'chan=general'], ['chat files', 'chan=general'], ['private chat', 'chan=jig-staff'], ['server link', 'chan=text-link'], ['delete question', 'gyp'], ['delete message question', 'chan=general'],
+  ['new line and jump', 'chan=piggy-jig'], ['save to files', 'chan=general'], ['chat files', 'chan=general'], ['private chat', 'chan=jig-staff'], ['server link', 'chan=text-link'], ['delete question', 'gyp'], ['delete message question', 'chan=general'], ['rows selected', 'gyp'], ['delete several', 'gyp'], ['tiles picked and the box', 'folder=screenshots'],
   ['minecraft name', 'gyp'], ['message edit', 'chan=general'], ['file tray', 'chan=general'], ['sending and failed', 'chan=general'], ['sound settings', 'gyp'], ['voice settings', 'gyp'], ['admin', 'gyp']];
 mkdirSync(OUT, { recursive: true });
 const T = {}; let t0 = Date.now();
@@ -218,6 +218,28 @@ for (const [name, hash] of VIEWS) {
     // A message with a picture: the question shows it as the chat draws it.
     await js(`[...document.querySelectorAll('#main-chat .msg')].find((m) => m.querySelector('.refs img') && m.querySelector('[data-tool="trash"]')).querySelector('[data-tool="trash"]').click()`);
     await shown(name, 'the message in the question', `!!document.querySelector('#dialog.ask .del-preview .msg-head .who')`);
+    await idle(800);
+  }
+  if (name === 'rows selected' || name === 'delete several') {
+    // Rows picked with Ctrl+click (beside the open folder's own); then the question Delete asks.
+    await js(`(() => { for (const r of [...document.querySelectorAll('#tree .row')].slice(1, 6).filter((_, i) => i !== 1 && i !== 3)) r.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true })); })()`);
+    await shown(name, 'the selected rows', `document.querySelectorAll('#tree .row.selected').length >= 3`);
+    if (name === 'delete several') {
+      await js(`document.getElementById('tree').dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true }))`);
+      await shown(name, 'the question', `document.querySelectorAll('#dialog .del-list div').length >= 2`);
+    }
+    await idle(800);
+  }
+  if (name === 'tiles picked and the box') {
+    // Two tiles picked with Ctrl+click, then a box dragged (Ctrl held, so they stay) from the
+    // gap beside the first tile across the second, and left open.
+    await js(`(() => { const t = [...document.querySelectorAll('#main-folder .shot[data-path]')];
+      for (const el of [t[0], t[t.length - 1]]) el.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
+      const a = t[1].getBoundingClientRect();
+      const at = (type, x, y, on) => on.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, ctrlKey: true, clientX: x, clientY: y }));
+      at('mousedown', a.left - 6, a.top + 30, document.querySelector('#main-folder .shot-grid'));
+      at('mousemove', a.left + a.width / 2, a.top + a.height / 2, document); })()`);
+    await shown(name, 'the box and the picked tiles', `!!document.querySelector('#main-folder .pick-box') && document.querySelectorAll('#main-folder .shot.picked').length >= 2`);
     await idle(800);
   }
   if (name === 'minecraft name') {

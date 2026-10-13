@@ -350,6 +350,8 @@ dialog, click-twice in Admin, and Shift+click. The rule:
 - **"Delete this message?" shows the message** (Discord): drawn as the chat draws it (name,
   time, text, its pictures and file cards) in a bordered box on `--bg` under the title, with
   nothing in it to click. Taller than 200 px, the box scrolls.
+- **Deleting several files asks once** ("Delete 5 items?"), with their names in the same
+  kind of box, how many files that is with the folders' contents, and what is lost.
 - **Two allowed shortcuts:**
   - **Shift+click** on a message's trash icon skips the question (Discord).
   - **Admin row actions** (Reset Password, Ban, Delete) keep click-twice-within-3-s, now
@@ -416,7 +418,17 @@ separate dialogs.
 
 - **Tree rows (VS Code):**
   - **Size:** 24 px, 8 px indent with guides on hover, Material icons.
-  - **Selection:** one highlight: grey, plus a `--focus` outline while the tree has focus.
+  - **Selection:** selected rows are grey (`--select`): one after a click or an arrow key,
+    several with Ctrl+click (in or out), Shift+click and Shift+↑/↓ (a range from the row last
+    clicked), Ctrl+A (every row on screen). Esc goes back to one. The row the keys are on has
+    a `--focus` outline while the tree has focus. Neither Ctrl+click nor Shift+click opens
+    anything.
+  - **Several selected:** the right-click menu on one of them is for all of them (Download
+    as Zip, Delete, Copy Paths), and on any other row it selects just that one. Delete asks
+    once. Dragging one of them takes the rest along: onto a folder they all move or none
+    does (a name taken there stops it and the message names it), into a chat each gets a
+    link. Several drag as a small "3 items" label. A folder selected with its own files
+    counts once; the fixed top-level folders stay, and the message says so.
   - **Clicks:** a click opens; only the chevron expands. Plain alphabetical, nothing
     pinned.
 - **Chat rows (Discord):**
@@ -470,6 +482,14 @@ separate dialogs.
     name release cards are posted under, and is drawn like any other message.
 - **Cards and tiles:**
   - **Folder tiles:** 16:9 thumbnails.
+  - **Picked tiles:** the folder view has its own selection, apart from the tree's, gone
+    when another folder opens. Ctrl+click, Shift+click, Ctrl+A and Esc as in the tree (Esc
+    with nothing picked goes up a folder), and a box dragged from empty space picks the
+    tiles it touches (with Ctrl, adds them; near an edge the folder scrolls). A picked tile
+    has `--select` behind it and a `--focus` outline; the box is a translucent `--focus`
+    fill with a `--focus` edge. A search or a filter lets go of what it hides. The menu,
+    Delete and dragging work as for rows; tiles drop on a folder's tile or on Back to move
+    there (outlined dashed while they would).
   - **Schematic cards:** text left, render right, on grey.
   - **Link previews:** a coloured left edge.
   - **Mod release cards**: the link-preview look with
