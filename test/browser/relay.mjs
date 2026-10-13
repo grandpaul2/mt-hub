@@ -17,7 +17,9 @@ if (spawnSync('ffmpeg', ['-version']).status !== 0) throw new Error('the relay s
 const freePort = () => new Promise((r) => { const s = createServer().listen(0, '127.0.0.1', () => { const { port } = s.address(); s.close(() => r(port)); }); });
 const [rtsp, whep, apiPort, ice] = [await freePort(), await freePort(), await freePort(), await freePort()];
 const conf = join(DATA, 'mediamtx.yml');
-writeFileSync(conf, `logLevel: warn
+writeFileSync(conf, `logLevel: info
+logDestinations: [file]
+logFile: ${join(DATA, 'mediamtx.log')}
 api: true
 apiAddress: 127.0.0.1:${apiPort}
 rtmp: false
@@ -78,7 +80,20 @@ await settle(300);
 const live = () => ev(`(() => { const rows = [...document.querySelectorAll('#live-list .row.live')].map((r) => r.dataset.who + (r.classList.contains('relay') ? ' (stream)' : '') + (r.classList.contains('here') ? '*' : '')); return rows.length ? rows : null; })()`);
 const panel = () => ev(`document.getElementById('main-live').hidden ? null : { title: document.querySelector('.live-title').textContent, count: document.querySelector('.live-count').textContent, note: document.querySelector('.live-note').hidden ? '' : document.querySelector('.live-note').firstChild?.textContent ?? '' }`);
 const video = () => ev(`(() => { const v = document.querySelector('#main-live video'); return { picture: v.videoWidth > 0 && v.readyState >= 2, muted: v.muted, volume: Math.round(v.volume * 1000) / 1000, sound: v.srcObject?.getAudioTracks().length ?? 0 }; })()`);
-const moving = async () => { const a = await ev(`document.querySelector('#main-live video').currentTime`); await settle(700); return (await ev(`document.querySelector('#main-live video').currentTime`)) > a; };
+// moving: the picture's clock goes forward (a quarter second within three). Polled, not two
+// readings a fixed time apart: about 0.4 s into a stream the clock steps back a tenth of a
+// second as the hold-back settles, and a reading on either side of that step says "stopped".
+const moving = async () => {
+  const clock = () => ev(`document.querySelector('#main-live video').currentTime`);
+  let from = await clock();
+  for (const end = Date.now() + 3000; Date.now() < end;) {
+    await new Promise((r) => setTimeout(r, 150));
+    const now = await clock();
+    if (now > from + 0.25) return true;
+    if (now < from) from = now;
+  }
+  return false;
+};
 const controls = () => ev(`(() => { const s = document.querySelector('.live-sound'); return s.hidden ? null : { bar: s.querySelector('input').value, button: s.querySelector('button').title, on: !document.querySelector('.live-sound-on').hidden }; })()`);
 
 const media = () => ev(`document.querySelector('#main-live video').srcObject?.id ?? null`);
@@ -207,9 +222,30 @@ check('Turn sound on', [(await video()).muted, (await controls()).on], [false, f
 publish('stevecam', 2);
 await until('Steve listed', async () => (await live())?.includes('Steve (stream)'), 20000);
 check('both listed, oldest first', await live(), ['Alex (stream)', 'Steve (stream)']);
+// (What the page shows from the click on is recorded, and printed if the note never comes.)
+await ev(`(() => { const t0 = performance.now(); const tr = window.__bf = []; let last = ''; const add = (w) => tr.push([Math.round(performance.now() - t0), w]);
+  const v = document.querySelector('#main-live video'); for (const e of ['playing', 'resize', 'emptied', 'waiting']) v.addEventListener(e, () => add('event ' + e + ' ' + v.videoWidth));
+  setInterval(() => { const n = document.querySelector('.live-note'); const s = (n.hidden ? '' : n.firstChild?.textContent ?? '') + ' | ' + v.videoWidth + 'x' + v.videoHeight + ' | list ' + [...document.querySelectorAll('#live-list .row.relay')].map((r) => r.dataset.who).join(',');
+    if (s !== last) { last = s; add(s); } }, 30); })()`);
 await ev(`[...document.querySelectorAll('#live-list .row.relay')].find((r) => r.dataset.who === 'Steve').click()`);
-await until('the note', async () => (await panel())?.note.includes('can’t be shown'), 20000);
+if (!await until('the note', async () => (await panel())?.note.includes('can’t be shown'), 20000)) {
+  for (const [t, what] of await quiet(`window.__bf`)) console.log(`      ${String(t).padStart(6)} ms  ${what}`);
+}
 check('a stream with B-frames says what it needs', (await panel())?.note, 'Steve’s stream can’t be shown in the hub: it needs the OBS setting bframes=0.');
+// The relay sometimes lets a first frame of such a stream out before it ends the connection
+// (seen when the viewer comes within seconds of the stream starting). The page must not take
+// that one frozen picture for a stream that works and reconnect for ever: it says the same.
+// Here the frame is put in the page's hands: the size a picture has, and its "playing".
+await ev(`location.hash = '#chan=general'`);
+await until('the chat', () => ev(`!document.getElementById('main-chat').hidden`));
+await ev(`(() => { const v = document.querySelector('#main-live video'); const n = document.querySelector('.live-note');
+  const o = new MutationObserver(() => { if (n.firstChild?.textContent !== 'Waiting for the picture…') return; o.disconnect();
+    Object.defineProperty(v, 'videoWidth', { configurable: true, get: () => 320 }); v.dispatchEvent(new Event('playing')); window.oneFrame = n.hidden; });
+  o.observe(n, { childList: true, attributes: true }); })()`);
+await ev(`[...document.querySelectorAll('#live-list .row.relay')].find((r) => r.dataset.who === 'Steve').click()`);
+await until('the note after one frame', async () => (await panel())?.note.includes('can’t be shown'), 25000);
+check('one frame that got through, then nothing: the same answer, not Reconnecting…', [await ev(`window.oneFrame`), (await panel())?.note], [true, 'Steve’s stream can’t be shown in the hub: it needs the OBS setting bframes=0.']);
+await ev(`delete document.querySelector('#main-live video').videoWidth`);
 
 // Someone who isn't streaming; then Alex's stream ends while Paul watches.
 await ev(`location.hash = '#stream=Eve'`);

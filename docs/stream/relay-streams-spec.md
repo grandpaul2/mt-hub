@@ -124,7 +124,11 @@ OBS ──RTMP (H.264 + AAC)──► relay: channel "live" ──► the game's
   fails, closes, or stays "disconnected" for 6 seconds is replaced: the last frame stays under
   "Reconnecting…", and the page tries again after 1, 2 and 4 seconds, then every 5, for as
   long as the stream is listed. A connection that shows nothing for 10 seconds is retried the
-  same way. Before any picture has come, a failure is final (the B-frames case above).
+  same way. Before any picture has come, a failure is final (the B-frames case above). A first
+  picture counts once more frames have followed it (six, within four seconds): the relay
+  can let a frame or two of a stream with B-frames out before it ends the connection, and a
+  picture that then stays frozen is the same as none. (Found 2026-10-13: the page took that
+  one frame for a working stream and reconnected for ever.)
 - **A stream that leaves the list gets a minute to come back** (the streamer's own
   connection blinking): the page waits, and plays it again by itself when it is listed again.
   After 60 seconds it counts as stopped. Behind another panel, an ending is a toast.
