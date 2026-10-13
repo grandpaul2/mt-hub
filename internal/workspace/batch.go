@@ -232,7 +232,8 @@ func (w *Workspace) MoveAll(from []string, toDir string, a Author) error {
 }
 
 // DeleteAll deletes several files and folders as one commit; those in an area outside git go
-// to the trash. If one is missing or is an area's own folder, nothing is deleted.
+// to the trash. If one is missing or is an area's own folder, nothing is deleted. The
+// folders they were in stay, also when left empty.
 func (w *Workspace) DeleteAll(paths []string, a Author) error {
 	paths, err := roots(paths)
 	if err != nil {
@@ -269,7 +270,6 @@ func (w *Workspace) DeleteAll(paths []string, a Author) error {
 		if err != nil {
 			break
 		}
-		w.removeEmptyParents(p)
 	}
 	// Whatever went is committed, also when one of them failed part way.
 	if _, gerr := w.git(nil, "add", "-A"); gerr != nil {

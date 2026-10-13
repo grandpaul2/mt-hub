@@ -350,6 +350,8 @@ dialog, click-twice in Admin, and Shift+click. The rule:
 - **"Delete this message?" shows the message** (Discord): drawn as the chat draws it (name,
   time, text, its pictures and file cards) in a bordered box on `--bg` under the title, with
   nothing in it to click. Taller than 200 px, the box scrolls.
+- **A folder goes only when someone deletes it.** Deleting the last file in a folder, one at
+  a time or several at once, leaves the folder there, empty.
 - **Deleting several files asks once** ("Delete 5 items?"), with their names in the same
   kind of box, how many files that is with the folders' contents, and what is lost.
 - **Two allowed shortcuts:**

@@ -176,7 +176,7 @@ await settle(1200);
 // A text file has the same bar, with Edit, History and its text size.
 check('text files: the same bar', await ev(`[[...document.querySelectorAll('#toolbar .single-bar > button, #toolbar .single-actions > button, #toolbar .mode-switch button')].filter((b) => getComputedStyle(b).visibility === 'visible').map((b) => b.textContent),
   document.querySelector('#toolbar .single-name').textContent, [...document.querySelectorAll('#toolbar .single-bar .vtool')].map((b) => b.title)]`),
-  [['Edit', 'History'], 'notes.txt', ['Forward', 'Download', 'Open in new tab', 'Delete']]);
+  [['← Back to Files', 'Edit', 'History'], 'notes.txt', ['Forward', 'Download', 'Open in new tab', 'Delete']]);
 
 // Sound files: a tile with a play mark; the file opens with a player under the single-item
 // bar, ←/→ step through the folder, and there is no full window (nothing to show).

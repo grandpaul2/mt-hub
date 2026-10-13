@@ -1,7 +1,7 @@
 // Files at the edges (the bug sweep's finds): a top-level file named like a page opens as
 // the file, Back to the very first address opens #general again, and deleting a file
 // someone already deleted closes it with a word instead of nothing.
-import { answerDialogs, api, check, done, ev, HUB, hub, send, settle } from './lib.mjs';
+import { answerDialogs, api, check, done, ev, HUB, hub, key, send, settle } from './lib.mjs';
 
 await hub('/api/file/schems?base=', { method: 'PUT', body: 'my file called schems' });
 await send('Page.navigate', { url: HUB });
@@ -35,6 +35,19 @@ await api('DELETE', `/api/file/notes/todo.md?base=${rev}`);
 await ev(`document.querySelector('#toolbar button[title^="Delete"]').click()`);
 await settle(1200);
 check('says it was already deleted, and closes it', [await ev(`document.getElementById('toast').textContent`), await ev(`location.hash`)],
-  ['Someone already deleted it.', '']); // notes/ went with its only file: the empty file area
+  ['Someone already deleted it.', '#folder=notes']); // its folder, which stays though it's empty now
+
+// A file at the top has a Back button too: its folder is Files. Esc does the same.
+await send('Page.navigate', { url: `${HUB}/?r=9#README.md` });
+await settle(1500);
+const back = `document.querySelector('#toolbar .single-bar > button')`;
+check('a top-level file has Back to Files', await ev(`${back}?.textContent ?? null`), '← Back to Files');
+await ev(`${back}.click()`);
+await settle(600);
+check('it opens Files', [await ev(`location.hash`), await ev(`document.getElementById('main-folder').hidden`)], ['#folder=', false]);
+await send('Page.navigate', { url: `${HUB}/?r=10#README.md` });
+await settle(1500);
+await key('Escape');
+check('Esc from a top-level file opens Files', await ev(`location.hash`), '#folder=');
 
 await done();
