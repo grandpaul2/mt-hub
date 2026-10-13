@@ -1,6 +1,6 @@
 # #voice-link: the hub in Voice Link
 
-**Status:** agreed spec, not built.
+**Status:** current spec, built and live since 2026-10-13.
 
 Voice Link ([`link-spec.md`](link-spec.md)) joins the Simple Voice Chat (SVC) groups of our game
 servers. This adds the hub: one hub voice chat, **#voice-link**, is the same room as the
@@ -258,6 +258,8 @@ measurements, the page's audio thread included (no stalls in any run).
 2. The hub: the permanent voice chat, people, the page; browser suite. **Built**
    (`voice.go`, `voice.ts`, `TestVoiceLink`, `test/browser/voice-link.mjs`). It shows only
    with `"link_voice": true` in `voice.json`.
-3. MT Utils: the group's name; checked on a throwaway server with the bridge.
+3. MT Utils: the group's name; checked on a throwaway server with the bridge. **Built**
+   (MT Utils 2.2.0; the name was confirmed in game, since the mod's tests have no Simple
+   Voice Chat with a relay token).
 4. Deploy: the bridge and its token beside the relay, then the hub; then the mod on both
-   servers at a restart. #voice-link appears in the hub with step 4, not before.
+   servers at a restart. #voice-link appears in the hub with step 4, not before. **Done.**

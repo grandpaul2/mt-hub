@@ -1,6 +1,10 @@
 # Voice Link: spec
 
-**Status:** current spec, built. It runs between MacroTech's two game servers.
+**Status:** current spec, built. It runs between MacroTech's two game servers, and since
+2026-10-13 the hub is in it too ([`hub-link-spec.md`](hub-link-spec.md)).
+
+**The group is named `voice-link`** since MT Utils 2.2.0 (it was Link), the same name as the
+hub's voice chat it is joined to. The word "Link" alone is not used for it any more.
 
 A shared Simple Voice Chat (SVC) room across two Minecraft servers (MacroTech Survival and
 MacroTech Creative). Background research is in the same folder: `plugins-and-bridge.md`. The
@@ -15,18 +19,18 @@ complete drop-in system.
 
 ## What players see
 
-1. Each server has a permanent SVC group called **Link** (not deleted when it's empty). Players
+1. Each server has a permanent SVC group called **voice-link** (not deleted when it's empty). Players
    join it from SVC's normal group screen, the same as any other group.
-2. Everyone in Link on Survival hears everyone in Link on Creative, and the other way round.
-   Players in Link on the same server hear each other the normal SVC way.
+2. Everyone in voice-link on Survival hears everyone in voice-link on Creative, and the other way round.
+   Players in voice-link on the same server hear each other the normal SVC way.
 3. Voices from the other server play non-positionally, like group voice. In SVC's **Adjust
-   volumes** screen they're under one entry per server, e.g. "Survival (Link)", with its own
+   volumes** screen they're under one entry per server, e.g. "Survival (voice-link)", with its own
    volume slider.
-4. When you join Link you get a chat line listing who is in Link on the other server, e.g.
-   `Link: Eldridge, Lennox on Survival`. You also get a chat line whenever someone on the other
-   server joins or leaves Link.
-5. If the relay is down, Link keeps working on each server by itself. The chat line says
-   `Link: Survival not connected`.
+4. When you join voice-link you get a chat line listing who is in it on the other server, e.g.
+   `voice-link: Eldridge, Lennox on Survival`. You also get a chat line whenever someone on the other
+   server joins or leaves voice-link.
+5. If the relay is down, voice-link keeps working on each server by itself. The chat line says
+   `voice-link: Survival not connected`.
 
 **SVC limit:** remote speakers can't show up in SVC's group list or speaking icons. That list
 only holds players on the same server, and the API can't add others to it. Point 4 is the
@@ -60,13 +64,13 @@ Survival: SVC + MT Hub Server ──wss──┐            ┌──wss── C
 Registered through SVC's Fabric entrypoint `"voicechat"`, compiled against `voicechat-api`
 only (the mod itself is All Rights Reserved; the API is published for plugins).
 
-1. **Group:** on `VoicechatServerStartedEvent`, create the Link group with `groupBuilder()`:
-   name `Link`, persistent, type `NORMAL` (SVC's default type), no password. Keep the same group
+1. **Group:** on `VoicechatServerStartedEvent`, create the voice-link group with `groupBuilder()`:
+   name `voice-link`, persistent, type `NORMAL` (SVC's default type), no password. Keep the same group
    id across restarts (a fixed UUID in config).
-2. **Members:** track local Link members with `JoinGroupEvent`, `LeaveGroupEvent` and
+2. **Members:** track local voice-link members with `JoinGroupEvent`, `LeaveGroupEvent` and
    `PlayerDisconnectedEvent`. Send each change to the relay. Show the remote roster as chat
    lines (What players see, point 4).
-3. **Outbound audio:** in `MicrophonePacketEvent`, if the sender's group is Link, put
+3. **Outbound audio:** in `MicrophonePacketEvent`, if the sender's group is voice-link, put
    `(sender uuid, opus bytes)` on a queue. Don't cancel the event, so local delivery is
    unchanged. A sender thread writes the queue to the relay. Nothing blocks SVC's network thread.
    Empty data means "stopped talking"; SVC's client sends exactly that (`MicThread` line 281),
@@ -78,7 +82,7 @@ only (the mod itself is All Rights Reserved; the API is published for plugins).
    - `setCategory("link_<server>")`, registered with `volumeCategoryBuilder()` (ids are a–z
      and `_`, at most 16 characters).
    - `setBypassGroupIsolation(true)` (otherwise SVC skips anyone in an isolated group).
-   - Targets are the current local Link members.
+   - Targets are the current local voice-link members.
    - A frame is sent with `channel.send(opus)`. An empty frame is sent with `channel.flush()`,
      which ends the stream cleanly on every client.
    - Safety net: if a remote speaker sends nothing for 500 ms, `flush()` anyway, in case the
@@ -133,24 +137,24 @@ If the key is missing or the token is empty, the feature is off and Link isn't c
 
 Each server also has its own permanent room, named after the server (**Survival**,
 **Creative**), for talking without the other server. It is a plain SVC group (persistent, type
-`NORMAL`, no password) that never touches the relay, and it works with Link off. Its id is
+`NORMAL`, no password) that never touches the relay, and it works with voice-link off. Its id is
 derived from the name, so nothing is stored. Empty or missing means no room. A player is in one
-SVC group at a time, so being in a server room means not being in Link.
+SVC group at a time, so being in a server room means not being in voice-link.
 
 ## Security
 
 - Only the two game servers hold link tokens; players never see one.
 - The relay accepts nothing without a token, and forwards only between authenticated servers.
-- Anyone on a server can join Link and so be heard on the other server. That's the same trust
+- Anyone on a server can join voice-link and so be heard on the other server. That's the same trust
   as joining the server itself. A password on the group is a config option if that ever changes.
 
 ## Failure cases
 
 | What breaks | Result |
 |---|---|
-| Relay down | Link works on each server separately; chat line says the other server isn't connected |
-| One game server down | The other server's Link players see the roster empty |
-| SVC missing on a server | MT Hub mod runs as today; no Link group |
+| Relay down | voice-link works on each server separately; chat line says the other server isn't connected |
+| One game server down | The other server's voice-link players see the roster empty |
+| SVC missing on a server | MT Hub mod runs as today; no voice-link group |
 | Player without SVC on their client | No voice for them (SVC's normal behaviour) |
 
 ## Not in scope
