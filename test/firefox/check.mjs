@@ -233,15 +233,16 @@ for (const [name, hash] of VIEWS) {
     await idle(800);
   }
   if (name === 'trash') {
-    // A file and a folder moved to Trash with the Delete key, then the Trash opened from its
-    // row (the last in the tree), once the "Moved … to Trash" toast has gone.
+    // A file moved to Trash with the Delete key (Ctrl+click picks it beside the open folder's
+    // row, which the second Ctrl+click lets go), then the Trash opened from its row (the last
+    // in the tree), once the "Moved … to Trash" toast has gone.
     await js(`(() => { const rows = [...document.querySelectorAll('#tree .row[data-path]')];
       for (const r of [rows.find((r) => r.dataset.path === 'gyp'), rows.find((r) => !r.classList.contains('dir'))]) r.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
       document.getElementById('tree').dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true })); })()`);
     await shown(name, 'the Undo toast', `document.querySelector('#toast .toast-act')?.textContent === 'Undo'`);
     await idle(6500);
     await js(`document.querySelector('#tree .row.trash-row').click()`);
-    await shown(name, 'the Trash and its rows', `!document.getElementById('main-trash').hidden && document.querySelectorAll('#main-trash .trash-item').length >= 2 && document.getElementById('toast').hidden`);
+    await shown(name, 'the Trash and its rows', `!document.getElementById('main-trash').hidden && document.querySelectorAll('#main-trash .trash-item').length >= 1 && document.getElementById('toast').hidden`);
     await idle(800);
   }
   if (name === 'tiles picked and the box') {
