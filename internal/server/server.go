@@ -88,6 +88,7 @@ func New(us *auth.Store, ws *workspace.Workspace, cs *chat.Store, ls *preview.St
 	s.mux.HandleFunc("GET /api/moves", s.moves)
 	s.mux.HandleFunc("POST /api/mkdir", s.mkdir)
 	s.mux.HandleFunc("GET /api/zip/{path...}", s.zip)
+	s.batchRoutes()
 	s.mux.HandleFunc("GET /api/history/{path...}", s.history)
 	s.mux.HandleFunc("GET /api/thumb/{path...}", s.thumb)
 

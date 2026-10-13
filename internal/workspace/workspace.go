@@ -408,16 +408,7 @@ func (w *Workspace) Move(from, to string, a Author) error {
 		return err
 	}
 	if IsLarge(from) && !IsLarge(to) {
-		err := filepath.WalkDir(w.abs(from), func(p string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-			if info, err := d.Info(); err == nil && !d.IsDir() && info.Size() > MaxVersioned {
-				return &RefusedError{fmt.Sprintf("%s is over 50 MB, so it has to stay in %s/", d.Name(), strings.SplitN(from, "/", 2)[0])}
-			}
-			return nil
-		})
-		if err != nil {
+		if err := w.fitsGit(from); err != nil {
 			return err
 		}
 	}
@@ -476,19 +467,25 @@ func (w *Workspace) Moves() ([]Moved, error) {
 		if len(f) != 3 {
 			continue
 		}
-		var m Moved
+		// One record line per thing moved: one for Move, several for MoveAll.
+		var here []Moved
 		for _, line := range strings.Split(f[2], "\n") {
+			var m Moved
 			if r, ok := strings.CutPrefix(line, movedPrefix); ok && json.Unmarshal([]byte(r), &m) == nil {
-				break
+				here = append(here, m)
 			}
 		}
-		if m.From == "" { // recorded before the record line (2026-10-05): the subject
+		if len(here) == 0 { // recorded before the record line (2026-10-05): the subject
+			var m Moved
 			_, rest, _ := strings.Cut(f[1], " ")
 			m.From, m.To, _ = strings.Cut(rest, moveArrow)
+			here = append(here, m)
 		}
-		if m.From != "" && m.To != "" {
-			m.Author = f[0]
-			moves = append(moves, m)
+		for _, m := range here {
+			if m.From != "" && m.To != "" {
+				m.Author = f[0]
+				moves = append(moves, m)
+			}
 		}
 	}
 	return moves, nil
@@ -521,48 +518,7 @@ func (w *Workspace) Zip(p string, out io.Writer) error {
 		return err
 	}
 	zw := zip.NewWriter(out)
-	base := filepath.Dir(root)
-	err := filepath.WalkDir(root, func(f string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() && d.Name() == ".git" {
-			return filepath.SkipDir
-		}
-		info, err := d.Info()
-		if err != nil {
-			return err
-		}
-		rel, _ := filepath.Rel(base, f)
-		hdr, err := zip.FileInfoHeader(info)
-		if err != nil {
-			return err
-		}
-		hdr.Name = filepath.ToSlash(rel)
-		if d.IsDir() {
-			hdr.Name += "/"
-			_, err = zw.CreateHeader(hdr)
-			return err
-		}
-		if !info.Mode().IsRegular() {
-			return nil
-		}
-		hdr.Method = zip.Deflate
-		if IsLarge(p) || compressed[strings.ToLower(path.Ext(d.Name()))] {
-			hdr.Method = zip.Store
-		}
-		dst, err := zw.CreateHeader(hdr)
-		if err != nil {
-			return err
-		}
-		src, err := os.Open(f)
-		if err != nil {
-			return err
-		}
-		defer src.Close()
-		_, err = io.Copy(dst, src)
-		return err
-	})
+	err := zipTree(zw, filepath.Dir(root), root, IsLarge(p))
 	if cerr := zw.Close(); err == nil {
 		err = cerr
 	}

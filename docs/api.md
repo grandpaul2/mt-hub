@@ -36,6 +36,10 @@ instead of a login) are marked.
 | GET | `/api/moves` | `[{from, to, author}]` oldest first, from the move commits; how old links find moved files |
 | POST | `/api/mkdir` | `{path}` empty folder (on disk only until a file goes in) |
 | GET | `/api/zip/<path>` | a folder as `<name>.zip`, streamed |
+| POST | `/api/batch/move` | `{from: [paths], to: folder}` (`""` is the top): several files and folders into a folder, keeping their names, one commit. All or nothing; 409 `{error, name}` names one whose name is taken there |
+| POST | `/api/batch/delete` | `{paths: [...]}`: several files and folders, one commit (outside git: to the trash). Refused whole if one is missing or is an area's own folder |
+| POST | `/api/batch/copy` | `{from: [paths], to: folder}`: copies, one commit; answers `{paths}` with where each landed (a taken name becomes `name copy.md`, `name copy 2.md`); 507 if the disk has no room |
+| GET | `/api/zip?p=<path>&p=<path>` | several files and folders as one zip (`<their folder>.zip`, or `files.zip`), streamed |
 | GET | `/api/thumb/<path>?v=<mod>` | a 640-wide JPEG of a workspace picture (chat previews), cached in `thumbs/` |
 | GET | `/api/schematics` | every post in `schematics/`, newest first (also open to server tokens) |
 | GET | `/api/channels` | `[{name, last_id}]` |
