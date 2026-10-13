@@ -170,7 +170,7 @@ function shortcuts() {
 // (here or everywhere).
 function accountMenu(e: MouseEvent) {
   const items: MenuItem[] = user.admin ? [['Admin', openAdmin], null] : [];
-  showMenu(e, [...items, ['Keyboard Shortcuts', shortcuts], ['Voice Settings', () => void openSettings()], ['Sound Settings', openSoundSettings], null, ['Minecraft Name', minecraftName], ['Change Password', () => changePassword()], ['Log Out', async () => {
+  showMenu(e, [...items, ['Keyboard Shortcuts', shortcuts], ['Voice Settings', () => void openSettings()], ['Sound Settings', openSoundSettings], null, ['Change Password', () => changePassword()], ['Log Out', async () => {
     await fetch('/api/logout', { method: 'POST' });
     location.reload();
   }], ['Log Out Everywhere', logOutEverywhere]], $('user'));
@@ -184,31 +184,11 @@ function staying() {
   loggingOutOthers = true;
   setTimeout(() => (loggingOutOthers = false), 5000); // in case no stream was open to end
 }
+
 async function logOutEverywhere() {
   staying();
   const r = await req('POST', '/api/logout-all', undefined, true);
   toast(r.ok ? 'Logged out everywhere else.' : 'Couldn’t log out everywhere', 4000);
-}
-
-// minecraftName links your Minecraft name, so screenshots uploaded from the game on our
-// servers go under your hub name. Empty unlinks.
-function minecraftName() {
-  const mc = h('input', { type: 'text', autocomplete: 'off', spellcheck: 'false', maxlength: '16', value: user.mc ?? '' });
-  const err = h('div', { class: 'error' });
-  const cancel = h('button', { type: 'button' }, 'Cancel');
-  cancel.onclick = closeDialog;
-  const form = h('form', {}, h('p', { class: 'muted' }, 'Screenshots you upload from the game on our servers are posted under your hub name.'),
-    h('label', {}, 'Minecraft name', mc), err, h('div', { class: 'actions' }, cancel, h('button', { class: 'primary', type: 'submit' }, 'Save')));
-  form.onsubmit = async (e) => {
-    e.preventDefault();
-    const r = await req('POST', '/api/mc', JSON.stringify({ mc: mc.value }));
-    if (!r.ok) return void (err.textContent = (await r.json().catch(() => ({}))).error ?? 'Couldn’t save it');
-    user.mc = (await r.json()).mc || undefined;
-    closeDialog();
-    toast(user.mc ? `Linked to ${user.mc}` : 'Minecraft name removed', 3000);
-  };
-  dialog(h('h2', {}, 'Minecraft name'), form);
-  mc.focus();
 }
 
 // changePassword is Change Password from the menu on your name. With forced (logged in

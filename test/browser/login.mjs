@@ -37,7 +37,7 @@ check('non-admin refused', (await api('DELETE', '/api/channels/general', undefin
 // Change password from the menu on your name: other sessions end, this one carries on.
 await ev(`document.getElementById('user').click()`);
 await settle(200);
-check('account menu', await ev(`[...document.querySelectorAll('#menu button span:first-child')].map((s) => s.textContent)`), ['Keyboard Shortcuts', 'Voice Settings', 'Sound Settings', 'Minecraft Name', 'Change Password', 'Log Out', 'Log Out Everywhere']);
+check('account menu', await ev(`[...document.querySelectorAll('#menu button span:first-child')].map((s) => s.textContent)`), ['Keyboard Shortcuts', 'Voice Settings', 'Sound Settings', 'Change Password', 'Log Out', 'Log Out Everywhere']);
 await ev(`[...document.querySelectorAll('#menu button')].find((b) => b.textContent.startsWith('Change')).click()`);
 await settle(200);
 await fill(['Steve-password', 'short', 'short']);
@@ -52,25 +52,10 @@ check('changed', [await dialogShown(), await ev(`document.getElementById('toast'
 check('old session ended', await status('/api/me', { cookie: COOKIE.Steve }), 401);
 check('this tab still in', await ev(`fetch('/api/me').then((r) => r.json()).then((m) => m.name)`), 'Steve');
 
-// Minecraft name from the same menu: shown in /api/me, refused when not a Minecraft name.
-const mcDialog = async () => {
-  await ev(`document.getElementById('user').click()`);
-  await settle(200);
-  await ev(`[...document.querySelectorAll('#menu button')].find((b) => b.textContent.startsWith('Minecraft')).click()`);
-  await settle(200);
-};
-await mcDialog();
-await fill(['not a name!']);
-await settle(300);
-check('bad Minecraft name', await ev(`document.querySelector('#dialog .error').textContent.startsWith('that isn’t a Minecraft name')`), true);
-await fill(['Steve_MC']);
-await settle(400);
-check('linked', [await dialogShown(), await ev(`document.getElementById('toast').textContent`), await ev(`fetch('/api/me').then((r) => r.json()).then((m) => m.mc)`)],
-  [false, 'Linked to Steve_MC', 'Steve_MC']);
-await mcDialog();
-check('dialog shows it', await ev(`document.querySelector('#dialog input').value`), 'Steve_MC');
-await ev(`document.querySelector('#dialog button[type=button]').click()`);
-await settle(200);
+// A member can't set their own Minecraft name: an admin gives it, in Admin (the admin suite),
+// so the menu has no such item and the hub refuses the old page's request.
+check('a member’s own Minecraft name is refused', await ev(`fetch('/api/mc', { method: 'POST', body: JSON.stringify({ mc: 'Steve_MC' }) }).then(async (r) => [r.status, (await r.json()).error])`),
+  [403, 'An admin sets your Minecraft name: ask one.']);
 
 // Log Out Everywhere: a copy of this session elsewhere ends; this tab stays in.
 const here = (await send('Network.getCookies', { urls: [HUB] })).cookies.find((c) => c.name === 'mt_session').value;

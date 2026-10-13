@@ -156,10 +156,14 @@ func TestTokens(t *testing.T) {
 		t.Errorf("page screenshot = %d %s", code, body)
 	}
 
-	// A Minecraft name linked to an account (any case) posts under the hub name; a name links
-	// to one account only; "" unlinks; anything else isn't a Minecraft name.
+	// A Minecraft name an admin gave an account (any case) posts under the hub name; a name
+	// goes to one account only; "" takes it away; anything else isn't a Minecraft name. A member
+	// can't set their own.
 	code, _ = call("cookie:Steve", "POST", "/api/mc", strings.NewReader(`{"mc":"Steve_MC"}`))
-	want("link Steve_MC", code, 200)
+	want("a member sets their own Minecraft name", code, 403)
+	if err := us.SetMC("Steve", "Steve_MC"); err != nil {
+		t.Fatal(err)
+	}
 	code, body = call("cookie:Steve", "GET", "/api/me", nil)
 	if !strings.Contains(body, `"mc":"Steve_MC"`) {
 		t.Errorf("me after linking = %s", body)
@@ -168,14 +172,15 @@ func TestTokens(t *testing.T) {
 	if code != 200 || !strings.Contains(body, `"screenshots/2026-10-03 23.00.00 Steve.png"`) {
 		t.Errorf("linked poster = %d %s", code, body)
 	}
-	code, body = call("cookie:Alex", "POST", "/api/mc", strings.NewReader(`{"mc":"STEVE_mc"}`))
-	if code != 400 || !strings.Contains(body, "another account") {
-		t.Errorf("taken name = %d %s", code, body)
+	if err := us.SetMC("Alex", "STEVE_mc"); err != auth.ErrMCTaken {
+		t.Errorf("taken name: %v", err)
 	}
-	code, _ = call("cookie:Alex", "POST", "/api/mc", strings.NewReader(`{"mc":"not a name!"}`))
-	want("bad Minecraft name", code, 400)
-	code, _ = call("cookie:Steve", "POST", "/api/mc", strings.NewReader(`{"mc":""}`))
-	want("unlink", code, 200)
+	if err := us.SetMC("Alex", "not a name!"); err == nil {
+		t.Error("a bad Minecraft name was taken")
+	}
+	if err := us.SetMC("Steve", ""); err != nil {
+		t.Errorf("unlink: %v", err)
+	}
 	code, body = call(survival, "POST", "/api/screenshots?name=2026-10-03_23.00.01.png&poster=Steve_MC", strings.NewReader(png))
 	if code != 200 || !strings.Contains(body, `"screenshots/2026-10-03 23.00.01 Steve_MC.png"`) {
 		t.Errorf("unlinked poster = %d %s", code, body)

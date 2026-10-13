@@ -61,9 +61,10 @@ and files, and posting screenshots. Players never log in from the game.
   posting). Everything else is 403. A token sitting in a config file on a rented server can't
   read chats, edit files or touch accounts.
 - **Screenshots:** a server names the player with `?poster=<Minecraft name>` (letters, digits,
-  `_`, 1–16 characters). If someone linked that Minecraft name to their account (menu on your
-  name → Minecraft Name; one account per name, any case), the screenshot goes under their hub
-  name. Otherwise it goes under the Minecraft name.
+  `_`, 1–16 characters). If an admin gave an account that Minecraft name (Admin: with the new
+  account, or "⋯" → Minecraft Name… on the person's row; one account per name, any case), the
+  screenshot goes under their hub name. Otherwise it goes under the Minecraft name. Members
+  don't set their own.
 
         mthub token -data <data> add -server survival   # prints the token once
         mthub token -data <data> list

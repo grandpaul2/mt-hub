@@ -15,11 +15,12 @@
 // have sound, open at #stream=<name>, and come straight from the relay over WebRTC; the hub
 // only passes the offer on (internal/server/relay.go). No LiveKit for those.
 import type * as LK from 'livekit-client';
-import { $, h, isAdmin, load, loadBundle, req, showMenu, store, toast, toastError, user, volumeCurve, type Live, type MenuItem } from './util';
+import { $, closeDialog, dialog, h, isAdmin, load, loadBundle, req, showMenu, store, toast, toastError, user, volumeCurve, type Live, type MenuItem } from './util';
 import { messageUser } from './chat';
 
-type Stream = { id: string; name: string; started: string; viewers: string[] };
-type Relay = { name: string; started: string; viewers: string[] };
+// (tag: what they say the stream is, a line under their name; theirs to set while live.)
+type Stream = { id: string; name: string; started: string; viewers: string[]; tag?: string };
+type Relay = { name: string; started: string; viewers: string[]; tag?: string };
 
 const svg = (body: string) =>
   `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
@@ -90,8 +91,8 @@ function renderList() {
       e.preventDefault();
       showMenu(e, rowMenu(s));
     };
-    return row;
-  });
+    return [row, ...tagLine(s)];
+  }).flat();
   for (const s of relays()) {
     const mine = s.name === user.name;
     const row = h('div', {
@@ -102,9 +103,9 @@ function renderList() {
     row.onclick = () => openWatch(s.name, true);
     row.oncontextmenu = (e) => {
       e.preventDefault();
-      showMenu(e, [watchItem(s.name, true), ...(mine ? [] : [null, ['Message', () => void messageUser(s.name)]] as MenuItem[])]);
+      showMenu(e, [watchItem(s.name, true), ...tagItems(s), ...(mine ? [] : [null, ['Message', () => void messageUser(s.name)]] as MenuItem[])]);
     };
-    rows.push(row);
+    rows.push(row, ...tagLine(s));
   }
   $('live-list').replaceChildren(...rows);
   markRows();
@@ -121,14 +122,54 @@ function renderList() {
     return b;
   };
   strip.replaceChildren(
-    ...info.streams.filter((s) => s.name !== user.name).map((s) => item(ICON.screen, `${s.name} is sharing their screen`, () => openWatch(s.name))),
-    ...relays().filter((s) => s.name !== user.name).map((s) => item(ICON.dish, `${s.name} is streaming`, () => openWatch(s.name, true))));
+    ...info.streams.filter((s) => s.name !== user.name).map((s) => item(ICON.screen, `${s.name} is sharing their screen${s.tag ? `: ${s.tag}` : ''}`, () => openWatch(s.name))),
+    ...relays().filter((s) => s.name !== user.name).map((s) => item(ICON.dish, `${s.name} is streaming${s.tag ? `: ${s.tag}` : ''}`, () => openWatch(s.name, true))));
   strip.hidden = !strip.children.length;
+}
+
+// ---- stream tags ------------------------------------------------------------------------
+//
+// A tag is a short line under your name in LIVE saying what the stream is. Yours to add, change
+// and remove while you share or stream; it goes when the stream ends. An admin can remove one.
+
+const chip = (text: string) => h('span', { class: 'live-chip' }, text);
+const tagLine = (s: { tag?: string }) => (s.tag ? [h('div', { class: 'live-tag' }, chip(s.tag))] : []);
+
+async function putTag(name: string, tag: string) {
+  const r = await req('PUT', `/api/streams/tags/${encodeURIComponent(name)}`, JSON.stringify({ tag }));
+  return r.ok ? '' : (await r.json().catch(() => ({}))).error ?? `Couldn’t save it (${r.status}).`;
+}
+
+function tagDialog(now: string) {
+  const box = h('input', { type: 'text', autocomplete: 'off', maxLength: 40, value: now, placeholder: 'What are you streaming?' });
+  box.setAttribute('aria-label', 'Tag');
+  const err = h('div', { class: 'error' });
+  const cancel = h('button', { type: 'button' }, 'Cancel');
+  cancel.onclick = closeDialog;
+  const form = h('form', {}, h('p', { class: 'muted' }, 'A short line under your name in LIVE. It goes when your stream ends.'),
+    box, err, h('div', { class: 'actions' }, cancel, h('button', { class: 'primary', type: 'submit' }, 'Save')));
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const bad = await putTag(user.name, box.value);
+    if (bad) return void (err.textContent = bad);
+    closeDialog();
+  };
+  dialog(h('h2', {}, now ? 'Edit tag' : 'Add tag'), form);
+  box.select();
+}
+
+function tagItems(s: { name: string; tag?: string }): MenuItem[] {
+  const remove: MenuItem = ['Remove Tag', async () => {
+    const bad = await putTag(s.name, '');
+    if (bad) toastError(bad);
+  }];
+  if (s.name === user.name) return [null, [s.tag ? 'Edit Tag…' : 'Add Tag…', () => tagDialog(s.tag ?? '')], ...(s.tag ? [remove] : [])];
+  return s.tag && (user.owner || user.admin) ? [null, remove] : [];
 }
 
 function rowMenu(s: Stream): MenuItem[] {
   const mine = s.name === user.name;
-  const items: MenuItem[] = [watchItem(s.name, false)];
+  const items: MenuItem[] = [watchItem(s.name, false), ...tagItems(s)];
   if (!mine) items.push(null, ['Message', () => void messageUser(s.name)]);
   if (mine) items.push(null, ['Stop Sharing', () => void stopShare(true), undefined, undefined, { danger: true }]);
   else if (user.owner || (user.admin && !isAdmin(s.name))) {
@@ -270,6 +311,7 @@ const video = h('video', { autoplay: true, playsInline: true, muted: true });
 const note = h('div', { class: 'live-note' });
 const title = h('span', { class: 'single-name live-title' });
 const count = h('span', { class: 'single-info live-count' });
+const headTag = h('span', { class: 'live-chip', hidden: true });
 const body = h('div', { class: 'live-body' });
 let shown = false; // the stream panel is the main panel right now
 
@@ -297,6 +339,8 @@ function renderPanelHead() {
   const s = w.relay ? relays().find((x) => x.name === w.name) : info.streams.find((x) => x.id === w.id);
   title.textContent = what(w);
   count.textContent = s && !w.over ? `${s.viewers.length} watching` : '';
+  headTag.textContent = s?.tag ?? '';
+  headTag.hidden = !s?.tag || w.over;
   if (s) count.title = s.viewers.join(', ');
   for (const box of soundBoxes) box.hidden = !w.relay;
   markRows();
@@ -714,7 +758,7 @@ function buildPanel() {
   // The single-item bar (style guide 2): name and details, then on the right the text button,
   // the icon pill, and what makes it bigger at the far right.
   $('main-live').replaceChildren(
-    h('div', { class: 'single-bar live-head' }, title, count,
+    h('div', { class: 'single-bar live-head' }, title, headTag, count,
       h('div', { class: 'single-actions' }, end, headSound, h('div', { class: 'viewer-tools single-full' }, full))),
     body);
 }

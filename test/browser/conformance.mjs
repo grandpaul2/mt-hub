@@ -21,7 +21,6 @@ check('↑ wraps to the last', await ev(`document.querySelector('#menu button.on
 await key('ArrowUp'); // (past Log Out)
 await key('ArrowUp');
 await key('ArrowUp');
-await key('ArrowUp'); // (past Minecraft Name)
 await key('ArrowUp'); // (past Sound Settings)
 await key('ArrowUp'); // (past Voice Settings)
 await key('Enter');

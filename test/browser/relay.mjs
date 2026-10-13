@@ -111,11 +111,21 @@ await until('the viewer count', async () => (await panel())?.count === '1 watchi
 // Its bar is the single-item bar every picture and post has: name and details, then Stop
 // watching as a text button, the sound in an icon pill, and full screen last, in its own pill.
 check('the stream’s bar follows the single-item bar', await ev(`(() => { const b = document.querySelector('#main-live .live-head'); const acts = [...b.querySelector('.single-actions').children];
-  return [b.classList.contains('single-bar'), [...b.children].slice(0, 2).map((e) => e.className.split(' ')[0]), acts.map((e) => e.tagName === 'BUTTON' ? e.textContent : e.className),
+  return [b.classList.contains('single-bar'), [...b.children].filter((e) => !e.hidden).slice(0, 2).map((e) => e.className.split(' ')[0]), acts.map((e) => e.tagName === 'BUTTON' ? e.textContent : e.className),
     [...b.querySelectorAll('.vtool')].map((v) => v.title.split(' (')[0]), b.querySelector('.single-full .vtool').getBoundingClientRect().width]; })()`),
   [true, ['single-name', 'single-info'], ['Stop watching', 'live-sound viewer-tools', 'viewer-tools single-full'], ['Mute', 'Full screen'], 30]);
 check('Paul is counted', [(await panel())?.count, await ev(`document.querySelector('.live-count').title`), (await (await api('GET', '/api/streams')).json()).relay[0].viewers], ['1 watching', 'Paul', ['Paul']]);
+// A stream sent with OBS takes a tag too; an admin's menu on someone's row can remove it.
+await api('PUT', '/api/streams/tags/Alex', { tag: 'wither rose farm' }, 'Alex');
+const tag = () => ev(`[[...document.querySelectorAll('#live-list .live-tag .live-chip')].map((c) => c.textContent), (() => { const c = document.querySelector('#main-live .live-head .live-chip'); return c && !c.hidden ? c.textContent : null; })()]`);
+await until('Alex’s tag', async () => (await tag())[0].length === 1);
+check('a relay stream’s tag: under its row and in the bar', await tag(), [['wither rose farm'], 'wither rose farm']);
 await shot('watching');
+await rowMenu('Alex');
+check('the owner’s menu on it has Remove Tag', (await menu()).filter((i) => i.includes('Tag')), ['Remove Tag']);
+await ev(`[...document.querySelectorAll('#menu button')].find((b) => b.firstChild.textContent === 'Remove Tag').click()`);
+await until('the tag gone', async () => (await tag())[0].length === 0);
+check('Remove Tag takes it away', await tag(), [[], null]);
 
 // Volume and mute, kept for next time.
 await ev(`(() => { const i = document.querySelector('.live-sound input'); i.value = '50'; i.dispatchEvent(new Event('input')); })()`);

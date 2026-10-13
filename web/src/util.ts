@@ -413,10 +413,12 @@ export function closeDialog() {
   opener = null;
 }
 
-// Esc closes the dialog on top (not the login), unless something in it took the key first.
-// Caught first, so nothing underneath (a folder's Esc, a file's) acts on it too.
+// Esc closes the dialog on top (not the login). Caught first, so nothing underneath (a
+// folder's Esc, a file's) acts on it too. A box in the dialog with its own use for Esc (one
+// typed in a row, which Esc puts away) is marked data-esc and gets the key instead.
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape' || $('overlay').hidden || $('dialog').dataset.keep) return;
+  if ((e.target as HTMLElement | null)?.closest?.('#dialog [data-esc]')) return;
   e.preventDefault();
   e.stopPropagation();
   closeDialog();

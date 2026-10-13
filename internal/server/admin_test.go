@@ -194,12 +194,31 @@ func TestAdmin(t *testing.T) {
 		}
 	}
 
-	// Anyone can claim a Minecraft name; an admin can unlink it, and only unlink.
-	if err := us.SetMC("Alex", "Notch"); err != nil {
-		t.Fatal(err)
+	// Admins set Minecraft names: someone's, their own, and with a new account. A member can't
+	// set their own any more. One name goes to one account.
+	code, _ = call("Eldridge", "PATCH", "/api/admin/users/Alex", `{"mc":"Notch"}`)
+	want("admin sets someone's Minecraft name", code, 200)
+	if u, _ := us.Get("Alex"); u.MC != "Notch" {
+		t.Errorf("not set: %q", u.MC)
 	}
-	code, _ = call("Eldridge", "PATCH", "/api/admin/users/Alex", `{"mc":"Herobrine"}`)
-	want("admin sets someone's Minecraft name", code, 400)
+	code, _ = call("Eldridge", "PATCH", "/api/admin/users/Eldridge", `{"mc":"notch"}`)
+	want("a name another account has", code, 409)
+	code, _ = call("Eldridge", "PATCH", "/api/admin/users/Eldridge", `{"mc":"El_dridge"}`)
+	want("admin sets their own", code, 200)
+	code, _ = call("Eldridge", "PATCH", "/api/admin/users/Eldridge", `{"mc":"x","banned":true}`)
+	want("but nothing else on themselves", code, 403)
+	code, _ = call("Eldridge", "PATCH", "/api/admin/users/Alex", `{"mc":"no spaces"}`)
+	want("not a Minecraft name", code, 400)
+	code, _ = call("Eldridge", "POST", "/api/admin/users", `{"name":"Lennox","mc":"Notch"}`)
+	want("a new account with a taken Minecraft name", code, 409)
+	if _, ok := us.Get("Lennox"); ok {
+		t.Error("the account was made anyway")
+	}
+	code, _ = call("Eldridge", "POST", "/api/admin/users", `{"name":"Lennox","mc":"Lennox_mc"}`)
+	want("a new account with its Minecraft name", code, 200)
+	if u, _ := us.Get("Lennox"); u.MC != "Lennox_mc" {
+		t.Errorf("new account's Minecraft name: %q", u.MC)
+	}
 	code, _ = call("Eldridge", "PATCH", "/api/admin/users/Alex", `{"mc":""}`)
 	want("admin unlinks a Minecraft name", code, 200)
 	if u, _ := us.Get("Alex"); u.MC != "" {
@@ -223,7 +242,7 @@ func TestAdmin(t *testing.T) {
 	res, _ = http.DefaultClient.Do(r)
 	var list []adminUser
 	json.NewDecoder(res.Body).Decode(&list)
-	if len(list) != 4 || list[0].Name != "Alex" || !list[1].Admin || !list[2].Owner || !list[2].Online {
+	if len(list) != 5 || list[0].Name != "Alex" || !list[1].Admin || list[1].MC != "El_dridge" || list[2].MC != "Lennox_mc" || !list[3].Owner || !list[3].Online {
 		t.Errorf("list: %+v", list)
 	}
 	log, _ := us.ReadLog(100)
@@ -231,7 +250,7 @@ func TestAdmin(t *testing.T) {
 	for _, e := range log {
 		got = append(got, e.By+" "+e.Action+" "+e.User)
 	}
-	wantLog := "Paul unadmin Steve|Paul admin Steve|Eldridge unlink-mc Alex|Eldridge delete Herobrine|Eldridge add Herobrine|Eldridge reset Alex|Eldridge unban Steve|Eldridge ban Steve"
+	wantLog := "Paul unadmin Steve|Paul admin Steve|Eldridge unlink-mc Alex|Eldridge add Lennox|Eldridge set-mc Eldridge|Eldridge set-mc Alex|Eldridge delete Herobrine|Eldridge add Herobrine|Eldridge reset Alex|Eldridge unban Steve|Eldridge ban Steve"
 	if strings.Join(got, "|") != wantLog {
 		t.Errorf("log:\n%s\nwant\n%s", strings.Join(got, "|"), wantLog)
 	}

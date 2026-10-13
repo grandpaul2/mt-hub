@@ -1,6 +1,6 @@
 // The Admin page: a ban throws an open page back to the login form at once, and the
 // owner's page bans, unbans, resets, adds and logs.
-import { api, as, check, COOKIE, done, ev, HUB, key, send, settle, shot } from './lib.mjs';
+import { api, as, check, COOKIE, done, ev, hub, HUB, key, send, settle, shot } from './lib.mjs';
 
 const status = (path, who) => fetch(HUB + path, { headers: { cookie: COOKIE[who] } }).then((r) => r.status);
 const patch = (name, body, who = 'Paul') =>
@@ -39,7 +39,7 @@ const closeMenu = () => key('Escape');
 await as('Steve');
 await send('Page.navigate', { url: HUB });
 await settle(1500);
-check('member menu', await menu(), ['Keyboard Shortcuts', 'Voice Settings', 'Sound Settings', 'Minecraft Name', 'Change Password', 'Log Out', 'Log Out Everywhere']);
+check('member menu', await menu(), ['Keyboard Shortcuts', 'Voice Settings', 'Sound Settings', 'Change Password', 'Log Out', 'Log Out Everywhere']);
 check('member refused', await status('/api/admin/users', 'Steve'), 403);
 
 // Banned from elsewhere: his open page drops to the login form, saying why.
@@ -56,36 +56,36 @@ await shot('banned');
 await as('Paul');
 await send('Page.navigate', { url: HUB });
 await settle(1500);
-check('owner menu', await menu(), ['Admin', 'Keyboard Shortcuts', 'Voice Settings', 'Sound Settings', 'Minecraft Name', 'Change Password', 'Log Out', 'Log Out Everywhere']);
+check('owner menu', await menu(), ['Admin', 'Keyboard Shortcuts', 'Voice Settings', 'Sound Settings', 'Change Password', 'Log Out', 'Log Out Everywhere']);
 await ev(`document.getElementById('user').click()`);
 await settle(200);
 await ev(`[...document.querySelectorAll('#menu button')].find((b) => b.textContent.startsWith('Admin')).click()`);
 await settle(700);
 check('rows', [await rowText('Alex'), await rowText('Paul'), await rowText('Steve')], [
-  'Alex | Never signed in | ⋯',
-  'Paul op | ● online | colour',
-  'Steve banned | Last seen just now | ⋯',
+  'Alex | No Minecraft name · Never signed in | ⋯',
+  'Paul op | No Minecraft name · ● online | colour ⋯',
+  'Steve banned | No Minecraft name · Last seen just now | ⋯',
 ]);
 check('a settings dialog: title, close X, groups', [await ev(`document.querySelector('#dialog .dialog-head h2').textContent`), await ev(`document.querySelector('#dialog .dialog-x').title`),
   await ev(`[...document.querySelectorAll('.admin section h3')].map((h) => h.textContent)`)], ['Admin', 'Close (Esc)', ['Accounts · 3', 'Recent activity']]);
 await openMore('Alex');
-check('a member’s menu (owner): Make Admin; Ban and Delete in red', await items(), ['Reset Password', 'Make Admin', 'Ban (red)', 'Delete (red)']);
+check('a member’s menu (owner): Make Admin; Ban and Delete in red', await items(), ['Reset Password', 'Minecraft Name…', 'Make Admin', 'Ban (red)', 'Delete (red)']);
 await closeMenu();
 await shot('page');
 
 // Unban is one click; ban needs two (a stray click does nothing), the menu staying open.
 await openMore('Steve');
-check('a banned member’s menu', await items(), ['Reset Password', 'Unban', 'Delete (red)']);
+check('a banned member’s menu', await items(), ['Reset Password', 'Minecraft Name…', 'Unban', 'Delete (red)']);
 await act('Unban');
 await settle(500);
-check('unbanned', [await status('/api/me', 'Steve'), await rowText('Steve')], [200, 'Steve | ● online | ⋯']);
+check('unbanned', [await status('/api/me', 'Steve'), await rowText('Steve')], [200, 'Steve | No Minecraft name · ● online | ⋯']);
 await openMore('Alex');
 await act('Ban');
 await settle(300);
-check('one click arms', [await items(), await ev(`!document.getElementById('menu').hidden`), await status('/api/me', 'Alex')], [['Reset Password', 'Make Admin', 'Ban? Click again (red)', 'Delete (red)'], true, 200]);
+check('one click arms', [await items(), await ev(`!document.getElementById('menu').hidden`), await status('/api/me', 'Alex')], [['Reset Password', 'Minecraft Name…', 'Make Admin', 'Ban? Click again (red)', 'Delete (red)'], true, 200]);
 await act('Ban? Click again');
 await settle(500);
-check('two clicks ban', [await status('/api/me', 'Alex'), await rowText('Alex'), await ev(`document.getElementById('menu').hidden`)], [401, 'Alex banned | Last seen just now | ⋯', true]);
+check('two clicks ban', [await status('/api/me', 'Alex'), await rowText('Alex'), await ev(`document.getElementById('menu').hidden`)], [401, 'Alex banned | No Minecraft name · Last seen just now | ⋯', true]);
 
 // Reset: a temporary password shown once, which logs in.
 await openMore('Steve');
@@ -98,15 +98,46 @@ const login = await fetch(`${HUB}/api/login`, { method: 'POST', body: JSON.strin
 check('temp password works', [/^\w{4}-\w{4}-\w{4}$/.test(pw), login.status, await status('/api/me', 'Steve')], [true, 200, 401]);
 
 // Add an account.
-await ev(`(() => { document.querySelector('.add-user input').value = 'Herobrine'; document.querySelector('.add-user').requestSubmit(); })()`);
+await ev(`(() => { const [name, mc] = document.querySelectorAll('.add-user input'); name.value = 'Herobrine'; mc.value = 'Hero_brine'; document.querySelector('.add-user').requestSubmit(); })()`);
 await settle(500);
 check('added', [await ev(`document.querySelector('.new-pw').innerText.split('\\n')[0].replace(/:.*/, '')`), await rowText('Herobrine')],
-  ['Password for Herobrine', 'Herobrine | Never signed in | ⋯']);
+  ['Password for Herobrine', 'Herobrine | Minecraft: Hero_brine · Never signed in | ⋯']);
 await ev(`(() => { document.querySelector('.add-user input').value = 'herobrine'; document.querySelector('.add-user').requestSubmit(); })()`);
 await settle(500);
 check('taken name', await ev(`document.querySelector('.admin-error').textContent`), 'that name is taken');
 
+// Minecraft names are an admin's to give: with the account (above), and from a person's "⋯",
+// typed in their row. Enter saves, an empty box takes it away, Esc leaves it (and Admin open).
+const mcBox = `document.querySelector('.admin .mc-form input')`;
+const nameIt = async (who, value, how = 'submit') => {
+  await openMore(who);
+  await ev(`[...document.querySelectorAll('#menu button')].find((b) => b.firstChild.textContent === 'Minecraft Name…').click()`);
+  await settle(300);
+  const had = await ev(`[${mcBox}.value, ${mcBox}.closest('.set-row').dataset.user, document.activeElement === ${mcBox}]`);
+  await ev(`${mcBox}.value = ${JSON.stringify(value)}`);
+  if (how === 'submit') await ev(`${mcBox}.form.requestSubmit()`);
+  else { await ev(`${mcBox}.focus()`); await key('Escape'); }
+  await settle(500);
+  return had;
+};
+check('Minecraft Name… opens a box in their row, with the name, focused', await nameIt('Herobrine', 'Hero2'), ['Hero_brine', 'Herobrine', true]);
+check('Enter saves it', [await rowText('Herobrine'), (await (await hub('/api/admin/users')).json()).find((u) => u.name === 'Herobrine').mc], ['Herobrine | Minecraft: Hero2 · Never signed in | ⋯', 'Hero2']);
+await nameIt('Herobrine', 'not a name!');
+check('not a Minecraft name: said, and the box stays', [await ev(`document.querySelector('.admin-error').textContent`), await ev(`!!${mcBox}`)], ['that isn’t a Minecraft name: 3 to 16 letters, digits and _', true]);
+await ev(`${mcBox}.focus()`);
+await key('Escape');
+await settle(300);
+check('Esc closes the box, not Admin; the name is as it was', [await ev(`!!${mcBox}`), await ev(`!document.getElementById('overlay').hidden`), await rowText('Herobrine')], [false, true, 'Herobrine | Minecraft: Hero2 · Never signed in | ⋯']);
+await nameIt('Paul', 'hero2');
+check('a name someone has is refused', await ev(`document.querySelector('.admin-error').textContent`), 'another account has that Minecraft name');
+await ev(`${mcBox}.value = 'Paul_mc'; ${mcBox}.form.requestSubmit()`);
+await settle(500);
+check('your own row has it too', await rowText('Paul'), 'Paul op | Minecraft: Paul_mc · ● online | colour ⋯');
+await nameIt('Herobrine', '');
+check('an empty box takes the name away', await rowText('Herobrine'), 'Herobrine | No Minecraft name · Never signed in | ⋯');
+
 check('log', await ev(`[...document.querySelectorAll('.admin-log li')].map((l) => l.textContent.replace(/^.*? Paul/, 'Paul'))`), [
+  'Paul took away the Minecraft name of Herobrine', 'Paul set the Minecraft name of Paul', 'Paul set the Minecraft name of Herobrine',
   'Paul added Herobrine', 'Paul reset the password of Steve', 'Paul banned Alex', 'Paul unbanned Steve', 'Paul banned Steve',
 ]);
 await shot('after');
@@ -116,12 +147,12 @@ const herobrinePw = await ev(`document.querySelector('.new-pw code').textContent
 await openMore('Herobrine');
 await act('Make Admin');
 await settle(500);
-check('made admin', await rowText('Herobrine'), 'Herobrine op | Never signed in | colour ⋯');
+check('made admin', await rowText('Herobrine'), 'Herobrine op | No Minecraft name · Never signed in | colour ⋯');
 await openMore('Herobrine');
-check('an admin’s menu (owner)', await items(), ['Reset Password', 'Remove Admin']);
+check('an admin’s menu (owner)', await items(), ['Reset Password', 'Minecraft Name…', 'Remove Admin']);
 await closeMenu();
 const table = await tableRows();
-check('owner table: the same tag as chat; a colour well on every admin (the owner can change anyone’s)', table, ['Alex banned ⋯', 'Herobrine op colour ⋯', 'Paul op colour', 'Steve ⋯']);
+check('owner table: the same tag as chat; a colour well on every admin (the owner can change anyone’s)', table, ['Alex banned ⋯', 'Herobrine op colour ⋯', 'Paul op colour ⋯', 'Steve ⋯']);
 check('default tag colours: gold for the owner, purple for admins', await ev(`[...${section('Accounts')}.querySelectorAll('.tag.op')].map((t) => t.className)`), ['tag op t-purple', 'tag op t-gold']);
 // Picking a colour: the well opens the swatches (the current one marked); a click saves it.
 await ev(`${row('Herobrine')}.querySelector('.tag-well').click()`);
@@ -162,7 +193,7 @@ await ev(`document.getElementById('user').click()`);
 await settle(200);
 await ev(`[...document.querySelectorAll('#menu button')].find((b) => b.textContent.startsWith('Admin')).click()`);
 await settle(700);
-check('admin sees the same table (their own colour well; no menu on admins)', await tableRows(), ['Alex banned ⋯', 'Herobrine op colour', 'Paul op', 'Steve ⋯']);
+check('admin sees the same table (their own colour well and their own Minecraft name; no menu on other admins)', await tableRows(), ['Alex banned ⋯', 'Herobrine op colour ⋯', 'Paul op', 'Steve ⋯']);
 check('admin page', [await ev(`!!${section('Admins')}`), await ev(`document.querySelector('.add-user').innerText.trim()`)], [false, 'Add account']);
 await shot('admin-view');
 

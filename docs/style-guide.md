@@ -81,7 +81,10 @@ the guide first, with the reason.
     (`index.html`). No end ticks on the frame. The bar stays `--top` grey.
   - On the right: search, then your name, which opens the account menu.
   - The tab title and login heading say **MacroTech**.
-- **Bars** (the strip at the top of a panel): one height (35 px minimum) and one padding.
+- **Bars** (the strip at the top of a panel): one height, 41 px (`--bar`), in all three
+  columns (the sidebar's FILES head, the main panel's bar whatever it shows, the side chat's),
+  so the lines under them meet; and one padding. A bar too narrow for its buttons wraps to a
+  second line.
   - **Single-item bar** (one file, picture or post), shared everywhere, in the folder view's
     order: back, name, details; then on the right the text buttons (Save, Edit, History, Open
     folder), the icon buttons, previous/next, and at the far right the **size slot**.
@@ -387,9 +390,14 @@ separate dialogs.
   (6.2); buttons grey, never wrapping.
 - **A row that doesn't apply** (a sound that's off) is shown at 45% but stays visible.
 - **Narrow (under 560 px):** a row stacks, the control under its text.
-- **Admin:** Add account at the top (name field, blue button); then each person as a row:
-  name and badges, "● online" or "Last seen …" under it, and "⋯" with what you may do to them;
-  your own row has none (no "You" label). Recent activity below.
+- **Admin:** Add account at the top (name field, Minecraft name field, blue button); then
+  each person as a row: name and badges; under it their Minecraft name ("Minecraft: Name", or
+  "No Minecraft name"), then "● online" or "Last seen …"; and "⋯" with what you may do to
+  them. Your own row's "⋯" has only Minecraft Name… (no "You" label). Recent activity below.
+  - **Minecraft names are an admin's to give** (members forget, and screenshots and game chat
+    are credited by it): Minecraft Name… puts a box in the person's row, where the line under
+    the name was, with Save beside it. Enter saves, an empty box takes the name away, Esc
+    puts the box away and leaves Admin open. The account menu has no such item.
   - **One list for everyone:** no separate owner section. The owner's menus add
     Make Admin on a member, and Reset Password and Remove Admin on an admin (an admin is
     banned or deleted only after Remove Admin).
@@ -417,11 +425,17 @@ separate dialogs.
     voice-link has in VOICE.
 - **Sidebar sections:** an uppercase 12 px head (FILES, TEXT, VOICE, LIVE), with its
   "+"-style icon buttons on the right.
+- **People in VOICE** are drawn in light blurple (`--mention-text`; green while talking), so
+  a person never reads as a voice chat's name.
 - **#voice-link** (VOICE's first row, where set up): a link icon and its name; under it,
-  indented, everyone in it, a player in game with their server's tag as in `#text-link`; a
+  a step further in, everyone in it, a player in game with their server's tag as in `#text-link`; a
   muted 12 px line "Not connected to the game servers" under the name while that is so.
 - **LIVE:** one row per person sharing, a screen icon and their name (a satellite dish for
-  a stream sent with OBS), styled like the voice chat rows; your own reads brighter. The
+  a stream sent with OBS), styled like the voice chat rows; your own reads brighter.
+  **A tag** is a short line (40 characters) saying what the stream is, set by its person from
+  their row's menu (Add Tag…, then Edit Tag… and Remove Tag; an admin's menu has Remove Tag
+  on anyone's): a small chip (`--mention-tint`, `--mention-text`) on its own line under the
+  name, and after the name in the stream's bar. It goes when the stream ends. The
   picture fills the main panel, letterboxed in black, under the single-item bar (2): whose
   it is and how many are watching, then Stop watching, the sound (a stream's; a shared
   screen has none) and, in the size slot, full screen. Full screen
