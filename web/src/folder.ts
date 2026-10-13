@@ -29,6 +29,7 @@ type Hooks = {
 
 const IMAGE = /\.(png|jpe?g|gif|webp)$/i;
 const VIDEO = /\.(mp4|webm|mov|m4v)$/i;
+const AUDIO = /\.(mp3|ogg|wav|m4a|flac)$/i;
 // Thumbnails are this wide on the server; bigger tiles load the original.
 const THUMB_W = 640;
 
@@ -397,6 +398,9 @@ function fileTile(f: FolderFile) {
     media.dataset.mod = String(f.mod ?? 0);
   } else if (VIDEO.test(f.path)) {
     media = h('div', { class: 'folder-video' }, h('video', { src: `/api/file/${enc(f.path)}#t=0.1`, preload: 'metadata', muted: true }), h('span', { class: 'play', innerHTML: GLYPH.play }));
+  } else if (AUDIO.test(f.path)) {
+    // A sound: its icon with the play mark a video has; a click opens it with a player.
+    media = h('div', { class: 'folder-icon folder-audio' }, h('img', { src: iconURL(name, false, false), alt: '', draggable: false }), h('span', { class: 'play', innerHTML: GLYPH.play }));
   } else {
     media = h('div', { class: 'folder-icon' }, h('img', { src: iconURL(name, false, false), alt: '', draggable: false }));
   }

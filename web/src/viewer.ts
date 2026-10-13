@@ -193,7 +193,13 @@ function render() {
   }
   media.onclick ??= (e) => e.stopPropagation();
   stage.append(media);
-  stage.onclick = () => (state?.zoomed ? zoom() : closeViewer());
+  // (The dark area closes the viewer, so a click that zooms out must not reach it. A zoomed
+  // stage holds the pointer for dragging, and some browsers then give it the picture's click.)
+  stage.onclick = (e) => {
+    e.stopPropagation();
+    if (state?.zoomed) zoom();
+    else closeViewer();
+  };
 
   const kids: HTMLElement[] = [h('div', { class: 'viewer-bar' }, info, h('div', { class: 'viewer-right' }, tools, close)), stage];
   if (n > 1) {
@@ -204,25 +210,26 @@ function render() {
   root.onclick = closeViewer;
 }
 
-// zoom toggles between fitted and full size. Zooming in from a click keeps the clicked spot
-// under the pointer.
+// zoom toggles between fitted and zoomed: full size, or twice what was showing when the
+// picture is small enough that full size would be no bigger (a 1000 px render on a big
+// screen). Zooming in from a click keeps the clicked spot under the pointer.
 function zoom(e?: MouseEvent) {
   if (!state) return;
   const img = root.querySelector<HTMLImageElement>('.viewer-stage img');
   const r = img?.getBoundingClientRect();
   const fx = e && r ? (e.clientX - r.left) / r.width : 0.5;
   const fy = e && r ? (e.clientY - r.top) / r.height : 0.5;
+  const w = r && img ? Math.max(img.naturalWidth, Math.round(r.width * 2)) : 0;
+  const ht = r && r.width ? Math.round(w * r.height / r.width) : 0;
   state.zoomed = !state.zoomed;
   render();
   if (!state.zoomed) return;
   const stage = root.querySelector<HTMLElement>('.viewer-stage')!;
   const big = stage.querySelector('img')!;
-  const place = () => {
-    stage.scrollLeft = big.offsetWidth * fx - stage.clientWidth / 2;
-    stage.scrollTop = big.offsetHeight * fy - stage.clientHeight / 2;
-  };
-  if (big.complete) place();
-  else big.onload = place;
+  // (Its size is set here, not left to the file: the new element may not have loaded yet.)
+  if (w && ht) Object.assign(big.style, { width: `${w}px`, height: `${ht}px` });
+  stage.scrollLeft = big.offsetWidth * fx - stage.clientWidth / 2;
+  stage.scrollTop = big.offsetHeight * fy - stage.clientHeight / 2;
 }
 
 // pan lets a zoomed picture be dragged around (a click without dragging zooms back out).

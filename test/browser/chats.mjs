@@ -96,4 +96,14 @@ check('day divider: centred, a line each side', await ev(`(() => { const d = doc
   return [d.textContent, getComputedStyle(d, '::before').borderTopStyle, Math.abs((t.left + t.right) / 2 - (r.left + r.right) / 2) < 2]; })()`), ['Today', 'solid', true]);
 await shot('day-divider');
 
+// A chat's row is the open one (grey) only while the chat is the main panel: a folder opened
+// from it, by its address, takes the mark away.
+await ev(`location.hash = '#chan=general'`);
+await settle(800);
+const openRows = () => ev(`[...document.querySelectorAll('#channels .row.active .name')].map((r) => r.textContent)`);
+check('the open chat’s row is marked', await openRows(), ['general']);
+await ev(`location.hash = '#folder=docs'`);
+await settle(800);
+check('a folder in the main panel: no chat row is marked', [await ev(`document.getElementById('main-folder').hidden`), await openRows()], [false, []]);
+
 await done();

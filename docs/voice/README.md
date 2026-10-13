@@ -114,7 +114,9 @@ player's microphone sends them in game.
 - Firefox's automatic gain does the same (it lifts a quiet voice by about 25 dB).
 
 **Consequence:** Automatic level is on by default, with a switch in Voice Settings. The
-filter was not at fault and stays the default.
+filter was not at fault and stays the default. Mic level, the hand slider, is extra on top and starts at +0 dB; when Automatic level
+arrived, every browser's saved Mic level went back to +0 dB once (`mt-voice-level-reset`),
+since a boost set before it would have been added to the browser's own.
 
 Also seen: in Firefox, DeepFilterNet3 stalls the audio thread once as it starts (about
 280 ms), and the voice then runs about a quarter second late for the session. Not chased.

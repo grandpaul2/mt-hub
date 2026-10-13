@@ -26,7 +26,7 @@ const svg = (body: string) =>
 // Lucide icons (ISC licence).
 const ICON = {
   screen: svg('<rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>'),
-  radio: svg('<path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/>'),
+  dish: svg('<path d="M4 10a7.31 7.31 0 0 0 10 10Z"/><path d="m9 15 3-3"/><path d="M17 13a6 6 0 0 0-6-6"/><path d="M21 13A10 10 0 0 0 11 3"/>'),
   sound: svg('<path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/>'),
   silent: svg('<path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><line x1="22" x2="16" y1="9" y2="15"/><line x1="16" x2="22" y1="9" y2="15"/>'),
   exitFull: svg('<path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/>'),
@@ -97,7 +97,7 @@ function renderList() {
     const row = h('div', {
       class: 'row channel live relay' + (mine ? ' here' : ''),
       title: mine ? 'You’re streaming' : `Watch ${s.name}’s stream`,
-    }, h('span', { class: 'hash', innerHTML: ICON.radio }), h('span', { class: 'name' }, s.name));
+    }, h('span', { class: 'hash', innerHTML: ICON.dish }), h('span', { class: 'name' }, s.name));
     row.dataset.who = s.name;
     row.onclick = () => openWatch(s.name, true);
     row.oncontextmenu = (e) => {
@@ -122,7 +122,7 @@ function renderList() {
   };
   strip.replaceChildren(
     ...info.streams.filter((s) => s.name !== user.name).map((s) => item(ICON.screen, `${s.name} is sharing their screen`, () => openWatch(s.name))),
-    ...relays().filter((s) => s.name !== user.name).map((s) => item(ICON.radio, `${s.name} is streaming`, () => openWatch(s.name, true))));
+    ...relays().filter((s) => s.name !== user.name).map((s) => item(ICON.dish, `${s.name} is streaming`, () => openWatch(s.name, true))));
   strip.hidden = !strip.children.length;
 }
 
@@ -268,8 +268,8 @@ function renderBar() {
 
 const video = h('video', { autoplay: true, playsInline: true, muted: true });
 const note = h('div', { class: 'live-note' });
-const title = h('span', { class: 'live-title' });
-const count = h('span', { class: 'muted live-count' });
+const title = h('span', { class: 'single-name live-title' });
+const count = h('span', { class: 'single-info live-count' });
 const body = h('div', { class: 'live-body' });
 let shown = false; // the stream panel is the main panel right now
 
@@ -527,8 +527,9 @@ function toggleMute() {
   keepSound();
 }
 
-function soundBox() {
-  const btn = h('button', { class: 'tool' });
+// (pill: in the panel's bar, where it is one of the bar's icon pills.)
+function soundBox(pill = false) {
+  const btn = h('button', { class: pill ? 'vtool' : 'tool' });
   const bar = h('input', { type: 'range', min: '0', max: '100', step: '5', title: 'Volume' });
   btn.onclick = toggleMute;
   bar.oninput = () => {
@@ -536,7 +537,7 @@ function soundBox() {
     vol.muted = false;
     keepSound();
   };
-  const box = h('span', { class: 'live-sound', hidden: true }, btn, bar);
+  const box = h('span', { class: 'live-sound' + (pill ? ' viewer-tools' : ''), hidden: true }, btn, bar);
   soundBoxes.push(box);
   muteBtns.push(btn);
   volBars.push(bar);
@@ -663,7 +664,7 @@ function stop() {
 }
 
 function buildPanel() {
-  const full = h('button', { class: 'tool', title: 'Full screen (double-click the picture)', innerHTML: ICON.fullscreen });
+  const full = h('button', { class: 'vtool', title: 'Full screen (double-click the picture)', innerHTML: ICON.fullscreen });
   // The picture's box goes full screen, not the video alone, so the bar below goes with it.
   const toggleFull = () => {
     if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
@@ -671,7 +672,7 @@ function buildPanel() {
   };
   full.onclick = toggleFull;
   video.ondblclick = toggleFull;
-  const end = h('button', { class: 'tool' }, 'Stop watching');
+  const end = h('button', {}, 'Stop watching');
   end.onclick = stop;
   // A relay stream's sound can start without its picture (a stream the relay then refuses to
   // send), and Chrome calls that "playing" at a size of 2x2. Those wait for a real frame.
@@ -707,11 +708,14 @@ function buildPanel() {
   body.addEventListener('mousemove', wake);
   body.addEventListener('touchstart', wake, { passive: true });
   body.addEventListener('fullscreenchange', wake);
-  const headSound = soundBox();
+  const headSound = soundBox(true);
   applySound();
   body.replaceChildren(video, note, soundOn, over);
+  // The single-item bar (style guide 2): name and details, then on the right the text button,
+  // the icon pill, and what makes it bigger at the far right.
   $('main-live').replaceChildren(
-    h('div', { class: 'chat-head live-head' }, title, count, h('span', { class: 'spacer' }), headSound, full, end),
+    h('div', { class: 'single-bar live-head' }, title, count,
+      h('div', { class: 'single-actions' }, end, headSound, h('div', { class: 'viewer-tools single-full' }, full))),
     body);
 }
 
