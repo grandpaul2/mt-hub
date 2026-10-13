@@ -231,29 +231,29 @@ func (w *Workspace) MoveAll(from []string, toDir string, a Author) error {
 	return w.commitMessage(a, subject+"\n\n"+strings.Join(records, "\n")+"\n", true)
 }
 
-// DeleteAll deletes several files and folders as one commit; those in an area outside git go
-// to the trash. If one is missing or is an area's own folder, nothing is deleted. The
-// folders they were in stay, also when left empty.
-func (w *Workspace) DeleteAll(paths []string, a Author) error {
+// DeleteAll moves several files and folders to the trash, as one commit, and returns their
+// trash entries' ids. If one is missing or is an area's own folder, nothing goes. The folders
+// they were in stay, also when left empty.
+func (w *Workspace) DeleteAll(paths []string, a Author) ([]string, error) {
 	paths, err := roots(paths)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if err := w.syncDisk(); err != nil {
-		return err
+		return nil, err
 	}
 	names := make([]string, len(paths))
 	for i, p := range paths {
 		if isArea(p) {
-			return &RefusedError{p + "/ itself can’t be deleted"}
+			return nil, &RefusedError{p + "/ stays where it is"}
 		}
 		info, err := os.Lstat(w.abs(p))
 		if errors.Is(err, fs.ErrNotExist) {
-			return ErrNotFound
+			return nil, ErrNotFound
 		} else if err != nil {
-			return err
+			return nil, err
 		}
 		names[i] = p
 		if info.IsDir() {
@@ -261,19 +261,17 @@ func (w *Workspace) DeleteAll(paths []string, a Author) error {
 		}
 	}
 	now := time.Now()
+	var ids []string
 	for _, p := range paths {
-		if IsLarge(p) {
-			err = w.toTrash(p, "delete", a, now)
-		} else {
-			err = os.RemoveAll(w.abs(p))
-		}
-		if err != nil {
+		var id string
+		if id, err = w.toTrash(p, "delete", a, now); err != nil {
 			break
 		}
+		ids = append(ids, id)
 	}
 	// Whatever went is committed, also when one of them failed part way.
 	if _, gerr := w.git(nil, "add", "-A"); gerr != nil {
-		return gerr
+		return ids, gerr
 	}
 	subject := "Delete " + names[0]
 	if len(names) > 1 {
@@ -282,7 +280,7 @@ func (w *Workspace) DeleteAll(paths []string, a Author) error {
 	if cerr := w.commitMessage(a, subject+"\n\n"+strings.Join(names, "\n")+"\n", false); err == nil {
 		err = cerr
 	}
-	return err
+	return ids, err
 }
 
 // Size is the bytes in the files and folders listed: what a copy of them would add.

@@ -30,16 +30,20 @@ instead of a login) are marked.
 | GET | `/api/stat/<path>` | size, rev, kind (`text`/`markdown`/`image`/`binary`), `large` |
 | GET | `/api/file/<path>?rev=&download=1` | raw bytes; `rev` empty = current |
 | PUT | `/api/file/<path>?base=<rev>` | body = content; `base` empty = create; 409 `{current}` on conflict; 413 over 50 MB outside `large/` |
-| DELETE | `/api/file/<path>?base=<rev>` | same conflict rule; `?dir=1` deletes a folder and its contents |
+| DELETE | `/api/file/<path>?base=<rev>` | moves it to the Trash (same conflict rule; `?dir=1` for a folder and its contents); answers `{trash: [id]}`, the entry it is now |
 | GET | `/api/history/<path>` | commits, newest first, following renames |
 | POST | `/api/move` | `{from, to}` file or folder, one commit; 409 if `to` exists |
 | GET | `/api/moves` | `[{from, to, author}]` oldest first, from the move commits; how old links find moved files |
 | POST | `/api/mkdir` | `{path}` empty folder (on disk only until a file goes in) |
 | GET | `/api/zip/<path>` | a folder as `<name>.zip`, streamed |
 | POST | `/api/batch/move` | `{from: [paths], to: folder}` (`""` is the top): several files and folders into a folder, keeping their names, one commit. All or nothing; 409 `{error, name}` names one whose name is taken there |
-| POST | `/api/batch/delete` | `{paths: [...]}`: several files and folders, one commit (outside git: to the trash). Refused whole if one is missing or is an area's own folder |
+| POST | `/api/batch/delete` | `{paths: [...]}`: several files and folders to the Trash, one commit; answers `{trash: [ids]}`. Refused whole if one is missing or is an area's own folder |
 | POST | `/api/batch/copy` | `{from: [paths], to: folder}`: copies, one commit; answers `{paths}` with where each landed (a taken name becomes `name copy.md`, `name copy 2.md`); 507 if the disk has no room |
 | GET | `/api/zip?p=<path>&p=<path>` | several files and folders as one zip (`<their folder>.zip`, or `files.zip`), streamed |
+| GET | `/api/trash` | `{items: [{id, path, chat?, dir, size, who, time, replaced?}], days}`: what was moved to the Trash and is still there, newest first. A file from a public chat has `chat`; one from a private chat or a DM is never listed |
+| POST | `/api/trash/restore` | `{ids: [...], to?: folder}`: back where each was, or into `to` (`""` is the top; a chat file needs it). A taken name becomes `name (restored).md`. One commit; answers `{paths}` |
+| POST | `/api/trash/delete` | `{ids: [...]}`: erase for good (admins) |
+| POST | `/api/trash/empty` | erase everything the Trash lists (admins) |
 | GET | `/api/thumb/<path>?v=<mod>` | a 640-wide JPEG of a workspace picture (chat previews), cached in `thumbs/` |
 | GET | `/api/schematics` | every post in `schematics/`, newest first (also open to server tokens) |
 | GET | `/api/channels` | `[{name, last_id}]` |

@@ -343,6 +343,7 @@ func pathRef(p string) string {
 
 // deleteAttached moves files posted in chats (link paths) to the trash.
 func (s *Server) deleteAttached(paths []string, a workspace.Author) {
+	trashed := false
 	for _, p := range paths {
 		name, file, ok := s.attachment(p)
 		if !ok {
@@ -352,9 +353,18 @@ func (s *Server) deleteAttached(paths []string, a workspace.Author) {
 		if !ok {
 			continue
 		}
-		if err := s.ws.Trash(disk, "chat/"+name+"/media/"+file, a); err != nil {
+		// From a chat everyone can read, the Trash shows it; from a private chat or a DM it
+		// never does (it is still kept until the purge).
+		meta, err := s.chat.MetaOf(name)
+		public := err == nil && meta.Kind == chat.Public
+		if err := s.ws.TrashChat(disk, name, file, public, a); err != nil {
 			log.Printf("delete %s: %v", p, err)
+			continue
 		}
+		trashed = true
+	}
+	if trashed {
+		s.bus.publish("trash", struct{}{})
 	}
 }
 

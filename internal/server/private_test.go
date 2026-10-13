@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -179,6 +180,23 @@ func TestPrivateChats(t *testing.T) {
 	}
 	code, _ = call("Steve", "GET", "/api/file/media/staff/plan.png", "")
 	want("not in Files", code, 404)
+	// A private chat's file that goes to the trash is kept, but the Trash never lists it, not
+	// even for the chat's own members.
+	var gone struct{ ID string }
+	_, b = call("Steve", "POST", "/api/channels/staff/messages", `{"text":"#media/staff/plan.png"}`)
+	json.Unmarshal([]byte(b), &gone)
+	code, _ = call("Steve", "DELETE", "/api/channels/staff/messages/"+gone.ID+"?files=1", "")
+	want("Steve deletes the staff message with its file", code, 200)
+	code, _ = call("Steve", "GET", "/api/channels/staff/media/plan.png", "")
+	want("the staff file after that", code, 404)
+	if log, _ := os.ReadFile(filepath.Join(dir, "trash", "log.jsonl")); !strings.Contains(string(log), "chat/staff/media/plan.png") {
+		t.Errorf("the staff file isn't in the trash log: %s", log)
+	}
+	for _, who := range []string{"Steve", "Eve", "Paul"} {
+		if _, b = call(who, "GET", "/api/trash", ""); strings.Contains(b, "plan.png") || strings.Contains(b, "staff") {
+			t.Errorf("the Trash shows %s a private chat's file: %s", who, b)
+		}
+	}
 
 	// Renames of a private chat aren't told to outsiders.
 	call("Paul", "PATCH", "/api/channels/staff", `{"name":"staff-room"}`)

@@ -109,16 +109,16 @@ func TestDeleteAll(t *testing.T) {
 		w.Write(p, []byte(p), "", paul)
 	}
 	before := commits(t, w)
-	if err := w.DeleteAll([]string{"a.md", "large"}, paul); err == nil {
+	if _, err := w.DeleteAll([]string{"a.md", "large"}, paul); err == nil {
 		t.Fatal("deleted large/ itself")
 	}
-	if err := w.DeleteAll([]string{"a.md", "gone.md"}, paul); !errors.Is(err, ErrNotFound) {
+	if _, err := w.DeleteAll([]string{"a.md", "gone.md"}, paul); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("missing: %v", err)
 	}
 	if !exists(w, "a.md") || commits(t, w) != before {
 		t.Fatal("a refused delete deleted something")
 	}
-	if err := w.DeleteAll([]string{"a.md", "docs/b.md", "notes", "notes/n.md", "large/w.zip"}, paul); err != nil {
+	if _, err := w.DeleteAll([]string{"a.md", "docs/b.md", "notes", "notes/n.md", "large/w.zip"}, paul); err != nil {
 		t.Fatal(err)
 	}
 	if got := commits(t, w) - before; got != 1 {
@@ -265,17 +265,17 @@ func TestDeleteLeavesTheFolder(t *testing.T) {
 	for _, p := range []string{"one/a.md", "many/a.md", "many/b.md", "outer/inner/a.md", "large/pack/w.zip", "large/packs/a.zip", "large/packs/b.zip"} {
 		w.Write(p, []byte(p), "", paul)
 	}
-	if err := w.Delete("one/a.md", mustRev(t, w, "one/a.md"), paul); err != nil {
+	if _, err := w.Delete("one/a.md", mustRev(t, w, "one/a.md"), paul); err != nil {
 		t.Fatal(err)
 	}
-	if err := w.DeleteAll([]string{"many/a.md", "many/b.md", "large/packs/a.zip", "large/packs/b.zip"}, paul); err != nil {
+	if _, err := w.DeleteAll([]string{"many/a.md", "many/b.md", "large/packs/a.zip", "large/packs/b.zip"}, paul); err != nil {
 		t.Fatal(err)
 	}
-	if err := w.DeleteDir("outer/inner", paul); err != nil {
+	if _, err := w.DeleteDir("outer/inner", paul); err != nil {
 		t.Fatal(err)
 	}
 	_, rev, _ := w.Stat("large/pack/w.zip")
-	if err := w.Delete("large/pack/w.zip", rev, paul); err != nil {
+	if _, err := w.Delete("large/pack/w.zip", rev, paul); err != nil {
 		t.Fatal(err)
 	}
 	tree, _ := w.Tree()
