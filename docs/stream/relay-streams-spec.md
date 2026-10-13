@@ -92,8 +92,8 @@ OBS ──RTMP (H.264 + AAC)──► relay: channel "live" ──► the game's
 
 - **LIVE** appears while anyone shares a screen or streams. A relay stream's row has its own
   icon (a broadcast icon, not the screen) and the streamer's name; yours reads "You're
-  streaming". Someone doing both has two rows. Right-click: Watch; Stop Watching (on the one
-  you are watching); Message.
+  streaming". Someone doing both has two rows. Right-click: Watch, or Stop Watching on the one
+  you are watching; Message.
 - **Address:** `#stream=<name>` (screen shares stay `#live=<name>`).
 - **Watching** uses the same panel as a screen share: head with the name and viewer count,
   the picture letterboxed, **Full screen** (double-click too), **Stop watching**. Added for
@@ -112,8 +112,10 @@ OBS ──RTMP (H.264 + AAC)──► relay: channel "live" ──► the game's
 - **It plays behind everything** (Paul, 2026-10-13). Opening a folder, a file or a chat
   leaves the stream playing: the sound goes on, and so does the browser's own pop-out player
   (Firefox's Picture-in-Picture). The panel is moved out of sight, not hidden, because a
-  browser may stop a video it does not draw. A bar at the bottom of the sidebar says
-  "Watching" and whose stream, with mute and **Stop**; its words lead back to the picture. One
+  browser may stop a video it does not draw. For as long as you watch, in the
+  panel too, a bar at the bottom of the sidebar says "Watching" and whose stream, with mute
+  and **Stop**; its words lead back to the picture. The row is grey (the open one) while its
+  panel is open and outlined while it plays behind something else, so one row is grey. One
   stream or screen at a time: opening another replaces it. It ends on Stop watching (the
   panel's head, the bar, the row's menu), when the stream ends, or when the page closes; that
   closes the connection and deletes the session. From the panel, Stop watching also goes back
@@ -126,8 +128,9 @@ OBS ──RTMP (H.264 + AAC)──► relay: channel "live" ──► the game's
 - **A stream that leaves the list gets a minute to come back** (the streamer's own
   connection blinking): the page waits, and plays it again by itself when it is listed again.
   After 60 seconds it counts as stopped. Behind another panel, an ending is a toast.
-- **Full screen** is the picture's box, with a bar over its bottom edge: mute, the volume
-  slider and **Exit full screen**. The bar shows when the mouse moves and goes, with the
+- **Full screen** is the picture's box, with the controls over its bottom edge: mute and
+  the volume slider on the left, **Exit full screen** on the right, each on its own dark
+  patch with no bar across the picture. They show when the mouse moves and go, with the
   pointer, after three still seconds. Esc and a double-click leave too.
 - Clicking the row of a stream whose panel says it ended or failed tries again.
 - Phones watch from the strip at the top of the chat, as with screen shares.

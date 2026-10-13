@@ -105,7 +105,8 @@ check('address and panel', [await ev(`location.hash`), (await panel())?.title, (
 check('picture and sound arrive, sound on', await video(), { picture: true, muted: false, volume: 1, sound: 1 });
 check('the picture moves', await moving(), true);
 check('the sound controls show', await controls(), { bar: '100', button: 'Mute', on: false });
-check('the row is the active one', await ev(`document.querySelector('#live-list .row.relay').classList.contains('active')`), true);
+const rowMark = () => ev(`[...document.querySelector('#live-list .row.relay').classList].filter((c) => c === 'active' || c === 'playing')`);
+check('the row is the open one (grey)', await rowMark(), ['active']);
 await until('the viewer count', async () => (await panel())?.count === '1 watching', 12000);
 check('Paul is counted', [(await panel())?.count, await ev(`document.querySelector('.live-count').title`), (await (await api('GET', '/api/streams')).json()).relay[0].viewers], ['1 watching', 'Paul', ['Paul']]);
 await shot('watching');
@@ -121,12 +122,12 @@ check('unmute goes back to the level', [(await video()).muted, (await controls()
 // Opening something else leaves it playing: the chat shows, the stream goes on behind it with
 // its sound, the relay keeps the one session, and a bar in the sidebar says so.
 const first = await media();
-check('no bar while the panel is open; the row offers Stop Watching', [await bar(), await rowMenu('Alex')], [null, ['Watch', 'Stop Watching', '-', 'Message']]);
+check('the bar is up in the panel too; the row offers Stop Watching, not Watch', [await bar(), await rowMenu('Alex')], [['Watching', 'Alex’s stream'], ['Stop Watching', '-', 'Message']]);
 await ev(`document.getElementById('menu').hidden = true`);
 await ev(`location.hash = '#chan=general'`);
 await until('the chat', () => ev(`!document.getElementById('main-chat').hidden`));
 check('behind a chat: still drawn, still playing, same connection', [await ev(`document.getElementById('main-live').classList.contains('behind') && getComputedStyle(document.getElementById('main-live')).display !== 'none'`), await moving(), (await video()).muted, await sessions(), (await media()) === first], [true, true, false, 1, true]);
-check('the bar says what is playing', await bar(), ['Watching', 'Alex’s stream']);
+check('the bar says what is playing; the row is outlined, the chat’s row is the grey one', [await bar(), await rowMark(), await ev(`getComputedStyle(document.querySelector('#live-list .row.relay')).boxShadow !== 'none'`), await ev(`document.querySelectorAll('#side .row.active, #sidebar .row.active, .row.channel.active').length`)], [['Watching', 'Alex’s stream'], ['playing'], true, 1]);
 check('still counted as watching', (await (await api('GET', '/api/streams')).json()).relay[0].viewers, ['Paul']);
 await ev(`document.querySelector('#watch-bar > button.tool').click()`);
 check('the bar mutes', [(await video()).muted, await ev(`document.querySelector('#watch-bar > button.tool').title`)], [true, 'Unmute']);
@@ -134,12 +135,12 @@ await ev(`document.querySelector('#watch-bar > button.tool').click()`);
 await shot('behind');
 await ev(`document.querySelector('#watch-bar .share-where').click()`);
 await until('the panel back', async () => (await panel()) !== null);
-check('the bar leads back to the same picture', [await ev(`location.hash`), await bar(), (await media()) === first, await sessions()], ['#stream=Alex', null, true, 1]);
+check('the bar leads back to the same picture', [await ev(`location.hash`), await rowMark(), (await media()) === first, await sessions()], ['#stream=Alex', ['active'], true, 1]);
 
 // Full screen is the picture with a bar over it: the sound, and a button out.
 await ev(`document.querySelector('#main-live .live-head button[title^="Full screen"]').click()`);
 await until('full screen', () => ev(`!!document.fullscreenElement`), 5000);
-check('full screen: the picture’s box, with the bar', [await ev(`document.fullscreenElement?.className`), await ev(`getComputedStyle(document.querySelector('.live-over')).display`), await ev(`document.querySelector('.live-over .live-sound').hidden`)], ['live-body', 'flex', false]);
+check('full screen: the picture’s box, with the controls and no bar across', [await ev(`document.fullscreenElement?.className`), await ev(`getComputedStyle(document.querySelector('.live-over')).display`), await ev(`document.querySelector('.live-over .live-sound').hidden`), await ev(`getComputedStyle(document.querySelector('.live-over')).backgroundColor`)], ['live-body', 'flex', false, 'rgba(0, 0, 0, 0)']);
 await ev(`(() => { const i = document.querySelector('.live-over input'); i.value = '80'; i.dispatchEvent(new Event('input')); })()`);
 check('its volume bar works, and the head’s follows', [(await video()).volume, (await controls()).bar], [0.512, '80']);
 await ev(`(() => { const i = document.querySelector('.live-over input'); i.value = '50'; i.dispatchEvent(new Event('input')); })()`);
