@@ -9,6 +9,13 @@ Any of these is fair game, and so is something not listed.
 
 ## Later
 
+### Voice
+
+- **Firefox and DeepFilterNet3: a quarter second late.** In Firefox the audio thread stalls
+  once as that filter starts (about 280 ms) and the voice then runs about 260 ms behind for the
+  session: 5 of 5 measured runs with the filter, none without it, none in Chromium. The sound
+  is not harmed. Found 2026-10-13 (`voice/README.md`, the automatic gain finding).
+
 ### From the stocktake
 
 The numbers are from the stocktake below, so an idea keeps its number when others are done.
