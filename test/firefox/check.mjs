@@ -160,7 +160,7 @@ await sleep(800);
 const VIEWS = [['tree and chat', 'gyp'], ['file', 'boards/Playground juggling glyphs query.md'], ['folder', 'folder=screenshots'], ['schematics folder', 'folder=schematics'], ['new file tile', 'folder=boards'],
   ['schematics', 'schems'], ['picture', 'screenshots/2026-09-01 15.00.01 Peggy.png'], ['viewer', 'screenshots/2026-09-01 15.00.01 Peggy.png'],
   ['chat (main panel)', 'chan=general'], ['search', 'gyp'], ['mention popup', 'chan=general'], ['command popup', 'chan=general'], ['server status', 'chan=general'], ['emoji picker', 'chan=general'],
-  ['new line and jump', 'chan=piggy-jig'], ['save to files', 'chan=general'], ['chat files', 'chan=general'], ['private chat', 'chan=jig-staff'], ['server link', 'chan=text-link'], ['delete question', 'gyp'], ['delete message question', 'chan=general'], ['rows selected', 'gyp'], ['rows cut', 'gyp'], ['delete several', 'gyp'], ['tiles picked and the box', 'folder=screenshots'],
+  ['new line and jump', 'chan=piggy-jig'], ['save to files', 'chan=general'], ['chat files', 'chan=general'], ['private chat', 'chan=jig-staff'], ['server link', 'chan=text-link'], ['delete question', 'gyp'], ['delete message question', 'chan=general'], ['rows selected', 'gyp'], ['rows cut', 'gyp'], ['trash', 'gyp'], ['tiles picked and the box', 'folder=screenshots'],
   ['minecraft name', 'gyp'], ['message edit', 'chan=general'], ['file tray', 'chan=general'], ['sending and failed', 'chan=general'], ['sound settings', 'gyp'], ['voice settings', 'gyp'], ['admin', 'gyp']];
 mkdirSync(OUT, { recursive: true });
 const T = {}; let t0 = Date.now();
@@ -226,14 +226,23 @@ for (const [name, hash] of VIEWS) {
     await shown(name, 'the cut rows', `document.querySelectorAll('#tree .row.cut').length >= 1`);
     await idle(3500); // the "Cut 2 items" toast goes
   }
-  if (name === 'rows selected' || name === 'delete several') {
-    // Rows picked with Ctrl+click (beside the open folder's own); then the question Delete asks.
+  if (name === 'rows selected') {
+    // Rows picked with Ctrl+click (beside the open folder's own).
     await js(`(() => { for (const r of [...document.querySelectorAll('#tree .row')].slice(1, 6).filter((_, i) => i !== 1 && i !== 3)) r.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true })); })()`);
     await shown(name, 'the selected rows', `document.querySelectorAll('#tree .row.selected').length >= 3`);
-    if (name === 'delete several') {
-      await js(`document.getElementById('tree').dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true }))`);
-      await shown(name, 'the question', `document.querySelectorAll('#dialog .del-list div').length >= 2`);
-    }
+    await idle(800);
+  }
+  if (name === 'trash') {
+    // A file moved to Trash with the Delete key (Ctrl+click picks it beside the open folder's
+    // row, which the second Ctrl+click lets go), then the Trash opened from its row (the last
+    // in the tree), once the "Moved … to Trash" toast has gone.
+    await js(`(() => { const rows = [...document.querySelectorAll('#tree .row[data-path]')];
+      for (const r of [rows.find((r) => r.dataset.path === 'gyp'), rows.find((r) => !r.classList.contains('dir'))]) r.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
+      document.getElementById('tree').dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true })); })()`);
+    await shown(name, 'the Undo toast', `document.querySelector('#toast .toast-act')?.textContent === 'Undo'`);
+    await idle(6500);
+    await js(`document.querySelector('#tree .row.trash-row').click()`);
+    await shown(name, 'the Trash and its rows', `!document.getElementById('main-trash').hidden && document.querySelectorAll('#main-trash .trash-item').length >= 1 && document.getElementById('toast').hidden`);
     await idle(800);
   }
   if (name === 'tiles picked and the box') {

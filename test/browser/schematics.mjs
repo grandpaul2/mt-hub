@@ -10,7 +10,7 @@ await answerDialogs(true);
 await send('Page.reload');
 await settle(2000);
 await answerDialogs(true);
-const rows = () => ev(`[...document.querySelectorAll('#tree .row')].map((r) => r.dataset.path)`);
+const rows = () => ev(`[...document.querySelectorAll('#tree .row[data-path]')].map((r) => r.dataset.path)`);
 const hash = () => ev(`decodeURIComponent(location.hash)`);
 const cards = () => ev(`[...document.querySelectorAll('#main-schems .schem-card .schem-title')].map((t) => t.textContent)`);
 const tree = async () => (await (await hub(`/api/tree`)).json()).map((e) => e.path);
@@ -54,7 +54,7 @@ await ev(`document.querySelector('#main-schems .schem-card').click()`);
 await settle(300);
 check('post', [await hash(), await ev(`document.querySelector('.schem-post h1').textContent`), await ev(`document.querySelector('.schem-bar').hidden`),
   await ev(`[...document.querySelectorAll('#main-schems .single-bar .vtool')].map((v) => v.title)`), await ev(`[...document.querySelectorAll('#main-schems .single-bar > button, #main-schems .single-actions > button')].map((b) => b.textContent)`)],
-  ['#schem=Build 6', 'Build 6', true, ['Forward', 'Download', 'Delete', 'Previous (←)', 'Next (→)', 'Full window'], ['← All schematics', 'Edit', 'Open folder']]);
+  ['#schem=Build 6', 'Build 6', true, ['Forward', 'Download', 'Move to Trash', 'Previous (←)', 'Next (→)', 'Full window'], ['← All schematics', 'Edit', 'Open folder']]);
 await shot('post');
 await key('ArrowRight');
 await settle(200);
@@ -175,8 +175,8 @@ check('edit reorders the renders', b6.images.map((i) => [i.name, i.size]).map(([
 check('new picture is first', (await (await hub(`/api/file/schematics/Build%206/1.png`)).arrayBuffer()).byteLength, png(30, 30, [0, 200, 0]).length);
 check('README keeps the date', await readme('Build 6'), '# Build 6\n\nDesign by Paul and Alex · posted 2026-07-06\n\nHow to use Build 6.\n');
 
-// Delete: the folder goes.
-await ev(`[...document.querySelectorAll('#main-schems .single-bar .vtool')].find((v) => v.title === 'Delete').click()`);
+// Move to Trash: the folder goes, with nothing asked.
+await ev(`[...document.querySelectorAll('#main-schems .single-bar .vtool')].find((v) => v.title === 'Move to Trash').click()`);
 await settle(1500);
 check('delete removes the folder', [(await tree()).some((p) => p.startsWith('schematics/Build 6')), await hash()], [false, '#schems']);
 

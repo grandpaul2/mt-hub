@@ -62,7 +62,7 @@ const r = await ev(`(() => { const b = document.querySelector('.row[data-path="d
 for (const type of ['mousePressed', 'mouseReleased']) await send('Input.dispatchMouseEvent', { type, x: r[0], y: r[1], button: 'right', clickCount: 1 });
 await settle(300);
 check('folder menu', await ev(`[...document.querySelectorAll('#menu button span:first-child')].map((s) => s.textContent)`),
-  ['New File…', 'New Folder…', 'Upload…', 'Download as Zip', 'Cut', 'Copy', 'Paste', 'Duplicate', 'Rename…', 'Delete', 'Copy Path']);
+  ['New File…', 'New Folder…', 'Upload…', 'Download as Zip', 'Cut', 'Copy', 'Paste', 'Duplicate', 'Rename…', 'Move to Trash', 'Copy Path']);
 await shot('menu');
 await key('Escape');
 check('escape closes menu', await ev(`document.getElementById('menu').hidden`), true);
@@ -264,10 +264,10 @@ await settle(300);
 await ev(`document.querySelector('#tree .row[data-path="notes"]').click()`);
 await settle(400);
 await ev(`document.querySelector('#main-folder .shot[data-path="notes/b.md"]').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 400, clientY: 300 }))`);
-check('file tile menu', await ev(`[...document.querySelectorAll('#menu button span:first-child')].map((s) => s.textContent)`), ['Open', 'Download', 'Cut', 'Copy', 'Paste', 'Duplicate', 'Rename…', 'Delete', 'Copy Path']);
+check('file tile menu', await ev(`[...document.querySelectorAll('#menu button span:first-child')].map((s) => s.textContent)`), ['Open', 'Download', 'Cut', 'Copy', 'Paste', 'Duplicate', 'Rename…', 'Move to Trash', 'Copy Path']);
 await key('Escape');
 await ev(`document.querySelector('#main-folder .shot[data-path="notes/a"]').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 400, clientY: 300 }))`);
-check('folder tile menu', await ev(`[...document.querySelectorAll('#menu button span:first-child')].map((s) => s.textContent)`), ['New File…', 'New Folder…', 'Upload…', 'Download as Zip', 'Cut', 'Copy', 'Paste', 'Duplicate', 'Rename…', 'Delete', 'Copy Path']);
+check('folder tile menu', await ev(`[...document.querySelectorAll('#menu button span:first-child')].map((s) => s.textContent)`), ['New File…', 'New Folder…', 'Upload…', 'Download as Zip', 'Cut', 'Copy', 'Paste', 'Duplicate', 'Rename…', 'Move to Trash', 'Copy Path']);
 // Rename… from a tile: the box shows in the tree even with notes collapsed.
 await ev(`[...document.querySelectorAll('#menu button')].find((b) => b.textContent.startsWith('Rename')).click()`);
 await settle(300);

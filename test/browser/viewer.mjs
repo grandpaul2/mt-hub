@@ -149,10 +149,10 @@ await key('Escape');
 check('file toolbar buttons', await ev(`[[...document.querySelectorAll('#toolbar .single-bar > button, #toolbar .single-actions > button')].map((b) => b.textContent),
   document.querySelector('#toolbar .single-name').textContent,
   [...document.querySelectorAll('#toolbar .single-bar .vtool')].map((b) => b.title)]`),
-  [['← Back to pics/', 'History'], 'a.png', ['Forward', 'Download', 'Open in new tab', 'Delete', 'Previous (←)', 'Next (→)', 'Full window']]);
+  [['← Back to pics/', 'History'], 'a.png', ['Forward', 'Download', 'Open in new tab', 'Move to Trash', 'Previous (←)', 'Next (→)', 'Full window']]);
 // Delete sits with the others and turns red only on hover, as in chat (Paul, S56). The bar has
 // no ⋯: every action is already a button on it.
-check('Delete is quiet until hovered', await ev(`(() => { const b = document.querySelector('#toolbar [title="Delete"]');
+check('Delete is quiet until hovered', await ev(`(() => { const b = document.querySelector('#toolbar [title="Move to Trash"]');
   return [getComputedStyle(b).backgroundColor, b.classList.contains('danger')]; })()`), ['rgba(0, 0, 0, 0)', false]);
 await shot('file-toolbar', { x: 260, y: 34, width: 940, height: 120 });
 await ev(`document.querySelector('#toolbar [title="Full window"]').click()`);
@@ -176,7 +176,7 @@ await settle(1200);
 // A text file has the same bar, with Edit, History and its text size.
 check('text files: the same bar', await ev(`[[...document.querySelectorAll('#toolbar .single-bar > button, #toolbar .single-actions > button, #toolbar .mode-switch button')].filter((b) => getComputedStyle(b).visibility === 'visible').map((b) => b.textContent),
   document.querySelector('#toolbar .single-name').textContent, [...document.querySelectorAll('#toolbar .single-bar .vtool')].map((b) => b.title)]`),
-  [['← Back to Files', 'Edit', 'History'], 'notes.txt', ['Forward', 'Download', 'Open in new tab', 'Delete']]);
+  [['← Back to Files', 'Edit', 'History'], 'notes.txt', ['Forward', 'Download', 'Open in new tab', 'Move to Trash']]);
 
 // Sound files: a tile with a play mark; the file opens with a player under the single-item
 // bar, ←/→ step through the folder, and there is no full window (nothing to show).
@@ -190,7 +190,7 @@ check('sound tiles have a play mark', await ev(`[...document.querySelectorAll('#
 await ev(`document.querySelector('#main-folder .shot[data-path="sounds/one.mp3"]').click()`);
 await settle(800);
 const sound = () => ev(`[decodeURIComponent(location.hash), document.querySelector('#view audio[controls]')?.getAttribute('src').split('?')[0] ?? null, document.querySelector('#toolbar .single-bar > button')?.textContent ?? null, [...document.querySelectorAll('#toolbar .vtool')].map((b) => b.title)]`);
-check('a sound opens with a player and the single-item bar', await sound(), ['#sounds/one.mp3', '/api/file/sounds/one.mp3', '← Back to sounds/', ['Forward', 'Download', 'Open in new tab', 'Delete', 'Previous (←)', 'Next (→)']]);
+check('a sound opens with a player and the single-item bar', await sound(), ['#sounds/one.mp3', '/api/file/sounds/one.mp3', '← Back to sounds/', ['Forward', 'Download', 'Open in new tab', 'Move to Trash', 'Previous (←)', 'Next (→)']]);
 await key('ArrowRight');
 await settle(800);
 check('→ steps to the next sound', (await sound()).slice(0, 2), ['#sounds/two.ogg', '/api/file/sounds/two.ogg']);

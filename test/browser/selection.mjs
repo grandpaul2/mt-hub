@@ -1,7 +1,7 @@
 // Selecting several files: Ctrl and Shift in the tree, Ctrl, Shift and a dragged box in the
 // folder view, and what a selection does: the menu, moving (all or nothing), deleting after
 // one question, a zip, links in chat. The tree and the folder view each keep their own.
-import { answerDialogs, api, asked, check, done, ev, HUB, hub, key, send, settle, shot } from './lib.mjs';
+import { answerDialogs, api, check, done, ev, HUB, hub, key, send, settle, shot } from './lib.mjs';
 
 const CTRL = 2, SHIFT = 8;
 const put = (p) => hub(`/api/file/${encodeURIComponent(p).replace(/%2F/g, '/')}?base=`, { method: 'PUT', body: p });
@@ -17,11 +17,11 @@ await settle(1500);
 
 const row = (p) => `document.querySelector('#tree .row[data-path=${JSON.stringify(p)}]')`;
 const tile = (p) => `document.querySelector('#main-folder .shot[data-path=${JSON.stringify(p)}]')`;
-const rows = () => ev(`[...document.querySelectorAll('#tree .row')].map((r) => r.dataset.path)`);
+const rows = () => ev(`[...document.querySelectorAll('#tree .row[data-path]')].map((r) => r.dataset.path)`);
 const selected = () => ev(`[...document.querySelectorAll('#tree .row.selected')].map((r) => r.dataset.path)`);
 const picked = () => ev(`[...document.querySelectorAll('#main-folder .shot.picked')].map((r) => r.dataset.path)`);
 const active = () => ev(`document.querySelector('#tree .row.active')?.dataset.path ?? null`);
-const toastText = () => ev(`document.getElementById('toast').textContent`);
+const toastText = () => ev(`document.getElementById('toast').firstChild?.textContent ?? ''`); // (without its Undo button)
 const hash = () => ev(`decodeURIComponent(location.hash)`);
 const menu = () => ev(`document.getElementById('menu').hidden ? null : [...document.querySelectorAll('#menu > button')].map((b) => b.firstChild.textContent)`);
 const menuPick = (label) => ev(`[...document.querySelectorAll('#menu > button')].find((b) => b.firstChild.textContent === ${JSON.stringify(label)}).click()`);
@@ -96,7 +96,7 @@ check('a plain arrow selects one', (await selected()).length, 1);
 await click(row('one.md'));
 await click(row('two.md'), CTRL);
 await rightClick(row('two.md'));
-check('menu for several', [await menu(), await selected()], [['Download as Zip', 'Cut', 'Copy', 'Duplicate', 'Delete', 'Copy Paths'], ['one.md', 'two.md']]);
+check('menu for several', [await menu(), await selected()], [['Download as Zip', 'Cut', 'Copy', 'Duplicate', 'Move to Trash', 'Copy Paths'], ['one.md', 'two.md']]);
 await ev(`document.addEventListener('click', (e) => { if (e.target.tagName === 'A' && e.target.hasAttribute('download')) { window.__zip = e.target.getAttribute('href'); e.preventDefault(); } }, true)`);
 await menuPick('Download as Zip');
 const zipURL = await ev(`window.__zip`);
@@ -107,22 +107,13 @@ await rightClick(row('three.md'));
 check('menu on another row: just that one', [(await menu()).includes('Rename…'), await selected()], [true, ['three.md']]);
 await closeMenu();
 
-// Delete: one question that lists them; Cancel keeps them.
+// Delete: the selection goes to the Trash, with nothing asked (trash.mjs has the rest).
 await click(row('three.md'));
 await click(row('four.md'), CTRL);
 await answerDialogs(null);
 await key('Delete');
-await settle(400);
-check('one question for several', await ev(`[document.querySelector('#dialog h2').textContent, [...document.querySelectorAll('#dialog .del-list div')].map((d) => d.textContent)]`), ['Delete 2 items?', ['four.md', 'three.md']]);
-await shot('delete-several');
-await ev(`document.querySelector('#dialog .actions button:first-child').click()`);
-await settle(300);
-check('Cancel keeps them', await has('three.md', 'four.md'), [true, true]);
-await answerDialogs(true);
-await ev(`document.getElementById('tree').focus()`);
-await key('Delete');
 await settle(900);
-check('Delete deletes them', [await has('three.md', 'four.md'), await toastText(), await asked()], [[false, false], 'Deleted 2 items', ['Delete 2 items?']]);
+check('Delete moves them to Trash, unasked', [await has('three.md', 'four.md'), await toastText(), await ev(`document.getElementById('overlay').hidden`)], [[false, false], 'Moved 2 items to Trash', true]);
 const hist = await (await hub('/api/history/one.md')).json();
 check('(one.md untouched)', hist.length, 1);
 
@@ -217,20 +208,15 @@ check('a Ctrl box adds', await picked(), [art(1), art(5)]);
 
 // The menu and the Delete key, as in the tree.
 await rightClick(tile(art(5)));
-check('menu for several tiles', await menu(), ['Download as Zip', 'Cut', 'Copy', 'Duplicate', 'Delete', 'Copy Paths']);
+check('menu for several tiles', await menu(), ['Download as Zip', 'Cut', 'Copy', 'Duplicate', 'Move to Trash', 'Copy Paths']);
 await closeMenu();
 await rightClick(tile(art(2)));
 check('menu on another tile: just that one', [(await menu()).includes('Rename…'), await picked()], [true, [art(2)]]);
 await closeMenu();
 await click(tile(art(3)), CTRL);
-await answerDialogs(null);
 await key('Delete');
-await settle(400);
-check('Delete asks about the picked', await ev(`[document.querySelector('#dialog h2').textContent, [...document.querySelectorAll('#dialog .del-list div')].map((d) => d.textContent), document.querySelector('#dialog p').textContent]`),
-  ['Delete 2 items?', ['MA-002 Album art.png', 'MA-003 Keyboard.png'], 'Large files have no history: this can’t be undone.']);
-await ev(`document.querySelector('#dialog .actions button:last-child').click()`);
 await settle(900);
-check('and deletes them', [await has(art(2), art(3), art(1)), (await picked()).length], [[false, false, true], 0]);
+check('Delete moves the picked to Trash', [await has(art(2), art(3), art(1)), (await picked()).length, await toastText()], [[false, false, true], 0, 'Moved 2 items to Trash']);
 
 // Moving: picked tiles dropped on a folder's tile, and on Back.
 for (const p of ['m1.md', 'm2.md']) await put(p);

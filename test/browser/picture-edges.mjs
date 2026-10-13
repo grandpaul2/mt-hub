@@ -23,7 +23,7 @@ await settle(2500);
 const rev = (await (await api('GET', `/api/stat/${encodeURIComponent(second).replace(/%2F/g, '/')}`)).json()).rev;
 await api('DELETE', `/api/file/${encodeURIComponent(second).replace(/%2F/g, '/')}?base=${encodeURIComponent(rev)}`);
 await settle(4000);
-check('the banner says it was deleted', await ev(`document.getElementById('banner').textContent`), 'Someone deleted this file.');
+check('the banner says it went to Trash', await ev(`document.getElementById('banner').textContent`), 'Someone moved this file to Trash.');
 await ev(`document.getElementById('view').focus()`);
 await key('ArrowRight');
 await settle(1500);

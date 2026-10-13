@@ -28,8 +28,6 @@ The numbers are from the stocktake below, so an idea keeps its number when other
 - **9 Big emoji.** A message that is only emoji shows them large.
 - **11 Mark unread from here.** Alt+click a message, to come back to it later.
 - **14 Threads.** Discord has them; the hub has replies. Probably never.
-- **16 Recently deleted.** Everything outside `large/` is in git, but the page has no way to
-  find a deleted file and bring it back.
 - **17 Several files open, or recent files.** One file at a time today. Tabs are a code
   editor's thing; a "Recent" list may suit non-technical people better.
 - **20 Clickable path (breadcrumbs)** in the file bar.
@@ -90,7 +88,7 @@ Out of scope here: notifications, presence and status (online dots, typing indic
 pings). Those come later, if at all.
 
 It was made from a read of the hub's frontend against Discord's and VS Code's everyday
-features. Items 1 to 5, 10, 12, 13, 15, 18 and 19 are built; the rest are in the list above.
+features. Items 1 to 5, 10, 12, 13, 15, 16, 18 and 19 are built; the rest are in the list above.
 
 ### Already covered
 
@@ -135,9 +133,8 @@ Decisions, not gaps:
 ### Files
 
 15. **Back and Forward** (built; `go()` in `util.ts` adds history entries).
-16. **Recently deleted / restore a deleted file.** Everything outside `large/` is still in
-    git, but there is no way to find a deleted file and bring it back from the page. VS Code
-    has the system trash, plus Timeline in the explorer.
+16. **Recently deleted** (built: the Trash. Everything moved out of Files stays 30 days and
+    can be restored from the tree's Trash row).
 17. **Several files open (tabs), or at least recent files.**
 18. **Multi-select** (built: Ctrl and Shift in the tree; Ctrl, Shift and a dragged box in the
     folder view; move, delete, zip and chat links for a selection).

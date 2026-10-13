@@ -32,10 +32,10 @@ await ev(`location.hash = '#notes/todo.md'`);
 await settle(1500);
 const rev = (await (await api('GET', '/api/stat/notes/todo.md')).json()).rev;
 await api('DELETE', `/api/file/notes/todo.md?base=${rev}`);
-await ev(`document.querySelector('#toolbar button[title^="Delete"]').click()`);
+await ev(`document.querySelector('#toolbar button[title="Move to Trash"]').click()`);
 await settle(1200);
 check('says it was already deleted, and closes it', [await ev(`document.getElementById('toast').textContent`), await ev(`location.hash`)],
-  ['Someone already deleted it.', '#folder=notes']); // its folder, which stays though it's empty now
+  ['Someone already moved it to Trash.', '#folder=notes']); // its folder, which stays though it's empty now
 
 // A file at the top has a Back button too: its folder is Files. Esc does the same.
 await send('Page.navigate', { url: `${HUB}/?r=9#README.md` });

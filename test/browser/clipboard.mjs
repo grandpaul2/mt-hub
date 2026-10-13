@@ -53,7 +53,7 @@ const paste = async (withPicture = false) => {
 // Nothing cut or copied: Paste is greyed, and a paste does nothing.
 await click(row('notes'));
 await rightClick(row('c1.md'));
-check('file menu, nothing to paste', await menu(), ['Open', 'Download', 'Cut', 'Copy', 'Paste (off)', 'Duplicate', 'Rename…', 'Delete', 'Copy Path']);
+check('file menu, nothing to paste', await menu(), ['Open', 'Download', 'Cut', 'Copy', 'Paste (off)', 'Duplicate', 'Rename…', 'Move to Trash', 'Copy Path']);
 await key('Escape');
 
 // Copy, then paste into a folder where the name is taken: "c1 copy.md", then "c1 copy 2.md".
@@ -113,7 +113,7 @@ await key('Escape');
 await click(row('c1.md'));
 await click(row('notes'), CTRL);
 await rightClick(row('notes'));
-check('menu for several', await menu(), ['Download as Zip', 'Cut', 'Copy', 'Duplicate', 'Delete', 'Copy Paths']);
+check('menu for several', await menu(), ['Download as Zip', 'Cut', 'Copy', 'Duplicate', 'Move to Trash', 'Copy Paths']);
 await menuPick('Duplicate');
 check('several duplicated, each beside its own', await has('c1 copy.md', 'notes copy/todo.md', 'notes copy/c1 copy.md'), [true, true, true]);
 await rightClick(row('c1.md'));
