@@ -24,8 +24,7 @@ The lab below checked that byte for byte.
    level the page's own chain misbehaves (a quiet microphone is shut for the first 30 seconds
    with the default filter). The filter itself is not the problem and no setting is
    overridden. Proposed: the page asks the browser for its automatic gain **on**, in every
-   voice chat, with a switch in Voice Settings. Measured in Chromium only; Firefox's must be
-   checked before this is settled.
+   voice chat, with a switch in Voice Settings. Measured in Chromium and in Firefox.
 
 Decided: the in-game group is renamed `voice-link`, in one MT Utils release that also
 carries the settings-tab cleanup already queued for that mod.
@@ -214,7 +213,8 @@ measurements, the page's audio thread included (no stalls in any run).
   | hub, as it is (level 0, no automatic gain) | 2.93 / 1.91 / 2.44 / 2.06 at −46 | nothing for 30 s, then 2.57 / nothing / 2.53 / 2.17 at −52 |
   | hub, level slider +12 dB | 3.16 / 2.09 / 2.93 / 2.60 at −34 | 2.94 / 2.97 / 3.02 / 2.91 at −41 |
   | hub, level slider +24 dB | 3.17 / 2.68 / 2.94 / 2.83 at −21 | 3.28 / 3.08 / 2.86 / 2.95 at −28 |
-  | hub, the browser's automatic gain on | 3.16 / 2.72 / 2.97 / 2.83 at −24 | 3.08 / 3.10 / 2.96 / 2.97 at −34 |
+  | hub, the browser's automatic gain on (Chromium) | 3.16 / 2.72 / 2.97 / 2.83 at −24 | 3.08 / 3.10 / 2.96 / 2.97 at −34 |
+  | hub, the browser's automatic gain on (Firefox) | 3.14 / 2.92 / 2.95 / 2.60 at −24 | 3.11 / 3.30 / 3.10 / 2.92 at −32 |
 
 - **The level is the root.** With it right, the default filter matches or beats the
   speaker's own in-game microphone on every recording. With it low: the quiet voice sends
@@ -226,8 +226,13 @@ measurements, the page's audio thread included (no stalls in any run).
   6 to 8 dB.
 - **Typing alone and clicks alone are never sent**, for either voice at any setting tried.
 - **Lost packets:** up to 10% of frames lost and closed up leaves the scores unchanged.
+- **Firefox** was measured the same way, its microphone a virtual one on a private sound
+  server (it has no file-as-microphone switch). Its packets have the same shape, the known
+  case reproduces, and its automatic gain works with the chain (table above). One thing
+  apart from this spec: with DeepFilterNet3, Firefox's audio thread stalls once at the start
+  (about 280 ms) and the voice stays about a quarter second later for the session.
 - Not measured: a real game client (it receives the same packets Voice Link already delivers
-  between servers), Firefox, a phone, a real microphone, and anything by ear.
+  between servers), a phone, a real microphone, and anything by ear.
 
 ## Tests
 
