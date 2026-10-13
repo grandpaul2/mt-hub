@@ -53,7 +53,7 @@ func TestWildcardNamesAreLiteral(t *testing.T) {
 		if _, rev, _ := w.Stat(p); rev != revs[p] {
 			t.Errorf("rev of %s = %s, want its own %s", p, rev, revs[p])
 		}
-		if err := w.Delete(p, revs[p], paul); err != nil {
+		if _, err := w.Delete(p, revs[p], paul); err != nil {
 			t.Fatalf("delete %s: %v", p, err)
 		}
 	}
@@ -85,7 +85,7 @@ func TestGitignoreHasNoSay(t *testing.T) {
 		if h, _ := w.History(p); len(h) != 1 {
 			t.Errorf("%s: %d commits, want 1", p, len(h))
 		}
-		if err := w.Delete(p, rev, paul); err != nil {
+		if _, err := w.Delete(p, rev, paul); err != nil {
 			t.Errorf("delete %s: %v", p, err)
 		}
 	}
@@ -142,10 +142,10 @@ func TestWriteReadHistoryConflict(t *testing.T) {
 		t.Fatalf("history: %+v", h)
 	}
 
-	if err := w.Delete("configs/a.json", r1, paul); !isConflict(err, r2) {
+	if _, err := w.Delete("configs/a.json", r1, paul); !isConflict(err, r2) {
 		t.Fatalf("stale delete: %v", err)
 	}
-	if err := w.Delete("configs/a.json", r2, paul); err != nil {
+	if _, err := w.Delete("configs/a.json", r2, paul); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := w.Read("configs/a.json", ""); !errors.Is(err, ErrNotFound) {
@@ -241,10 +241,10 @@ func TestLargeFilesStayOutOfGit(t *testing.T) {
 	if out, _ := w.git(nil, "ls-files"); string(out) != "notes.txt\n" {
 		t.Fatalf("tracked: %q", out)
 	}
-	if err := w.Delete("large/world.zip", r1, Author{"paul"}); !isConflict(err, r2) {
+	if _, err := w.Delete("large/world.zip", r1, Author{"paul"}); !isConflict(err, r2) {
 		t.Fatalf("stale delete: %v", err)
 	}
-	if err := w.Delete("large/world.zip", r2, Author{"paul"}); err != nil {
+	if _, err := w.Delete("large/world.zip", r2, Author{"paul"}); err != nil {
 		t.Fatal(err)
 	}
 	tree, _ := w.Tree()
@@ -312,13 +312,13 @@ func TestMoveAndDeleteDir(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := w.DeleteDir("notes", paul); err != nil {
+	if _, err := w.DeleteDir("notes", paul); err != nil {
 		t.Fatal(err)
 	}
 	if out, _ := w.git(nil, "ls-files"); string(out) != "back.md\n" {
 		t.Fatalf("tracked after folder delete: %q", out)
 	}
-	if err := w.DeleteDir("large", paul); !errors.Is(err, ErrBadPath) {
+	if _, err := w.DeleteDir("large", paul); !errors.Is(err, ErrBadPath) {
 		t.Fatalf("delete large/: %v", err)
 	}
 }

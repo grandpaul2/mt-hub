@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -33,10 +34,10 @@ func TestTrashKeepsWhatAreasLose(t *testing.T) {
 	put("map art/MA-001.png", "map")
 
 	_, rev, _ := w.Stat("map art/MA-001.png")
-	if err := w.Delete("map art/MA-001.png", rev, emp); err != nil {
+	if _, err := w.Delete("map art/MA-001.png", rev, emp); err != nil {
 		t.Fatal(err)
 	}
-	if err := w.DeleteDir("large/old", emp); err != nil {
+	if _, err := w.DeleteDir("large/old", emp); err != nil {
 		t.Fatal(err)
 	}
 
@@ -83,7 +84,7 @@ func TestTrashKeepsWhatAreasLose(t *testing.T) {
 	posted := filepath.Join(root, "chat", "general", "media", "d.png")
 	os.MkdirAll(filepath.Dir(posted), 0o755)
 	os.WriteFile(posted, []byte("d"), 0o644)
-	if err := w.Trash(posted, "chat/general/media/d.png", emp); err != nil {
+	if err := w.TrashChat(posted, "general", "d.png", true, emp); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(posted); err == nil {
@@ -94,14 +95,21 @@ func TestTrashKeepsWhatAreasLose(t *testing.T) {
 		t.Errorf("log: %s", log)
 	}
 
-	// Files in git still just get a commit, not the trash.
+	// A file in git goes to the trash too, and its removal is a commit.
 	put("notes.md", "n")
 	_, rev, _ = w.Stat("notes.md")
-	if err := w.Delete("notes.md", rev, emp); err != nil {
+	id, err := w.Delete("notes.md", rev, emp)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if log2, _ := os.ReadFile(filepath.Join(trash, "log.jsonl")); len(log2) != len(log) {
-		t.Error("a file in git went through the trash")
+	if b, _ := os.ReadFile(filepath.Join(trash, id, "notes.md")); string(b) != "n" {
+		t.Errorf("a file in git isn't in the trash: %q", b)
+	}
+	if out, _ := w.git(nil, "ls-files"); strings.Contains(string(out), "notes.md") {
+		t.Error("it is still tracked")
+	}
+	if out, _ := w.git(nil, "log", "-1", "--format=%s"); strings.TrimSpace(string(out)) != "Delete notes.md" {
+		t.Errorf("last commit: %s", out)
 	}
 }
 
@@ -117,7 +125,7 @@ func TestPurgeTrash(t *testing.T) {
 		if _, err := w.Write(p, []byte("x"), "", Author{"paul"}); err != nil {
 			t.Fatal(err)
 		}
-		if err := w.toTrash(p, "delete", Author{"paul"}, now.AddDate(0, 0, -age)); err != nil {
+		if _, err := w.toTrash(p, "delete", Author{"paul"}, now.AddDate(0, 0, -age)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -132,4 +140,193 @@ func TestPurgeTrash(t *testing.T) {
 	if len(names) != 2 || names[0] != now.AddDate(0, 0, -(TrashDays-1)).Format(trashStamp)+" paul" || names[1] != "log.jsonl" {
 		t.Errorf("after purge: %q", names)
 	}
+}
+
+// The Trash as the page sees it: everything deleted in Files is listed, newest first, a
+// public chat's files too, a private chat's never; things come back where they were, under
+// another name where theirs is taken, or into a folder that is named; and Delete Forever
+// erases only what is listed.
+func TestTrashListAndRestore(t *testing.T) {
+	root := t.TempDir()
+	w, _ := Open(filepath.Join(root, "workspace"))
+	trash := filepath.Join(root, "trash")
+	paul := Author{"paul"}
+	put := func(p, data string) {
+		t.Helper()
+		_, rev, _ := w.Stat(p)
+		if _, err := w.Write(p, []byte(data), rev, paul); err != nil {
+			t.Fatal(err)
+		}
+	}
+	posted := func(chat, file string, public bool) {
+		t.Helper()
+		src := filepath.Join(root, "chat", chat, "media", file)
+		os.MkdirAll(filepath.Dir(src), 0o755)
+		os.WriteFile(src, []byte(file), 0o644)
+		if err := w.TrashChat(src, chat, file, public, paul); err != nil {
+			t.Fatal(err)
+		}
+	}
+	list := func() (string, map[string]TrashItem) {
+		t.Helper()
+		items, err := w.TrashList()
+		if err != nil {
+			t.Fatal(err)
+		}
+		var names []string
+		by := map[string]TrashItem{}
+		for _, it := range items {
+			name := it.Path
+			if it.Chat != "" {
+				name = "#" + it.Chat + ":" + name
+			}
+			if it.Dir {
+				name += "/"
+			}
+			if it.Replaced {
+				name += "(replaced)"
+			}
+			names = append(names, name)
+			by[name] = it
+		}
+		return strings.Join(names, " "), by
+	}
+
+	put("docs/a.md", "first")
+	put("docs/a.md", "second")
+	put("docs/sub/b.md", "b")
+	put("large/w.zip", "world")
+	put("large/w.zip", "world two")
+	put("keep.md", "k")
+	// A chat file trashed before the hub recorded which kind of chat it was in: never listed.
+	os.MkdirAll(filepath.Join(trash, "2026-10-01 10-00-00.000 paul", "chat", "general", "media"), 0o755)
+	os.WriteFile(filepath.Join(trash, "2026-10-01 10-00-00.000 paul", "chat", "general", "media", "old.png"), []byte("o"), 0o644)
+	os.WriteFile(filepath.Join(trash, "log.jsonl"), append(mustRead(t, filepath.Join(trash, "log.jsonl")),
+		[]byte(`{"time":"2026-10-01T10:00:00Z","who":"paul","action":"delete","path":"chat/general/media/old.png","trash":"2026-10-01 10-00-00.000 paul/chat/general/media/old.png"}`+"\n")...), 0o644)
+
+	idA, err := w.Delete("docs/a.md", mustRev(t, w, "docs/a.md"), paul)
+	if err != nil {
+		t.Fatal(err)
+	}
+	idSub, err := w.DeleteDir("docs/sub", paul)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids, err := w.DeleteAll([]string{"large/w.zip", "keep.md"}, paul)
+	if err != nil || len(ids) != 2 {
+		t.Fatalf("DeleteAll: %v %v", ids, err)
+	}
+	posted("general", "d.png", true)
+	posted("staff", "secret.png", false)
+
+	names, by := list()
+	if names != "#general:d.png keep.md large/w.zip docs/sub/ docs/a.md large/w.zip(replaced)" {
+		t.Fatalf("listed: %s", names)
+	}
+	if it := by["docs/sub/"]; it.ID != idSub || it.Size != 1 || it.Who != "paul" || it.Time == "" {
+		t.Fatalf("a folder's row: %+v", it)
+	}
+	idChat := by["#general:d.png"].ID
+
+	// Back where it was, with its history.
+	before := commits(t, w)
+	if got, err := w.Restore([]string{idA}, nil, paul); err != nil || strings.Join(got, " ") != "docs/a.md" {
+		t.Fatalf("restore: %v %v", got, err)
+	}
+	h, _ := w.History("docs/a.md")
+	if commits(t, w)-before != 1 || len(h) != 4 || h[0].Message != "Restore docs/a.md from Trash" || h[3].Message != "Add docs/a.md" {
+		t.Fatalf("history after a restore: %+v", h)
+	}
+	if b, _ := w.Read("docs/a.md", h[3].Rev); string(b) != "first" {
+		t.Fatalf("its first version: %q", b)
+	}
+	if _, err := w.Restore([]string{idA}, nil, paul); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("restored twice: %v", err)
+	}
+	// Its name taken meanwhile: "(restored)", then "(restored 2)".
+	for _, want := range []string{"docs/a (restored).md", "docs/a (restored 2).md"} {
+		id, _ := w.Delete("docs/a.md", mustRev(t, w, "docs/a.md"), paul)
+		put("docs/a.md", "someone else's")
+		if got, err := w.Restore([]string{id}, nil, paul); err != nil || got[0] != want {
+			t.Fatalf("restore onto a taken name: %v %v, want %s", got, err, want)
+		}
+	}
+	// Its folder gone meanwhile: made again. Two at once: one commit.
+	if _, err := w.DeleteDir("docs", paul); err != nil {
+		t.Fatal(err)
+	}
+	os.Remove(w.abs("docs"))
+	before = commits(t, w)
+	got, err := w.Restore([]string{idSub, ids[1]}, nil, paul)
+	if err != nil || strings.Join(got, " ") != "docs/sub keep.md" || commits(t, w)-before != 1 {
+		t.Fatalf("restore a folder and a file: %v %v", got, err)
+	}
+	if b, _ := w.Read("docs/sub/b.md", ""); string(b) != "b" || !strings.Contains(tracked(w), "docs/sub/b.md") {
+		t.Fatalf("the folder's file: %q, tracked %s", b, tracked(w))
+	}
+	// Into a folder that is named (dragged out of the Trash): from outside git into git.
+	to := "notes"
+	if got, err := w.Restore([]string{ids[0]}, &to, paul); err != nil || got[0] != "notes/w.zip" || !strings.Contains(tracked(w), "notes/w.zip") {
+		t.Fatalf("restore into a folder: %v %v", got, err)
+	}
+	// A chat file has no place in Files: it needs a folder. A private chat's is never found.
+	var refused *RefusedError
+	if _, err := w.Restore([]string{idChat}, nil, paul); !errors.As(err, &refused) {
+		t.Fatalf("a chat file with no folder: %v", err)
+	}
+	to = ""
+	if got, err := w.Restore([]string{idChat}, &to, paul); err != nil || got[0] != "d.png" {
+		t.Fatalf("a chat file to the top: %v %v", got, err)
+	}
+	var hidden []string
+	dirs, _ := os.ReadDir(trash)
+	for _, d := range dirs {
+		if _, err := os.Stat(filepath.Join(trash, d.Name(), "chat")); err == nil {
+			hidden = append(hidden, d.Name())
+		}
+	}
+	if len(hidden) != 2 {
+		t.Fatalf("the two unlisted chat files should still be on disk: %v", hidden)
+	}
+	for _, id := range hidden {
+		if _, err := w.Restore([]string{id}, &to, paul); !errors.Is(err, ErrNotFound) {
+			t.Fatalf("an unlisted chat file was restored: %v", err)
+		}
+		if n, err := w.DeleteForever([]string{id}, paul); n != 0 || !errors.Is(err, ErrNotFound) {
+			t.Fatalf("an unlisted chat file was erased: %d %v", n, err)
+		}
+	}
+	to = "media/x"
+	if _, err := w.Restore([]string{by["large/w.zip(replaced)"].ID}, &to, paul); err == nil {
+		t.Fatal("restored into media/")
+	}
+
+	// Delete Forever, then Empty Trash: only what is listed.
+	names, by = list()
+	if names != "docs/ large/w.zip(replaced)" {
+		t.Fatalf("listed before erasing: %s", names)
+	}
+	if n, err := w.DeleteForever([]string{by["docs/"].ID, "../workspace"}, paul); n != 1 || !errors.Is(err, ErrNotFound) {
+		t.Fatalf("delete forever with a bad id: %d %v", n, err)
+	}
+	if _, err := os.Stat(w.abs("keep.md")); err != nil {
+		t.Fatal("a bad id reached outside the trash")
+	}
+	if n, err := w.DeleteForever(nil, paul); n != 1 || err != nil {
+		t.Fatalf("empty trash: %d %v", n, err)
+	}
+	if names, _ = list(); names != "" {
+		t.Fatalf("listed after Empty Trash: %s", names)
+	}
+	for _, id := range hidden {
+		if _, err := os.Stat(filepath.Join(trash, id)); err != nil {
+			t.Fatalf("Empty Trash erased an unlisted chat file: %v", err)
+		}
+	}
+}
+
+func mustRead(t *testing.T, p string) []byte {
+	t.Helper()
+	b, _ := os.ReadFile(p)
+	return b
 }

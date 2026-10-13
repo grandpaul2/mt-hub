@@ -349,7 +349,7 @@ func (w *Workspace) WriteFrom(p string, r io.Reader, baseRev string, a Author) (
 		return "", err
 	}
 	if exists && IsLarge(p) {
-		if err := w.toTrash(p, "replace", a, time.Now()); err != nil {
+		if _, err := w.toTrash(p, "replace", a, time.Now()); err != nil {
 			return "", err
 		}
 	}
@@ -533,34 +533,32 @@ var compressed = map[string]bool{
 	".mca": true, ".schem": true,
 }
 
-// DeleteDir removes a folder and everything in it as one commit (or, in an area outside
-// git, moves it to the trash). The areas' own folders stay, and so does the folder it was
-// in, also when that is left empty: a folder goes only when someone deletes it.
-func (w *Workspace) DeleteDir(p string, a Author) error {
+// DeleteDir moves a folder and everything in it to the trash, as one commit, and returns
+// the trash entry's id. The areas' own folders stay, and so does the folder it was in, also
+// when that is left empty: a folder goes only when someone deletes it.
+func (w *Workspace) DeleteDir(p string, a Author) (string, error) {
 	if isArea(p) {
-		return ErrBadPath
+		return "", ErrBadPath
 	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if err := w.syncDisk(); err != nil {
-		return err
+		return "", err
 	}
 	if info, err := os.Stat(w.abs(p)); errors.Is(err, fs.ErrNotExist) || err == nil && !info.IsDir() {
-		return ErrNotFound
+		return "", ErrNotFound
 	} else if err != nil {
-		return err
+		return "", err
 	}
-	if IsLarge(p) {
-		return w.toTrash(p, "delete", a, time.Now())
-	}
-	if err := os.RemoveAll(w.abs(p)); err != nil {
-		return err
+	id, err := w.toTrash(p, "delete", a, time.Now())
+	if err != nil || IsLarge(p) {
+		return id, err
 	}
 	if _, err := w.git(nil, "add", "-A"); err != nil {
-		return err
+		return id, err
 	}
-	_, err := w.commit(a, "Delete "+p+"/")
-	return err
+	_, err = w.commit(a, "Delete "+p+"/")
+	return id, err
 }
 
 // removeEmptyParents removes the folders above p that are now empty, as git rm does,
@@ -574,34 +572,31 @@ func (w *Workspace) removeEmptyParents(p string) {
 	}
 }
 
-// Delete removes p as a commit (or, outside git, moves it to the trash), with the same
-// conflict rule as Write. Its folder stays, also when this was the last file in it.
-func (w *Workspace) Delete(p, baseRev string, a Author) error {
+// Delete moves p to the trash, as a commit, with the same conflict rule as Write, and
+// returns the trash entry's id. Its folder stays, also when this was the last file in it.
+func (w *Workspace) Delete(p, baseRev string, a Author) (string, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if err := w.syncDisk(); err != nil {
-		return err
+		return "", err
 	}
 
 	_, cur, err := w.Stat(p)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if cur != baseRev {
-		return &ConflictError{Current: cur}
+		return "", &ConflictError{Current: cur}
 	}
-	if IsLarge(p) {
-		return w.toTrash(p, "delete", a, time.Now())
+	id, err := w.toTrash(p, "delete", a, time.Now())
+	if err != nil || IsLarge(p) {
+		return id, err
 	}
-	if _, err := w.git(nil, "rm", "-q", "--", p); err != nil {
-		return err
-	}
-	// (git rm takes the folders it emptied with it.)
-	if err := os.MkdirAll(filepath.Dir(w.abs(p)), 0o755); err != nil {
-		return err
+	if _, err := w.git(nil, "rm", "-q", "--cached", "--", p); err != nil {
+		return id, err
 	}
 	_, err = w.commit(a, "Delete "+p)
-	return err
+	return id, err
 }
 
 // History lists the commits that touched p, newest first. Large files have none.

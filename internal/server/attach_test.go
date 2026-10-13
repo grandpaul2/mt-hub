@@ -207,6 +207,10 @@ func TestAttachments(t *testing.T) {
 	if log, _ := os.ReadFile(filepath.Join(dir, "trash", "log.jsonl")); !strings.Contains(string(log), "chat/farms/media/once.txt") {
 		t.Errorf("trash log: %s", log)
 	}
+	// farms is a chat everyone can read, so the Trash lists its file.
+	if _, b = call("Steve", "GET", "/api/trash", ""); !strings.Contains(b, `"path":"once.txt","chat":"farms"`) {
+		t.Errorf("the Trash doesn't list a public chat's file: %s", b)
+	}
 
 	// An edit that takes a file out of the message trashes it, unless something else links it.
 	for _, n := range []string{"a.txt", "b.txt", "c.txt"} {

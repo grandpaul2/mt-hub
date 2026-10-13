@@ -89,6 +89,7 @@ func New(us *auth.Store, ws *workspace.Workspace, cs *chat.Store, ls *preview.St
 	s.mux.HandleFunc("POST /api/mkdir", s.mkdir)
 	s.mux.HandleFunc("GET /api/zip/{path...}", s.zip)
 	s.batchRoutes()
+	s.trashRoutes()
 	s.mux.HandleFunc("GET /api/history/{path...}", s.history)
 	s.mux.HandleFunc("GET /api/thumb/{path...}", s.thumb)
 
@@ -609,17 +610,19 @@ func (s *Server) deleteFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var err error
+	var id string
 	if r.URL.Query().Get("dir") == "1" {
-		err = s.ws.DeleteDir(p, s.author(r))
+		id, err = s.ws.DeleteDir(p, s.author(r))
 	} else {
-		err = s.ws.Delete(p, r.URL.Query().Get("base"), s.author(r))
+		id, err = s.ws.Delete(p, r.URL.Query().Get("base"), s.author(r))
 	}
 	if err != nil {
 		fail(w, err)
 		return
 	}
 	s.bus.publish("files", struct{}{})
-	writeJSON(w, http.StatusOK, map[string]string{})
+	// trash: the entry it is now in the Trash as (what Undo restores).
+	writeJSON(w, http.StatusOK, map[string][]string{"trash": {id}})
 }
 
 func (s *Server) moves(w http.ResponseWriter, r *http.Request) {

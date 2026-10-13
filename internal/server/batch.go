@@ -38,19 +38,20 @@ func (s *Server) batchMove(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{})
 }
 
-// batchDelete deletes several: {"paths": ["a.md", "docs"]}. All or nothing.
+// batchDelete moves several to the Trash: {"paths": ["a.md", "docs"]}, answering {"trash":
+// [ids]} with the entries they are now. All or nothing.
 func (s *Server) batchDelete(w http.ResponseWriter, r *http.Request) {
 	var body struct{ Paths []string }
 	if !readJSON(w, r, &body) {
 		return
 	}
-	err := s.ws.DeleteAll(body.Paths, s.author(r))
+	ids, err := s.ws.DeleteAll(body.Paths, s.author(r))
 	s.bus.publish("files", struct{}{}) // also when it stopped part way
 	if err != nil {
 		failBatch(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{})
+	writeJSON(w, http.StatusOK, map[string][]string{"trash": ids})
 }
 
 // batchCopy copies several into a folder: {"from": [...], "to": "notes"}, answering
