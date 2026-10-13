@@ -90,7 +90,7 @@ OBS ──RTMP (H.264 + AAC)──► relay: channel "live" ──► the game's
 
 ## The page (`web/src/stream.ts`)
 
-- **LIVE** appears while anyone shares a screen or streams. A relay stream's row has its own
+- **LIVE** has a row for each person sharing a screen or streaming. A relay stream's row has its own
   icon (a broadcast icon, not the screen) and the streamer's name; yours reads "You're
   streaming". Someone doing both has two rows. Right-click: Watch, or Stop Watching on the one
   you are watching; Message.

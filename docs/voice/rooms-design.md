@@ -11,10 +11,11 @@ The audio choices come from the research and the lab (`README.md` in this folder
 
 ## What people see
 
-- **No permanent rooms.** CHATS' "+" menu gets **New Voice Chat** and **New Private Voice
-  Chat…**; the second uses the same member picker as private chats.
-- **A voice chat has no name.** It's the list of people in it, in join order, shown in CHATS
-  under the text chats and above the DMs. Whoever is at the top labels it; when that person
+- **No permanent rooms.** VOICE's "+" menu has **New Voice Chat** and **New Private Voice
+  Chat…**; the second uses the same member picker as private chats. (Until 2026-10-13 they
+  were in the chats' "+" menu, because VOICE was only in the sidebar while in use.)
+- **A voice chat has no name.** It's the list of people in it, in join order, shown under
+  VOICE, a section of the sidebar that is always there. Whoever is at the top labels it; when that person
   leaves, the next one moves up. A name lights up while that person is talking.
 - **Lifetime:** it lasts until the last person leaves.
 - **Joining:** click a voice chat you can see. You're in one at a time; joining another moves you.

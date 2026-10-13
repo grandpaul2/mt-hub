@@ -95,9 +95,9 @@ Up / Move Down (`<data>/chat/order.json`). DMs come last, the most recent messag
 - **Kinds:** a chat is public, private or a DM. It's set in `<data>/chat/<chat>/meta.json`;
   a chat without one is public.
 - **Private chats** are for their members and every admin. Admins make them ("+" next to
-  CHATS) and change their members (right-click: Members…, Make Private…, Make Public).
+  TEXT) and change their members (right-click: Members…, Make Private…, Make Public).
 - **DMs** are for their 2 to 10 people only, admins included. Anyone starts one from the "+"
-  next to CHATS (New Direct Message…); they're listed under the chats. Their folders are named
+  next to TEXT (New Direct Message…); they're listed under the chats. Their folders are named
   `dm-<random>`. A DM can't be renamed or deleted, only hidden, and it comes back on its next
   message.
 - **The server checks every chat request** (`inChat` in `internal/server/private.go`):

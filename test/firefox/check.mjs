@@ -87,7 +87,7 @@ await report(14);
 const linkSay = async (tok, player, text) => { const r = await fetch(`${HUB}/api/server-link`, { method: 'POST', headers: { authorization: `Bearer ${tok}` }, body: JSON.stringify({ player, text }) }); if (!r.ok) throw new Error(`seeding the link: ${r.status}`); };
 await linkSay(survival, 'Peggy_jig', 'jiggy gyp query');
 await linkSay(creative, 'gypsy_jay', 'piggy jig');
-await fetch(`${HUB}/api/channels/server-link/messages`, { method: 'POST', headers: { cookie: peggy }, body: JSON.stringify({ text: 'gyp typed on the hub' }) });
+await fetch(`${HUB}/api/channels/text-link/messages`, { method: 'POST', headers: { cookie: peggy }, body: JSON.stringify({ text: 'gyp typed on the hub' }) });
 
 // Firefox: no extensions (their welcome tabs would cover the page), one tab, in front.
 const prof = join(tmp, 'profile');
@@ -160,7 +160,7 @@ await sleep(800);
 const VIEWS = [['tree and chat', 'gyp'], ['file', 'boards/Playground juggling glyphs query.md'], ['folder', 'folder=screenshots'], ['schematics folder', 'folder=schematics'], ['new file tile', 'folder=boards'],
   ['schematics', 'schems'], ['picture', 'screenshots/2026-09-01 15.00.01 Peggy.png'], ['viewer', 'screenshots/2026-09-01 15.00.01 Peggy.png'],
   ['chat (main panel)', 'chan=general'], ['search', 'gyp'], ['mention popup', 'chan=general'], ['command popup', 'chan=general'], ['server status', 'chan=general'], ['emoji picker', 'chan=general'],
-  ['new line and jump', 'chan=piggy-jig'], ['save to files', 'chan=general'], ['chat files', 'chan=general'], ['private chat', 'chan=jig-staff'], ['server link', 'chan=server-link'], ['delete question', 'gyp'],
+  ['new line and jump', 'chan=piggy-jig'], ['save to files', 'chan=general'], ['chat files', 'chan=general'], ['private chat', 'chan=jig-staff'], ['server link', 'chan=text-link'], ['delete question', 'gyp'],
   ['minecraft name', 'gyp'], ['message edit', 'chan=general'], ['file tray', 'chan=general'], ['sending and failed', 'chan=general'], ['sound settings', 'gyp'], ['voice settings', 'gyp'], ['admin', 'gyp']];
 mkdirSync(OUT, { recursive: true });
 const T = {}; let t0 = Date.now();

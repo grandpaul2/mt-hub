@@ -57,9 +57,11 @@ the guide first, with the reason.
 
 - **Desktop grid**:
   - top bar (34 px) over three columns: left sidebar, main panel, right chat panel.
-  - **Sidebar:** FILES tree, then CHATS (DMs included). VOICE and LIVE appear only
-    while in use: VOICE while there's a voice chat, LIVE while someone's sharing
-    their screen. Both sit under CHATS. The bottom holds only the voice and sharing bars,
+  - **Sidebar:** FILES tree, then TEXT (the chats, DMs included), VOICE and LIVE. All four
+    are always there (2026-10-13; before, VOICE and LIVE came and went with use), so
+    nothing below a section moves when a voice chat or a stream starts; an empty VOICE or
+    LIVE is its head and its "+". On a hub without voice chats or streams set up, that
+    section is left out. The bottom holds only the voice, sharing and watching bars,
     while in use. The Schematic Manager button is in `schematics/`' folder bar, where a
     screenshots folder has its filters. The Manager's board has **← Back to schematics/** first in its bar, back to
     that folder (Esc too), like every folder's Back.
@@ -203,7 +205,7 @@ Red means "this destroys something" or "this went wrong", and nothing else.
   - **Chat side:** chat, sidebar and composer at 14 to 15 px (Discord comfort).
   - **Scale:** 11 · 12 · 13 · 14 · 15 · 16 · 22.
   - **Small labels:** section heads and times are 11 to 12 px, section heads in uppercase with
-    letter-spacing (FILES, CHATS, MESSAGES · 3).
+    letter-spacing (FILES, TEXT, MESSAGES · 3).
   - Drops the one-off 12.5 and 13.5 px sizes.
 - **Weights:**
   - 400 for text.
@@ -409,7 +411,7 @@ separate dialogs.
   - **Unread:** bold, with a white dot.
   - **Active:** `--tint-3`.
   - **Private chats** show a lock; DMs are listed by their people (see 14).
-- **Sidebar sections:** an uppercase 12 px head (FILES, CHATS, VOICE, LIVE), with its
+- **Sidebar sections:** an uppercase 12 px head (FILES, TEXT, VOICE, LIVE), with its
   "+"-style icon buttons on the right.
 - **LIVE:** one row per person sharing, a screen icon and their name, styled like the
   voice chat rows; your own reads brighter. Watching is silent: the picture fills the main
@@ -497,7 +499,9 @@ separate dialogs.
     newest message, with no name or time, and a line under it: an eye, "Only you can see
     this · **Dismiss**" (Dismiss in `--link`), as Discord does. It's never stored: Dismiss,
     leaving the chat or reloading removes it. In the side chat it starts at the left edge.
-- **The server link** (`internal/server/link.go`): the chat `#server-link` is
+- **The server link** (`internal/server/link.go`): the chat `#text-link` (`#server-link`
+  until 2026-10-13; old links follow) is always there on a hub with a game server: no Rename
+  or Delete in its menu, and the hub refuses both. It is
   shared with game chat on our servers. A line a player starts with `$ ` in game shows here,
   and everything said here shows in game, in aqua, as `[SMP] name: text` (`[CMP]`, `[HUB]`).
   Nothing else crosses. Names: hub names here (a linked Minecraft name posts as its hub
@@ -728,10 +732,10 @@ at home in apps like this:
   new folder). The buttons are Cancel and **Save** (blue).
 - **Private chats and DMs:**
   - **Lock:** a lock stroke icon after the `#` of private chats.
-  - **DMs sit in CHATS** (no separate DIRECT MESSAGES section), after the chats,
-    shown as "@" and the people. CHATS' "+" is a menu: New Chat, New Private Chat… (admins),
-    New Direct Message…, the voice chat items and Share Your Screen… (VOICE and LIVE
-    aren't there to click when nobody's using them; their own "+" do the same).
+  - **DMs sit in TEXT** (no separate DIRECT MESSAGES section), after the chats,
+    shown as "@" and the people. Each section's "+" does its own job: TEXT's is a menu (New
+    Chat, New Private Chat… (admins), New Direct Message…), VOICE's is a menu (New Voice
+    Chat, New Private Voice Chat…), LIVE's shares your screen.
   - **Starting one:** New Direct Message… or New Private Chat… opens a **member picker** dialog: search, a checkbox list of
     accounts, then the confirm button "Message" (DM) or "Create" (private chat, admins).
   - **The privacy caveat:** a muted line in the DM and private-chat headers.

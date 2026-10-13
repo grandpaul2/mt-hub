@@ -1,7 +1,8 @@
 // Screen sharing (agreed design: docs/stream/screen-share-spec.md).
 //
-// Anyone can share a window or their screen, video only, from the "+" next to CHATS (or
-// LIVE's). While someone shares, LIVE appears in the sidebar with their name; clicking it
+// Anyone can share a window or their screen, video only, from LIVE's "+". LIVE is always in
+// the sidebar where sharing or relay streams are set up; while someone shares, it has a row
+// with their name, and clicking it
 // watches in the main panel (#live=<name>). It ends when they press Stop, close the shared
 // window (the browser ends the capture), close the page or drop off.
 //
@@ -36,7 +37,7 @@ const ICON = {
 // in motion.
 const MAX_BITRATE = 5_000_000;
 
-let info: { enabled: boolean; max: number; full: boolean; streams: Stream[]; relay?: Relay[]; relayDelay?: number } = { enabled: false, max: 3, full: false, streams: [] };
+let info: { enabled: boolean; max: number; full: boolean; streams: Stream[]; relay?: Relay[]; relayOn?: boolean; relayDelay?: number } = { enabled: false, max: 3, full: false, streams: [] };
 const relays = () => info.relay ?? []; // (an older hub's answer has none)
 let sharing: { id: string; room: LK.Room; media: MediaStreamTrack } | null = null;
 let starting = false;
@@ -74,7 +75,7 @@ async function loadStreams() {
   renderPanelHead();
 }
 
-// renderList draws LIVE in the sidebar (there only while someone's sharing) and, on phones,
+// renderList draws LIVE in the sidebar (always there where this is set up) and, on phones,
 // the strip at the top of the chat.
 function renderList() {
   const rows = info.streams.map((s) => {
@@ -107,7 +108,12 @@ function renderList() {
   }
   $('live-list').replaceChildren(...rows);
   markRows();
-  $('live-section').hidden = !rows.length;
+  $('live-section').hidden = !info.enabled && !info.relayOn;
+  // LIVE's "+" shares your screen (not on a phone, which can't; not when the places are taken).
+  const add = $('new-share') as HTMLButtonElement;
+  add.hidden = !info.enabled || !canShare();
+  add.disabled = info.full && !sharing;
+  add.title = add.disabled ? `${info.max} people are already sharing their screens.` : 'Share your screen';
   const strip = $('live-strip');
   const item = (icon: string, text: string, open: () => void) => {
     const b = h('button', { class: 'live-strip-item', innerHTML: icon }, h('span', {}, text), h('span', { class: 'watch' }, 'Watch'));
@@ -157,13 +163,6 @@ function openWatch(name: string, relay = false) {
   // Already the address (a stream that dropped or ended, clicked again): no change to follow.
   hooks.show();
   void (relay ? watchRelay(name) : watchStream(name));
-}
-
-// The "+" menus' entry (chat.ts adds it next to the voice chat ones).
-export function streamMenuItems(): MenuItem[] {
-  if (!info.enabled || !canShare()) return [];
-  const full = info.full ? `${info.max} people are already sharing their screens.` : undefined;
-  return [null, ['Share Your Screen…', () => void share(), undefined, full]];
 }
 
 // ---- sharing ----------------------------------------------------------------------------
@@ -723,7 +722,6 @@ export function setupStreams(events: Live, h_: { leave: () => void; show: () => 
   buildPanel();
   $('side-foot').prepend(watchBar, bar);
   $('new-share').onclick = () => void share();
-  $('new-share').hidden = !canShare();
   events.addEventListener('stream', () => void loadStreams());
   events.addEventListener('open', () => void loadStreams());
   void loadStreams();

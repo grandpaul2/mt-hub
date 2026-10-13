@@ -1,6 +1,7 @@
 package server
 
 import (
+	"log"
 	"errors"
 	"net/http"
 	"path"
@@ -14,14 +15,50 @@ import (
 	"github.com/grandpaul2/mt-hub/internal/chat"
 )
 
-// The server link: one chat, #server-link, shared with game chat on our servers. A line a
+// The server link: one chat, #text-link, shared with game chat on our servers. A line a
 // player starts with "$ " in game is posted here by their server (MT Hub Server), and every
 // message here is printed in game on each server. Nothing else crosses, and nothing here
 // runs a command. A server reads the chat by long poll: it asks for what's newer than the
 // last message it has, and the hub answers when there is something, or after the wait.
 
-// LinkChat is the chat's name.
-const LinkChat = "server-link"
+// LinkChat is the chat's name. It was "server-link" until October 2026: a hub that still has
+// that one gets it renamed at start (linkSetup), and old links follow the rename. The routes
+// keep their address, which the game servers' mod knows.
+const (
+	LinkChat    = "text-link"
+	oldLinkChat = "server-link"
+)
+
+// errLinkFixed is the answer to renaming or deleting the link chat on a hub with game servers.
+var errLinkFixed = errors.New("#" + LinkChat + " is linked to game chat: it can't be renamed or deleted")
+
+// linkSetup gives a hub from before the rename its chat under the new name.
+func (s *Server) linkSetup() {
+	if _, err := s.chat.MetaOf(oldLinkChat); err != nil {
+		return
+	}
+	if _, err := s.chat.MetaOf(LinkChat); err == nil {
+		return // both exist: someone made the new one by hand; leave them
+	}
+	if err := s.chat.RenameChannel(oldLinkChat, LinkChat, "the hub"); err != nil {
+		log.Printf("link chat: renaming #%s to #%s: %v", oldLinkChat, LinkChat, err)
+	}
+}
+
+// linkFixed says whether name is the link chat of a hub that has a game server: that chat is
+// always there. (Without a game server it is a chat like any other.)
+func (s *Server) linkFixed(name string) bool {
+	if name != LinkChat {
+		return false
+	}
+	tokens, _ := s.users.Tokens()
+	for _, t := range tokens {
+		if t.Kind == auth.KindServer {
+			return true
+		}
+	}
+	return false
+}
 
 // linkLines is how fast one person may post there from the hub.
 var linkLines = newLimiter(8, 10*time.Second)
@@ -75,7 +112,7 @@ func (s *Server) linkRoutes() {
 }
 
 // linkServer answers 403 unless a game server is asking, and makes sure the chat exists (the
-// first server to connect makes it; an admin who deletes it gets an empty one back).
+// first server to connect makes it).
 func (s *Server) linkServer(w http.ResponseWriter, r *http.Request) bool {
 	if who(r).Token != auth.KindServer {
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "only a game server uses the server link"})

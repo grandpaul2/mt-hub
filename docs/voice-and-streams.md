@@ -2,8 +2,8 @@
 
 ## Voice chats
 
-Started from CHATS' "+" (New Voice Chat, New Private Voice Chat…; also VOICE's own "+"); no
-permanent rooms. VOICE appears in the sidebar only while there's a voice chat. A
+Started from VOICE's "+" (New Voice Chat, New Private Voice Chat…); no
+permanent rooms. VOICE is always in the sidebar, empty while there's no voice chat. A
 voice chat is shown as its people in join order and ends when the last one leaves. A private
 one is seen only by the people invited, not even admins. At most 3 at once. The design is
 [`voice/rooms-design.md`](voice/rooms-design.md), with the research and the voice lab's
@@ -29,8 +29,8 @@ results beside it.
 ## Screen sharing
 
 Video only, Discord style (design: [`stream/screen-share-spec.md`](stream/screen-share-spec.md)).
-Share Your Screen… (CHATS' or LIVE's "+") asks the browser for a window or screen; while someone
-shares, LIVE appears in the sidebar and anyone clicks to watch in the
+LIVE's "+" asks the browser for a window or screen; while someone
+shares, LIVE (always in the sidebar) has a row for them and anyone clicks to watch in the
 main panel (`#live=<name>`, silent, Full screen). It ends on Stop, when the shared window
 closes, when the page closes or reloads, or when the connection drops. At most 3 at once;
 1080p at 30 fps, 5 Mbit/s, VP8 (720p looked too soft). An admin can stop someone's

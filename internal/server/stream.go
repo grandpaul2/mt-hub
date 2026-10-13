@@ -109,6 +109,7 @@ func (s *Server) streamList(w http.ResponseWriter, r *http.Request) {
 	slices.SortFunc(out, func(a, b *stream) int { return a.Started.Compare(b.Started) })
 	resp := map[string]any{"enabled": s.voice.config() != nil, "streams": out, "max": maxStreams, "full": s.streamsFull(who(r).Name)}
 	resp["relay"], resp["relayDelay"] = relayed, delay
+	resp["relayOn"] = s.relay.config() != nil // (relay streams are set up: LIVE is in the sidebar)
 	writeJSON(w, http.StatusOK, resp)
 }
 

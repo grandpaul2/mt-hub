@@ -163,7 +163,7 @@ input[type=range] { accent-color: var(--chat-muted); }
 /* Its bottom lines up with the chat box's (.composer: 16px up), with the same corners. */
 #side-foot { margin-top: auto; position: sticky; bottom: 0; padding: 8px 8px 16px; background: var(--panel); }
 #side-foot:not(:has(> :not([hidden]))) { display: none; }
-/* VOICE and LIVE sit under CHATS, each there only while in use. */
+/* VOICE and LIVE sit under TEXT, always there (on a hub where they're set up). */
 #voice-list, #live-list { padding: 0 8px 8px; }
 
 .side-head {
@@ -1396,7 +1396,7 @@ h3.md-h { font-size: 15px; }
 .md-spoiler.shown { background: var(--tint-2); color: inherit; cursor: auto; }
 .md-spoiler.shown * { visibility: visible; }
 
-/* Voice chats (voice.ts): in CHATS above the DMs, each one its people in join order, the first
+/* Voice chats (voice.ts): under VOICE, each one its people in join order, the first
    with the speaker icon and the rest under it. A name lights up while they talk. */
 .row.channel.voice .hash, .row.channel.live .hash { display: inline-flex; justify-content: center; font-size: 15px; }
 .row.channel.voice .hash svg, .row.channel.live .hash svg { width: 18px; height: 18px; color: var(--muted); }

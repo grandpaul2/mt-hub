@@ -1,4 +1,4 @@
-// The CHATS list: unread, right-click menu, inline rename, delete, admin-only actions.
+// The TEXT list: unread, right-click menu, inline rename, delete, admin-only actions.
 import { answerDialogs, api, as, check, done, ev, HUB, key, send, settle, shot, typeText } from './lib.mjs';
 
 await api('POST', '/api/channels', { name: 'builds' });

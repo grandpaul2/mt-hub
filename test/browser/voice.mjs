@@ -96,19 +96,23 @@ check('and off again', await ev(`JSON.parse(localStorage.getItem('mt-voice')).ec
 await ev(`document.querySelector('#dialog .dialog-x').click()`);
 check('the X closes it (and ends the test)', await ev(`document.getElementById('overlay').hidden`), true);
 
-// The + menu offers voice chats.
+// TEXT's + makes chats only; VOICE's own + offers voice chats.
 await ev(`document.getElementById('new-channel').click()`);
+await settle(200);
+check('TEXT’s + has no voice or sharing entries', (await ev(`[...document.querySelectorAll('#menu button')].map((b) => b.firstChild.textContent)`)).filter((i) => /Voice|Screen/.test(i)), []);
+await ev(`document.getElementById('menu').hidden = true`);
+await ev(`document.getElementById('new-voice').click()`);
 await settle(200);
 const items = await ev(`[...document.querySelectorAll('#menu button')].map((b) => b.firstChild.textContent + (b.disabled ? ' (off)' : ''))`);
 check('+ menu has the voice entries', items.filter((i) => /Voice/.test(i)), ['New Voice Chat', 'New Private Voice Chat…']);
-check('no VOICE section while there are no voice chats', await ev(`document.getElementById('voice-section').hidden`), true);
+check('VOICE is there with no voice chats, under TEXT', [await ev(`document.getElementById('voice-section').hidden`), await ev(`[...document.querySelectorAll('#side .side-head')].filter((x) => x.offsetParent).map((x) => x.querySelector('span').textContent)`)], [false, ['FILES', 'TEXT', 'VOICE', 'LIVE']]);
 
 // Paul starts one: it's just his name, the bar shows, and Alex sees it.
 await ev(`[...document.querySelectorAll('#menu button')].find((b) => b.firstChild.textContent === 'New Voice Chat').click()`);
 await until('Paul connected', () => ev(`!document.getElementById('voice-bar').hidden`), 30000);
 await until('Paul listed', async () => JSON.stringify(await rows(ev)) === '["Paul*"]');
 check('Paul’s voice chat is just his name', await rows(ev), ['Paul*']);
-check('it’s under VOICE, not in CHATS', [await ev(`document.getElementById('voice-section').hidden`), await ev(`!!document.querySelector('#channels .row.voice')`)], [false, false]);
+check('it’s under VOICE, not in TEXT', [await ev(`document.getElementById('voice-section').hidden`), await ev(`!!document.querySelector('#channels .row.voice')`)], [false, false]);
 const sfx = (evaluate) => evaluate(`window.__sfx.slice()`);
 check('Paul hears the join sound', (await sfx(ev)).at(-1), 'join');
 await until('Alex sees it', async () => JSON.stringify(await rows(alex.ev)) === '["Paul"]');
@@ -234,7 +238,7 @@ await settle(100);
 check('Disconnect asks first', await menuItems(ev), ['Join', '-', 'Message', '-', 'Mute for Everyone', 'Disconnect? Click again (red)']);
 await ev(`[...document.querySelectorAll('#menu button')].find((b) => b.firstChild.textContent === 'Disconnect? Click again').click()`);
 await until('it ends', async () => (await rows(ev)).length === 0);
-check('the last voice chat gone: VOICE goes too', await ev(`document.getElementById('voice-section').hidden`), true);
+check('the last voice chat gone: VOICE stays, empty', [await ev(`document.getElementById('voice-section').hidden`), await ev(`document.getElementById('voice-list').children.length`)], [false, 0]);
 check('the last one out (disconnected) ends it', [await rows(ev), await alex.ev(`document.getElementById('voice-bar').hidden`), await alex.ev(`document.getElementById('toast').textContent`)],
   [[], true, 'An admin disconnected you from the voice chat.']);
 check('both in the admin log', (await (await api('GET', '/api/admin/log', undefined, 'Paul')).json()).slice(0, 2).map((e) => e.action), ['voice-disconnect', 'voice-mute']);
@@ -256,7 +260,7 @@ await settle(300);
 await send('Page.reload');
 await until('reloaded', () => ev(`!!document.getElementById('channels').children.length`));
 await settle(800);
-await ev(`document.getElementById('new-channel').click()`);
+await ev(`document.getElementById('new-voice').click()`);
 await settle(200);
 check('with 3, the voice entries are greyed out', (await ev(`[...document.querySelectorAll('#menu button')].map((b) => b.firstChild.textContent + (b.disabled ? ' (off)' : ''))`)).filter((i) => /Voice/.test(i)),
   ['New Voice Chat (off)', 'New Private Voice Chat… (off)']);

@@ -18,7 +18,7 @@ import (
 	"github.com/grandpaul2/mt-hub/internal/workspace"
 )
 
-// The server link: game servers post their players' lines into #server-link and read what
+// The server link: game servers post their players' lines into #text-link and read what
 // the others said; people can't use those routes, and a server never gets its own lines back.
 func TestServerLink(t *testing.T) {
 	dir := t.TempDir()
@@ -115,7 +115,7 @@ func TestServerLink(t *testing.T) {
 	// Stored under hub names where there is one. In game it's Minecraft names: Paul is
 	// grandpaul there, from his server and from the hub alike.
 	// And from the hub: a file, a forward-style link, several lines, a colour code.
-	call("", "POST", "/api/channels/"+LinkChat+"/messages", `{"text":"**on** in ~~ten~~\nsee #[media/server-link/my base.png] and #media/server-link/farm.litematic §cin red"}`)
+	call("", "POST", "/api/channels/"+LinkChat+"/messages", `{"text":"**on** in ~~ten~~\nsee #[media/text-link/my base.png] and #media/text-link/farm.litematic §cin red"}`)
 
 	msgs, _ := cs.Messages(LinkChat, "", 10)
 	if len(msgs) != 3 || msgs[0].User != "Paul" || msgs[0].Via != "SMP" || msgs[1].User != "Eldridge" || msgs[1].Via != "CMP" || msgs[2].Via != "" {
@@ -227,5 +227,69 @@ func TestLinkChatRate(t *testing.T) {
 	}
 	if code := say("Steve", "general"); code != 200 {
 		t.Errorf("Steve in another chat: %d", code)
+	}
+}
+
+// The link chat's old name: a hub that has #server-link gets #text-link with the same
+// messages, and old links follow. Once a game server has a token, the chat can't be renamed
+// or deleted; before that it is a chat like any other.
+func TestLinkChatName(t *testing.T) {
+	dir := t.TempDir()
+	us, _ := auth.Open(filepath.Join(dir, "users"))
+	ws, _ := workspace.Open(filepath.Join(dir, "workspace"))
+	cs, _ := chat.Open(filepath.Join(dir, "chat"))
+	ls, _ := preview.Open(filepath.Join(dir, "previews"))
+	us.Add("Paul", true)
+	us.SetPassword("Paul", "Paul-password")
+	cs.CreateChannel("server-link")
+	cs.Send("server-link", "Paul", chat.Draft{Text: "from before"})
+	srv := httptest.NewServer(New(us, ws, cs, ls, filepath.Join(dir, "thumbs"), fstest.MapFS{}, nil))
+	defer srv.Close()
+	cookie, _ := us.Login("Paul", "Paul-password")
+	call := func(method, path, body string) (int, string) {
+		t.Helper()
+		r, _ := http.NewRequest(method, srv.URL+path, strings.NewReader(body))
+		r.AddCookie(&http.Cookie{Name: sessionCookie, Value: cookie})
+		r.Header.Set("Content-Type", "application/json")
+		res, err := http.DefaultClient.Do(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		b, _ := io.ReadAll(res.Body)
+		return res.StatusCode, string(b)
+	}
+
+	if _, err := cs.MetaOf("server-link"); err == nil {
+		t.Error("#server-link is still there after start")
+	}
+	msgs, err := cs.Messages(LinkChat, "", 10)
+	if err != nil || len(msgs) != 1 || msgs[0].Text != "from before" {
+		t.Errorf("#text-link after start: %v %+v", err, msgs)
+	}
+	if rn := cs.Renames(); len(rn) != 1 || rn[0].From != "server-link" || rn[0].To != LinkChat {
+		t.Errorf("the rename isn't recorded for old links: %+v", rn)
+	}
+
+	// No game server yet: an admin may rename it, and rename it back.
+	if code, body := call("PATCH", "/api/channels/"+LinkChat, `{"name":"elsewhere"}`); code != 200 {
+		t.Fatalf("rename without a game server: %d %s", code, body)
+	}
+	if code, body := call("PATCH", "/api/channels/elsewhere", `{"name":"`+LinkChat+`"}`); code != 200 {
+		t.Fatalf("rename back: %d %s", code, body)
+	}
+	// With one, it stays.
+	us.NewToken("survival", "")
+	if code, body := call("PATCH", "/api/channels/"+LinkChat, `{"name":"elsewhere"}`); code != 400 || !strings.Contains(body, "linked to game chat") {
+		t.Errorf("rename with a game server: %d %s", code, body)
+	}
+	if code, body := call("DELETE", "/api/channels/"+LinkChat, ""); code != 400 || !strings.Contains(body, "linked to game chat") {
+		t.Errorf("delete with a game server: %d %s", code, body)
+	}
+	if code, _ := call("DELETE", "/api/channels/general", ""); code != 200 {
+		t.Errorf("another chat can still be deleted: %d", code)
+	}
+	if _, err := cs.MetaOf(LinkChat); err != nil {
+		t.Error("the link chat is gone")
 	}
 }
