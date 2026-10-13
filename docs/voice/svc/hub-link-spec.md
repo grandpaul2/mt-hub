@@ -1,6 +1,6 @@
 # #voice-link: the hub in Voice Link
 
-**Status:** draft spec, not built. Decisions still open are listed first.
+**Status:** agreed spec, not built.
 
 Voice Link ([`link-spec.md`](link-spec.md)) joins the Simple Voice Chat (SVC) groups of our game
 servers. This adds the hub: one hub voice chat, **#voice-link**, is the same room as the
@@ -16,18 +16,17 @@ room included) stays in game. There is one cross-server room.
 frames, so the bridge passes each packet on as it is: no decoding, mixing, re-encoding or gain.
 The lab below checked that byte for byte.
 
-## Open decisions
+## Decisions
 
-1. **How a hub member's microphone gets to the right level** (see Lab → Hub to game). The
-   hub's page asks the browser for its automatic gain **off** and has a manual level slider
-   that starts at 0, so hub voices reach the game 20 to 30 dB under a player's, and at that
-   level the page's own chain misbehaves (a quiet microphone is shut for the first 30 seconds
-   with the default filter). The filter itself is not the problem and no setting is
-   overridden. Proposed: the page asks the browser for its automatic gain **on**, in every
-   voice chat, with a switch in Voice Settings. Measured in Chromium and in Firefox.
-
-Decided: the in-game group is renamed `voice-link`, in one MT Utils release that also
-carries the settings-tab cleanup already queued for that mod.
+- **The microphone chain is the same as in any hub voice chat**, and no setting is overridden
+  in this room. The lab below found the trouble was level, not the filter; since then the
+  hub's voice chats open the microphone with the browser's automatic gain on (Voice Settings →
+  Automatic level; `../README.md`, the 2026-10-13 finding).
+- **The in-game group is renamed `voice-link`**, in one MT Utils release that also carries
+  the settings-tab cleanup already queued for that mod.
+- **One cross-server room.** Each server's own SVC room stays in game; every other hub voice
+  chat stays in the hub.
+- **Someone in both** (the group in game and #voice-link in the hub) is left alone.
 
 ## What people see
 
@@ -118,6 +117,8 @@ secret (as in the hub's `voice.json`); the room (`voice-link`).
   is dropped. Nothing after the first frame of a talk spurt is delayed.
 - After 100 ms without a speech packet the bridge sends "stopped talking", which the game
   servers need to end the sound cleanly.
+- A stereo Opus packet is passed on like any other (SVC's decoder plays it as mono). The hub's
+  page sends mono; before 2026-10-13 it could, rarely, send stereo.
 - If a track arrives as `audio/red`, the newest block is taken out (RFC 2198) and sent; the
   Opus bytes are not changed. (LiveKit gives a subscriber that does not offer RED plain Opus,
   which is what the lab saw.)
@@ -154,7 +155,7 @@ It logs connects, disconnects and joins, never audio.
 - **The page** (`voice.ts`): the named row with its icon, players listed after members with
   their tag, the "Not connected to the game servers" line, and the shorter menu on a player's
   row. A player's audio plays like any member's. The microphone chain is the same as in any
-  voice chat (open decision 1 is about the chain everywhere, not this room).
+  voice chat.
 - Banning or deleting an account takes them out of #voice-link as out of any voice chat.
 
 ## MT Utils (server side)
@@ -210,7 +211,7 @@ measurements, the page's audio thread included (no stalls in any run).
   | | Clear voice | Quiet voice |
   |---|---|---|
   | as a player (SVC) | 2.88 / 2.66 / 2.87 / 2.82 at −26 dBFS | 2.99 / 2.18 / 2.56 / 2.37 at −25 |
-  | hub, as it is (level 0, no automatic gain) | 2.93 / 1.91 / 2.44 / 2.06 at −46 | nothing for 30 s, then 2.57 / nothing / 2.53 / 2.17 at −52 |
+  | hub, as it was then (level 0, no automatic gain) | 2.93 / 1.91 / 2.44 / 2.06 at −46 | nothing for 30 s, then 2.57 / nothing / 2.53 / 2.17 at −52 |
   | hub, level slider +12 dB | 3.16 / 2.09 / 2.93 / 2.60 at −34 | 2.94 / 2.97 / 3.02 / 2.91 at −41 |
   | hub, level slider +24 dB | 3.17 / 2.68 / 2.94 / 2.83 at −21 | 3.28 / 3.08 / 2.86 / 2.95 at −28 |
   | hub, the browser's automatic gain on (Chromium) | 3.16 / 2.72 / 2.97 / 2.83 at −24 | 3.08 / 3.10 / 2.96 / 2.97 at −34 |

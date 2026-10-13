@@ -26,7 +26,7 @@ Contributors and their agents start with [`../AGENTS.md`](../AGENTS.md).
 | [`stream/screen-share-spec.md`](stream/screen-share-spec.md) | current spec | Screen sharing as built. |
 | [`stream/relay-streams-spec.md`](stream/relay-streams-spec.md) | current spec | Relay streams (sent with OBS, also shown on screens in the game) watched in the hub. |
 | [`voice/svc/link-spec.md`](voice/svc/link-spec.md) | current spec | Voice Link: a Simple Voice Chat room shared between game servers. |
-| [`voice/svc/hub-link-spec.md`](voice/svc/hub-link-spec.md) | draft spec, not built | #voice-link: the hub's voice chat joined to Voice Link, packets passed on untouched. |
+| [`voice/svc/hub-link-spec.md`](voice/svc/hub-link-spec.md) | agreed spec, not built | #voice-link: the hub's voice chat joined to Voice Link, packets passed on untouched. |
 
 ## Research records
 
