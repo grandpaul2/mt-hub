@@ -413,7 +413,11 @@ separate dialogs.
   "+"-style icon buttons on the right.
 - **LIVE:** one row per person sharing, a screen icon and their name, styled like the
   voice chat rows; your own reads brighter. Watching is silent: the picture fills the main
-  panel, letterboxed in black, with Full screen and Stop watching in its head. Sharing shows a
+  panel, letterboxed in black, with Full screen and Stop watching in its head. Full screen
+  has a bar over the bottom of the picture (the sound, Exit full screen) that goes after
+  three still seconds. A stream or screen keeps playing when you open something else, until
+  Stop watching; meanwhile a bar like the sharing one says "Watching" and whose, with mute
+  and Stop, and its words lead back. Sharing shows a
   bar above the voice bar ("Sharing your screen", who's watching, Stop). On phones a strip at
   the top of the chat ("… is sharing their screen · Watch") opens it full screen.
 - **Messages (Discord):**

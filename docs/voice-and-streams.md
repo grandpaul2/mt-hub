@@ -58,6 +58,10 @@ plays, watched in the hub with sound (design and measurements:
 in LIVE with its own icon; clicking it plays it in the main panel (`#stream=<name>`) with a
 mute button and a volume bar. Screen shares and relay streams sit side by side.
 
+Either kind keeps playing when the viewer opens something else, until Stop watching (a bar in
+the sidebar while it does), and a dropped connection reconnects by itself; the two specs say
+how.
+
 - **`<data>/relay.json`** turns it on: `{"url": "https://…/relay", "user": "hub", "pass": "…",
   "channels": {"<relay channel>": "<hub account>"}, "delay_ms": 700}`. `url` is where the
   relay's WHEP is (`<url>/<channel>-web/whep`); its API is taken to be `<url>/api` unless

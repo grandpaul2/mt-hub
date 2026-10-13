@@ -18,7 +18,7 @@ import { adminChanged, openAdmin } from './admin';
 import { setupSearch } from './search';
 import { layoutChanged, mainChannel, onFilesChanged as chatFilesChanged, onUsersChanged as chatUsersChanged, openInMain, setupChat, shareLink } from './chat';
 import { openSettings, setupVoice } from './voice';
-import { setupStreams, stopWatching, watchRelay, watchStream } from './stream';
+import { setupStreams, streamPanel, watchRelay, watchStream } from './stream';
 import { openSoundSettings } from './sounds';
 
 type Entry = { path: string; dir: boolean; size: number; mod?: number; large?: boolean };
@@ -1376,11 +1376,10 @@ function showSchems() {
 }
 
 function setMode(m: typeof mainMode) {
-  if (mainMode === 'live' && m !== 'live') stopWatching();
   mainMode = m;
   // On a phone the main panel is hidden; a stream being watched covers the screen instead.
   document.body.classList.toggle('watching', m === 'live');
-  $('main-live').hidden = m !== 'live';
+  streamPanel(m === 'live'); // (shows or hides #main-live; a stream goes on playing behind the rest)
   $('file-area').hidden = m !== 'file';
   $('main-chat').hidden = m !== 'chat';
   $('main-schems').hidden = m !== 'schems';
@@ -1792,7 +1791,7 @@ function setup() {
     },
   });
   setupVoice(events);
-  setupStreams(events, { leave: showFileArea });
+  setupStreams(events, { leave: showFileArea, show: () => setMode('live') });
   setupChatPanel();
   setupSearch({
     // An address the page is already at doesn't fire hashchange: open it anyway.

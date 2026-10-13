@@ -101,7 +101,8 @@ button. Losing the connection toasts "Screen sharing stopped: the connection dro
 FILES and CHATS are always there. **VOICE** appears only while a voice chat you can see
 exists, and **LIVE** only while anyone is sharing; both sit under CHATS. A LIVE row is a
 screen icon and the streamer's name; your own row reads "You're sharing your screen", and
-clicking it watches it. Right-click a row: Watch; Message; Stop Stream for an admin who
+clicking it watches it. Right-click a row: Watch; Stop Watching (on the one you are
+watching); Message; Stop Stream for an admin who
 outranks the streamer. Sections appear and go with the `voice` and `stream` events, without
 animation.
 
@@ -110,12 +111,21 @@ animation.
 - The main panel (`setMode('live')`, address `#live=<name>`) has a head with the name and the
   viewer count, and a `<video autoplay playsinline muted>` filling it, letterboxed. Buttons:
   **Full screen** (double-click does the same) and **Stop watching**.
-- The viewer's room is `Room({ adaptiveStream: true, dynacast: false })`. With one layer a
-  viewer on a weak link can only pause and resume, so phones on bad connections may freeze.
+- The viewer's room is `Room({ adaptiveStream: false, dynacast: false })`. adaptiveStream
+  would stop the picture whenever the page cannot see the video, and the page cannot see
+  Firefox's pop-out player. With one layer a viewer on a weak link may freeze.
 - States in plain words: "Connecting…", "Waiting for the picture…", "<name> stopped sharing."
   (with a Back button), "Couldn't connect: …", and for an address whose person is not live,
   "<name> isn't sharing their screen right now."
-- Leaving the panel disconnects the viewer. Phones watch from a strip at the top of the chat.
+- **Watching goes on behind everything** (2026-10-13), as for relay streams
+  ([`relay-streams-spec.md`](relay-streams-spec.md) → The page): opening something else
+  leaves the picture coming, for the browser's pop-out player, with the "Watching" bar in the
+  sidebar; Stop watching, the screen share ending or another stream ends it. A viewer behind
+  a chat still counts and still takes the full picture.
+- "Reconnecting…" while LiveKit reconnects by itself; if it gives up and the screen is still
+  shared, the page joins again (after 1, 2 and 4 seconds, then every 5).
+- **Full screen** has the bar relay streams have, without the sound: **Exit full screen**.
+- Phones watch from a strip at the top of the chat.
 
 Words (style guide, Words): "Share Your Screen…", "Sharing your screen", "Stop", "Watch", "Stop
 watching", "Full screen", "2 watching". No "stream key", "track" or "publish".
