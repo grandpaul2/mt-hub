@@ -226,8 +226,9 @@ input[type=range] { accent-color: var(--chat-muted); }
 #tree .indent { display: flex; align-self: stretch; flex: none; }
 #tree .guide { width: 8px; border-right: 1px solid transparent; }
 #tree:hover .guide { border-right-color: var(--border-hi); }
-/* One selected row, as in VS Code: gray, with a blue outline while the tree has focus. */
-#tree .row.focused { background: var(--select); }
+/* Selected rows are gray, as in VS Code: one after a click, several with Ctrl or Shift. The
+   row the keys are on has a blue outline while the tree has focus. */
+#tree .row.selected { background: var(--select); }
 #tree:focus .row.focused { outline: 1px solid var(--focus); outline-offset: -1px; }
 
 #main { grid-area: main; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
@@ -944,7 +945,20 @@ body.chat-hidden #chat .pins-btn, body.chat-hidden #chat .files-btn { display: n
 .folder-audio { position: relative; }
 .folder-audio .play { position: absolute; right: 8px; bottom: 8px; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--pill); color: var(--chat-name); }
 .folder-audio .play svg { width: 14px; height: 14px; }
-.folder-grid .shot { cursor: pointer; }
+.folder-grid .shot { cursor: pointer; border-radius: 4px; }
+/* A picked tile: the tree's gray behind it and the focus outline around it. A folder tile
+   that would take what's being dragged is outlined dashed, like the tree when it would. */
+.folder-grid .shot.picked { background: var(--select); box-shadow: 0 0 0 4px var(--select); outline: 1px solid var(--focus); outline-offset: 4px; }
+.folder-grid .shot.drop-target, .shot-bar button.drop-target { outline: 1px dashed var(--focus); outline-offset: 4px; }
+/* The box dragged from empty space to pick tiles. */
+.shot-scroll { position: relative; }
+.pick-box { position: absolute; z-index: 2; background: color-mix(in srgb, var(--focus) 18%, transparent); border: 1px solid var(--focus); pointer-events: none; }
+/* What several dragged files show under the pointer: "3 items". Kept off screen; the
+   browser takes its picture. */
+.drag-ghost { position: fixed; top: -100px; left: 0; padding: 3px 10px; background: var(--panel); border: 1px solid var(--focus); border-radius: 6px; color: var(--text); font-size: 13px; }
+/* The names in "Delete 5 items?". */
+.del-list { margin: 8px 0 12px; padding: 6px 10px; max-height: 160px; overflow-y: auto; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--chat-text); font-size: 13px; line-height: 20px; }
+.del-list div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .shot-bar .count { min-width: 6ch; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .shot.flash { animation: flash 1.6s ease-out; border-radius: 6px; }
 .shot-meta { display: flex; flex-wrap: wrap; gap: 0 8px; align-items: baseline; margin-top: 5px; font-size: 13px; }

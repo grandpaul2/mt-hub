@@ -8,7 +8,7 @@ import './style.css';
 import {
   cleanHTML,
   $, GLYPH, ago, glyphs, ask, baseName, dateTime, bytes, closeDialog, closeMenu, copyText, dialog, dirName, enc, fileURL, go, h, inMenuAnchor, json, load, loadBundle, MenuItem, req,
-  openDialog, setAccounts, showMenu, store, toast, toastError, typing, unreachable, user, Live,
+  dragData, openDialog, setAccounts, showMenu, store, toast, toastError, typing, unreachable, user, Live,
 } from './util';
 import { openSchems, schemPost, setupSchems } from './schems';
 import { byName, folderDir, folderOrder, openFolder, refreshFolder, setupFolder, stampName, startCreate as startFolderCreate } from './folder';
@@ -76,13 +76,17 @@ let entries: Entry[] = [];
 let treeJSON = '';
 const expanded = new Set<string>(JSON.parse(load('mt-expanded') ?? '[]'));
 let targetDir = '';
-let focused = ''; // the selected tree row (one highlight, as in VS Code)
+let focused = ''; // the tree row the keys are on (outlined while the tree has focus)
+// The selected rows, drawn grey: one after a click or an arrow key, several with Ctrl or
+// Shift. anchor is where a Shift range starts: the row last clicked or toggled.
+let selected = new Set<string>();
+let anchor = '';
 let lastActive: string | null = null; // tree row of what the main pane showed last render
 let visible: Entry[] = []; // tree rows on screen, in order (for the arrow keys)
 let renaming: string | null = null; // path with the inline rename box open
 let creating: { dir: string; folder: boolean } | null = null; // inline new file/folder box
 let renameDraft: string | null = null; // what's typed in either box, kept across re-renders
-let dragPath = ''; // tree row being dragged
+let dragPaths: string[] = []; // what's being dragged from the tree or the folder view
 type Moved = { from: string; to: string; author: string };
 let moves: Moved[] = []; // every rename/move, oldest first, so old links still work
 let cur: Open | null = null;
@@ -276,9 +280,56 @@ const isActive = (e: Entry) => {
 
 // select makes e the selected row; new files and uploads go to its folder.
 function select(e: Entry) {
-  focused = e.path;
+  only(e.path);
   targetDir = e.dir ? e.path : dirName(e.path);
 }
+
+// only makes p the one selected row.
+function only(p: string) {
+  focused = anchor = p;
+  selected = new Set([p]);
+}
+
+// rangeTo selects from the anchor to p, over the rows on screen (Shift+click, Shift+arrows).
+function rangeTo(p: string) {
+  const a = visible.findIndex((v) => v.path === anchor);
+  const b = visible.findIndex((v) => v.path === p);
+  if (b < 0) return;
+  const from = a < 0 ? b : a;
+  if (a < 0) anchor = p;
+  selected = new Set(visible.slice(Math.min(from, b), Math.max(from, b) + 1).map((v) => v.path));
+  focused = p;
+}
+
+// picks is the selection in the order the tree shows it (then any row a closed folder hides).
+const picks = () => [...new Set([...visible, ...entries].map((e) => e.path))].filter((p) => selected.has(p));
+
+// Ctrl+click puts a row in the selection or takes it out; Shift+click selects from the row
+// last clicked to this one. Neither opens anything.
+function pick(e: Entry, range: boolean) {
+  if (range) rangeTo(e.path);
+  else {
+    if (!selected.delete(e.path)) selected.add(e.path);
+    focused = anchor = e.path;
+  }
+  renderTree();
+  $('tree').focus({ preventScroll: true });
+}
+
+const within = (p: string, dir: string) => p === dir || p.startsWith(dir + '/');
+const inDir = (dir: string, name: string) => (dir ? dir + '/' : '') + name;
+// roots drops what is inside a folder that's also listed: a folder picked together with its
+// own files counts once.
+function roots(paths: string[]) {
+  const listed = new Set(paths);
+  return [...listed].filter((p) => {
+    for (let d = dirName(p); d; d = dirName(d)) if (listed.has(d)) return false;
+    return true;
+  });
+}
+// canDrop: something in paths would move into dir, and nothing would move into itself.
+const canDrop = (paths: string[], dir: string) =>
+  !paths.some((p) => within(dir, p)) && paths.some((p) => !AREAS.includes(p) && dirName(p) !== dir);
 
 function renderTree() {
   const root = $('tree');
@@ -291,6 +342,11 @@ function renderTree() {
     if (shown) select(shown);
   }
   $('target').replaceChildren(...glyphs(targetDir ? `→ ${targetDir}/` : ''));
+  // A selection of several keeps to what is still there (someone may have deleted a row).
+  if (selected.size > 1) {
+    const have = new Set(entries.map((e) => e.path));
+    selected = new Set([...selected].filter((p) => have.has(p)));
+  }
 
   const children = new Map<string, Entry[]>();
   for (const e of entries) {
@@ -315,6 +371,7 @@ function renderTree() {
       if (open) cls += ' open';
       if (isActive(e)) cls += ' active';
       if (focused === e.path) cls += ' focused';
+      if (selected.has(e.path)) cls += ' selected';
       let title = e.dir ? e.path : `${e.path} · ${bytes(e.size)}`;
       if (AREAS.includes(e.path)) title += ' · no history';
       // One guide line per level, like VS Code's indent guides.
@@ -329,7 +386,11 @@ function renderTree() {
       if (renaming === e.path) row.querySelector('.name')!.replaceWith(renameBox(e));
       row.dataset.path = e.path;
       row.dataset.dir = e.dir ? e.path : dirName(e.path);
-      row.onclick = () => activate(e);
+      row.onclick = (ev) => (ev.shiftKey || ev.ctrlKey || ev.metaKey ? pick(e, ev.shiftKey) : activate(e));
+      // (Shift+click would select the text in between.)
+      row.onmousedown = (ev) => {
+        if (ev.shiftKey) ev.preventDefault();
+      };
       if (e.dir) {
         // Only the chevron expands/collapses; clicking the row selects the folder (or
         // opens a viewer folder's viewer).
@@ -343,16 +404,21 @@ function renderTree() {
       row.oncontextmenu = (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
-        select(e);
+        // On one of several selected rows the menu is for all of them; on any other row it
+        // selects just that one.
+        const many = selected.size > 1 && selected.has(e.path);
+        if (!many) select(e);
         renderTree();
         $('tree').focus({ preventScroll: true });
-        treeMenu(ev, e);
+        if (many) manyMenu(ev, picks());
+        else treeMenu(ev, e);
       };
-      // Drag onto a folder to move it there, or onto a chat to link it.
+      // Drag onto a folder to move it there, or onto a chat to link it; a selected row
+      // takes the rest of the selection along.
       row.draggable = renaming !== e.path;
       row.ondragstart = (ev) => {
-        dragPath = e.path;
-        ev.dataTransfer?.setData('text/x-mt-path', e.path);
+        dragPaths = selected.size > 1 && selected.has(e.path) ? picks() : [e.path];
+        dragData(ev, e.path, dragPaths);
       };
       root.append(row);
       visible.push(e);
@@ -398,11 +464,26 @@ function setExpanded(p: string, open: boolean) {
 
 // Keys work like VS Code's explorer while the tree has focus.
 function treeKey(ev: KeyboardEvent) {
-  if (renaming || creating || ev.ctrlKey || ev.metaKey || ev.altKey) return;
+  if (renaming || creating || ev.altKey) return;
+  if (ev.ctrlKey || ev.metaKey) {
+    if (ev.key.toLowerCase() !== 'a') return;
+    ev.preventDefault();
+    selected = new Set(visible.map((v) => v.path));
+    return renderTree();
+  }
   const i = visible.findIndex((e) => e.path === focused);
   const e = visible[i];
+  const many = selected.size > 1;
   let next = i;
   switch (ev.key) {
+    case 'Escape':
+      // Several selected: Esc goes back to the one the keys are on (and nothing else hears it).
+      if (!many) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (focused) only(focused);
+      else selected.clear();
+      return renderTree();
     case 'ArrowDown': next = Math.min(i + 1, visible.length - 1); break;
     case 'ArrowUp': next = i < 0 ? 0 : Math.max(i - 1, 0); break;
     case 'Home': next = 0; break;
@@ -424,13 +505,17 @@ function treeKey(ev: KeyboardEvent) {
     case 'F2':
     case 'Delete':
       ev.preventDefault();
-      if (e && ev.key === 'F2') startRename(e.path);
+      if (many) {
+        if (ev.key === 'Delete') deleteMany(picks());
+      } else if (e && ev.key === 'F2') startRename(e.path);
       else if (e) deleteEntry(e);
       return;
     default: return;
   }
   ev.preventDefault();
-  if (visible[next]) select(visible[next]);
+  // Shift with ↑ ↓ Home End stretches the selection from where it started.
+  if (ev.shiftKey && visible[next] && ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(ev.key)) rangeTo(visible[next].path);
+  else if (visible[next]) select(visible[next]);
   renderTree();
   $('tree').querySelector(`.row[data-path="${CSS.escape(focused)}"]`)?.scrollIntoView({ block: 'nearest' });
 }
@@ -438,7 +523,7 @@ function treeKey(ev: KeyboardEvent) {
 function startRename(p: string) {
   if (AREAS.includes(p)) return toast(`${p}/ keeps its name`);
   expandParents(p); // (from the folder view its row may be hidden)
-  focused = p;
+  only(p);
   renaming = p;
   renameDraft = null;
   renderTree();
@@ -505,7 +590,7 @@ function createRow(depth: number) {
       return renderTree();
     }
     creating = null;
-    focused = p;
+    only(p);
     if (folder) targetDir = p;
     await refreshTree();
     renderTree();
@@ -564,6 +649,8 @@ async function movePath(from: string, to: string) {
   if (dirName(to)) expanded.add(dirName(to)); // show where it landed
   store('mt-expanded', JSON.stringify([...expanded]));
   if (inside(focused)) focused = moved(focused);
+  if (inside(anchor)) anchor = moved(anchor);
+  selected = new Set([...selected].map((p) => (inside(p) ? moved(p) : p)));
   if (inside(targetDir)) targetDir = moved(targetDir);
   await refreshTree();
   if (cur && inside(cur.stat.path)) await openFile(moved(cur.stat.path), true);
@@ -589,6 +676,110 @@ async function deleteEntry(e: Entry) {
   toast(`Deleted ${baseName(e.path)}`);
   if (cur && inside(cur.stat.path)) closeFile();
   refreshTree();
+}
+
+// moveMany moves a selection into dir. One thing goes the way a single move always has;
+// several go in one call that moves all of them or none (a name taken there stops it, and
+// the message names it). The fixed top-level folders stay, and it says so.
+async function moveMany(paths: string[], dir: string) {
+  const all = roots(paths);
+  const fixed = all.filter((p) => AREAS.includes(p));
+  const moving = all.filter((p) => !AREAS.includes(p) && dirName(p) !== dir);
+  const stays = !fixed.length ? '' : fixed.length === 1 ? `${fixed[0]}/ stays where it is` : `${fixed.map((p) => p + '/').join(' and ')} stay where they are`;
+  if (moving.length < 2) {
+    if (moving.length) await movePath(moving[0], inDir(dir, baseName(moving[0])));
+    if (stays) toast(stays);
+    return;
+  }
+  if (cur && dirty() && moving.some((p) => within(cur!.stat.path, p))) {
+    toast(`Save or discard your changes to ${baseName(cur.stat.path)} first`);
+    return renderTree();
+  }
+  const r = await req('POST', '/api/batch/move', JSON.stringify({ from: moving, to: dir }));
+  if (!r.ok) {
+    toast((await r.json().catch(() => ({}))).error ?? 'Couldn’t move them');
+    return renderTree();
+  }
+  const moved = (p: string) => {
+    const from = moving.find((m) => within(p, m));
+    return from === undefined ? p : inDir(dir, baseName(from)) + p.slice(from.length);
+  };
+  for (const p of [...expanded]) {
+    if (moved(p) !== p) {
+      expanded.delete(p);
+      expanded.add(moved(p));
+    }
+  }
+  if (dir) expanded.add(dir); // show where they landed
+  store('mt-expanded', JSON.stringify([...expanded]));
+  // The selection goes along. It is put back after the open file is reopened under its new
+  // name, since whatever opens in the main pane becomes the one selected row.
+  const went = { focused: moved(focused), anchor: moved(anchor), selected: [...selected].map(moved) };
+  const goAlong = () => {
+    focused = went.focused;
+    anchor = went.anchor;
+    selected = new Set(went.selected);
+  };
+  targetDir = moved(targetDir);
+  goAlong();
+  const open = cur?.stat.path;
+  await refreshTree();
+  if (open && moved(open) !== open) await openFile(moved(open), true);
+  goAlong();
+  renderTree();
+  toast(`Moved ${moving.length} items to ${dir ? dir + '/' : 'Files'}` + (stays ? `. ${stays}.` : ''));
+}
+
+// deleteMany deletes a selection after one question that lists it. One thing is asked about
+// the way a single delete always has. The fixed top-level folders stay.
+async function deleteMany(paths: string[]) {
+  const all = roots(paths);
+  const fixed = all.filter((p) => AREAS.includes(p));
+  const going = all.filter((p) => !AREAS.includes(p));
+  const isDir = new Map(entries.map((e) => [e.path, e.dir]));
+  if (!going.length) return fixed.length ? toast(`${fixed[0]}/ itself can’t be deleted`) : undefined;
+  if (going.length === 1 && !fixed.length) {
+    const e = entries.find((x) => x.path === going[0]);
+    return e && deleteEntry(e);
+  }
+  if (cur && dirty() && going.some((p) => within(cur!.stat.path, p))) return toast(`Save or discard your changes to ${baseName(cur.stat.path)} first`);
+  const files = entries.filter((x) => !x.dir && going.some((p) => within(x.path, p))).length;
+  const large = going.filter(isLarge).length;
+  const n = going.length;
+  const lines = [
+    going.some((p) => isDir.get(p)) ? `With what is in the folders, that is ${files} file${files === 1 ? '' : 's'}.` : '',
+    large === n ? 'Large files have no history: this can’t be undone.'
+      : large ? 'Some of these have no history: deleting them can’t be undone.'
+      : 'Earlier versions stay in the hub’s history, but nothing here brings them back yet.',
+    fixed.length ? `${fixed.map((p) => p + '/').join(' and ')} ${fixed.length === 1 ? 'itself stays' : 'themselves stay'}.` : '',
+  ];
+  const body = h('div', {},
+    h('div', { class: 'del-list' }, ...going.map((p) => h('div', { title: p }, baseName(p) + (isDir.get(p) ? '/' : '')))),
+    h('p', {}, lines.filter(Boolean).join(' ')));
+  if (!await ask({ title: `Delete ${n} item${n === 1 ? '' : 's'}?`, body, confirm: 'Delete', danger: true })) return;
+  const r = await req('POST', '/api/batch/delete', JSON.stringify({ paths: going }));
+  if (!r.ok) {
+    toastError(`Couldn’t delete them: ${(await r.json().catch(() => ({}))).error ?? r.status}.`);
+    return refreshTree();
+  }
+  toast(`Deleted ${n} item${n === 1 ? '' : 's'}`);
+  if (cur && going.some((p) => within(cur!.stat.path, p))) closeFile();
+  refreshTree();
+}
+
+// manyMenu is the right-click menu for several selected rows or tiles: only what makes
+// sense for more than one.
+function manyMenu(ev: MouseEvent, paths: string[]) {
+  showMenu(ev, [
+    ['Download as Zip', () => {
+      const a = h('a', { href: '/api/zip?' + roots(paths).map((p) => 'p=' + encodeURIComponent(p)).join('&'), download: '' });
+      document.body.append(a);
+      a.click();
+      a.remove();
+    }], null,
+    ['Delete', () => deleteMany(paths), 'Delete'], null,
+    ['Copy Paths', () => copyText(paths.join('\n'))],
+  ]);
 }
 
 // treeMenu is the right-click menu; e is null for the empty space below the rows. From a
@@ -1623,8 +1814,7 @@ function setup() {
   let hoverTimer = 0;
   let hoverDir: string | null = null;
   const internal = (e: DragEvent) => !!e.dataTransfer?.types.includes('text/x-mt-path');
-  const canMoveTo = (dir: string) =>
-    dragPath && !AREAS.includes(dragPath) && dir !== dirName(dragPath) && dir !== dragPath && !dir.startsWith(dragPath + '/');
+  const canMoveTo = (dir: string) => canDrop(dragPaths, dir);
   tree.ondragover = (e) => {
     const dir = dropDirAt(e.target);
     const ok = dir !== null && (internal(e) ? canMoveTo(dir) : !!e.dataTransfer?.types.includes('Files'));
@@ -1662,15 +1852,15 @@ function setup() {
     endDrag();
     if (dir === null) return;
     if (internal(e)) {
-      if (canMoveTo(dir)) movePath(dragPath, (dir ? dir + '/' : '') + baseName(dragPath));
+      if (canMoveTo(dir)) moveMany(dragPaths, dir);
     } else {
       upload([...(e.dataTransfer?.files ?? [])], dir);
     }
-    dragPath = '';
+    dragPaths = [];
   };
   // A drag that ends anywhere (including the chat box) clears the tree's drag state.
   document.addEventListener('dragend', () => {
-    dragPath = '';
+    dragPaths = [];
     endDrag();
   });
 
@@ -1819,7 +2009,7 @@ function setup() {
     },
     make: async (p, folder) => {
       if (!await makeEntry(p, folder)) return false;
-      focused = p;
+      only(p);
       await refreshTree();
       renderTree();
       if (!folder) openFile(p);
@@ -1828,6 +2018,15 @@ function setup() {
     menu: (ev, p) => {
       const e = entries.find((x) => x.path === p);
       if (e) treeMenu(ev, e, true);
+    },
+    menuMany: manyMenu,
+    removeMany: deleteMany,
+    drag: (paths) => (dragPaths = paths),
+    canDrop: (dir) => canDrop(dragPaths, dir),
+    drop: (dir) => {
+      const paths = dragPaths;
+      dragPaths = [];
+      if (canDrop(paths, dir)) moveMany(paths, dir);
     },
   });
 

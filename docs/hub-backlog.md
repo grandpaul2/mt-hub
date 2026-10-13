@@ -32,7 +32,6 @@ The numbers are from the stocktake below, so an idea keeps its number when other
   find a deleted file and bring it back.
 - **17 Several files open, or recent files.** One file at a time today. Tabs are a code
   editor's thing; a "Recent" list may suit non-technical people better.
-- **18 Multi-select in the tree** (Ctrl/Shift+click), to move, delete or download several.
 - **19 Copy, paste and duplicate in the tree.** Today a copy means download then upload.
 - **20 Clickable path (breadcrumbs)** in the file bar.
 - **21 Recent changes.** One list of what changed lately across all files (who, what, when):
@@ -92,7 +91,7 @@ Out of scope here: notifications, presence and status (online dots, typing indic
 pings). Those come later, if at all.
 
 It was made from a read of the hub's frontend against Discord's and VS Code's everyday
-features. Items 1 to 5, 10, 12, 13 and 15 are built; the rest are in the list above.
+features. Items 1 to 5, 10, 12, 13, 15 and 18 are built; the rest are in the list above.
 
 ### Already covered
 
@@ -141,7 +140,8 @@ Decisions, not gaps:
     git, but there is no way to find a deleted file and bring it back from the page. VS Code
     has the system trash, plus Timeline in the explorer.
 17. **Several files open (tabs), or at least recent files.**
-18. **Multi-select in the tree.**
+18. **Multi-select** (built: Ctrl and Shift in the tree; Ctrl, Shift and a dragged box in the
+    folder view; move, delete, zip and chat links for a selection).
 19. **Copy, paste and duplicate in the tree.**
 20. **Clickable path (breadcrumbs)** in the file bar: click a folder in `boards/handheld/` to
     go there.

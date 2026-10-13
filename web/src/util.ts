@@ -449,6 +449,29 @@ export function ask(o: { title: string; body?: string | Node; confirm: string; d
   });
 }
 
+// dragData is what a dragged file or folder carries: its own path (what chat and the tree
+// have always read) and, when a selection is dragged with it, every path in it. Several
+// drag as a small "3 items" label.
+export function dragData(e: DragEvent, path: string, paths: string[]) {
+  e.dataTransfer?.setData('text/x-mt-path', path);
+  e.dataTransfer?.setData('text/x-mt-paths', JSON.stringify(paths));
+  if (paths.length < 2) return;
+  const ghost = h('div', { class: 'drag-ghost' }, `${paths.length} items`);
+  document.body.append(ghost);
+  e.dataTransfer?.setDragImage(ghost, -12, -8);
+  setTimeout(() => ghost.remove());
+}
+
+// draggedPaths reads them back at the drop.
+export function draggedPaths(e: DragEvent): string[] {
+  try {
+    const all = JSON.parse(e.dataTransfer?.getData('text/x-mt-paths') || '[]');
+    if (Array.isArray(all) && all.length) return all.map(String);
+  } catch { /* not ours */ }
+  const one = e.dataTransfer?.getData('text/x-mt-path');
+  return one ? [one] : [];
+}
+
 // copyText works on plain http too, where navigator.clipboard doesn't exist.
 export function copyText(text: string) {
   const ta = h('textarea', { value: text });
