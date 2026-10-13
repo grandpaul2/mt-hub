@@ -45,6 +45,13 @@ const audioBox = h('div', { hidden: true }); // remote voices' <audio> elements 
 const defaults: Settings = { mic: '', level: 0, speaker: '', outVol: 100, filter: 'dfn3', sensitivity: 50, echo: false, gain: true, sfx: true, sfxVol: 70 };
 let settings: Settings = { ...defaults, ...JSON.parse(load('mt-voice') ?? '{}') };
 const saveSettings = () => store('mt-voice', JSON.stringify(settings));
+// Mic level went back to +0 dB once, for everyone, when Automatic level arrived: a boost set
+// for a quiet microphone before it would now be added on top of the browser's own.
+if (load('mt-voice-level-reset') !== '1') {
+  settings.level = 0;
+  saveSettings();
+  store('mt-voice-level-reset', '1');
+}
 // Sensitivity 0..100 is the speech gate's threshold 0.9..0.1 (higher: opens more easily).
 const threshold = () => 0.9 - settings.sensitivity * 0.008;
 

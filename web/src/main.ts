@@ -768,6 +768,8 @@ function render() {
     view.append(h('div', { class: 'image' }, img));
   } else if (stat.kind === 'video') {
     view.append(h('div', { class: 'image' }, h('video', { src: fileURL(stat.path, stat.rev), controls: true })));
+  } else if (isAudio(stat)) {
+    view.append(h('div', { class: 'image audio' }, h('audio', { src: fileURL(stat.path, stat.rev), controls: true })));
   } else if (stat.kind === 'binary') {
     view.append(infoCard(stat));
   } else if (mode === 'view' && stat.kind === 'markdown') {
@@ -970,10 +972,14 @@ function renderToolbar() {
 
 // A picture or video being viewed gets the single-item bar (as schematic
 // posts do) instead of the file toolbar.
-const isMedia = (c: Open) => (c.stat.kind === 'image' || c.stat.kind === 'video') && c.mode === 'edit';
-const MEDIA_FILE = /\.(png|jpe?g|gif|webp|svg|mp4|webm|mov|m4v)$/i;
+// A sound file is one too: the hub calls it "binary" (and an older page shows it as a file
+// to download), so the page tells by its name.
+const AUDIO_FILE = /\.(mp3|ogg|wav|m4a|flac)$/i;
+const isAudio = (s: Stat) => s.kind === 'binary' && AUDIO_FILE.test(s.path);
+const isMedia = (c: Open) => (c.stat.kind === 'image' || c.stat.kind === 'video' || isAudio(c.stat)) && c.mode === 'edit';
+const MEDIA_FILE = /\.(png|jpe?g|gif|webp|svg|mp4|webm|mov|m4v|mp3|ogg|wav|m4a|flac)$/i;
 
-// mediaSiblings is the pictures and videos in p's folder, in the folder view's order.
+// mediaSiblings is the pictures, videos and sounds in p's folder, in the folder view's order.
 function mediaSiblings(p: string) {
   const dir = dirName(p);
   return entries.filter((e) => !e.dir && dirName(e.path) === dir && MEDIA_FILE.test(e.path)).sort(folderOrder(dir));
@@ -1021,7 +1027,7 @@ function mediaBar(c: Open) {
 // viewMedia opens the full-window viewer on p, with the rest of its folder's pictures and
 // videos to step through.
 function viewMedia(p: string) {
-  const sibs = mediaSiblings(p);
+  const sibs = mediaSiblings(p).filter((e) => !AUDIO_FILE.test(e.path)); // (nothing to show full window)
   openViewer(sibs.map((e) => ({
     src: `/api/file/${enc(e.path)}`, name: baseName(e.path), when: e.mod,
     kind: /\.(mp4|webm|mov|m4v)$/i.test(e.path) ? 'video' as const : 'image' as const,
@@ -1385,6 +1391,7 @@ function setMode(m: typeof mainMode) {
   $('main-schems').hidden = m !== 'schems';
   $('main-folder').hidden = m !== 'folder';
   renderTree();
+  layoutChanged(); // (the chat list too: a chat's row is the open one only while the chat is)
 }
 
 // openHash opens whatever the address points at: #chan=<name>, #live=<name>, #stream=<name>, #schems, #schem=<folder>

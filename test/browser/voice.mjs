@@ -72,6 +72,20 @@ await alex.send('Page.navigate', { url: HUB });
 await until('both pages', async () => (await ev(`!!document.getElementById('channels').children.length`)) && (await alex.ev(`!!document.getElementById('channels').children.length`)));
 await settle(500);
 
+// Mic level went back to +0 dB once, for everyone, after Automatic level arrived (a boost set
+// before it would be added on top). A level chosen after that is kept.
+const reload = async (q) => { await send('Page.navigate', { url: `${HUB}/?${q}` }); await until('the page again', () => ev(`!!document.getElementById('channels')?.children.length`)); };
+const saved = () => ev(`[JSON.parse(localStorage.getItem('mt-voice') ?? '{}').level, localStorage.getItem('mt-voice-level-reset')]`);
+await ev(`localStorage.setItem('mt-voice', JSON.stringify({ level: 12 })); localStorage.removeItem('mt-voice-level-reset')`);
+await reload('old-level');
+check('a mic level from before is back at +0 dB, once', await saved(), [0, '1']);
+await ev(`localStorage.setItem('mt-voice', JSON.stringify({ level: 6 }))`);
+await reload('new-level');
+check('a mic level chosen since is kept', await saved(), [6, '1']);
+await ev(`localStorage.removeItem('mt-voice')`);
+await reload('clean');
+await settle(500);
+
 // Voice Settings from the menu on your name, before joining: Mic test plays you back.
 const testBtn = (evaluate) => evaluate(`document.querySelector('#dialog .mic-test')?.textContent`);
 await ev(`document.getElementById('user').click()`);
@@ -95,6 +109,8 @@ check('echo switch on, saved', [await ev(`${ECHO}.getAttribute('aria-checked')`)
 await ev(`${ECHO}.click()`);
 await settle(200);
 check('and off again', await ev(`JSON.parse(localStorage.getItem('mt-voice')).echo`), false);
+// (Each switch restarts the mic test; the next one waits for it, or it would find no test to restart.)
+await until('the test running after the echo switch', async () => (await testBtn(ev)) === 'Stop test', 20000);
 // Automatic level: on unless switched off, and it is what the microphone is asked for. (The
 // page's microphones are watched from here on: what each was asked for and what it reports.)
 await ev(`(() => { window.mics = []; const gum = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices); navigator.mediaDevices.getUserMedia = async (c) => { const s = await gum(c); window.mics.push({ asked: c?.audio?.autoGainControl, reports: s.getAudioTracks()[0]?.getSettings().autoGainControl }); return s; }; })()`);

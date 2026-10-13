@@ -1045,7 +1045,9 @@ labels.chat = chatTitle;
 function setMainTitle() {
   if (!main) return;
   const c = info(main.channel);
-  $('main-chat-title').replaceChildren(chatTitle(main.channel), ...(c?.kind === 'private' ? [h('span', { class: 'lock', title: 'Private chat', innerHTML: ICON.lock })] : []));
+  // (#text-link, shared with game chat, has a link where the # is, like voice-link in VOICE.)
+  const name = main.channel === LINK_CHAT && !c?.kind ? [h('span', { class: 'link-mark', innerHTML: ICON.link }), main.channel] : [chatTitle(main.channel)];
+  $('main-chat-title').replaceChildren(...name, ...(c?.kind === 'private' ? [h('span', { class: 'lock', title: 'Private chat', innerHTML: ICON.lock })] : []));
 }
 
 // In a DM its people are equals: admins have no extra powers there (they can't see DMs).
@@ -1445,8 +1447,9 @@ export function renderChannels() {
     const active = hooks.mainShowsChat() && c.name === main.channel;
     const renaming = chanEdit?.kind === 'rename' && chanEdit.name === c.name;
     const dm = c.kind === 'dm';
-    const row = h('div', { class: 'row channel' + (active ? ' active' : '') + (unread ? ' unread' : '') + (dm ? ' dm' : '') },
-      h('span', { class: 'hash' }, dm ? '@' : '#'),
+    const linked = c.name === LINK_CHAT && !c.kind;
+    const row = h('div', { class: 'row channel' + (active ? ' active' : '') + (unread ? ' unread' : '') + (dm ? ' dm' : '') + (linked ? ' link' : '') },
+      linked ? h('span', { class: 'hash', innerHTML: ICON.link }) : h('span', { class: 'hash' }, dm ? '@' : '#'),
       renaming ? renameBox(c.name) : h('span', { class: 'name' }, dm ? dmPeople(c) : c.name),
       ...(c.kind === 'private' ? [h('span', { class: 'lock', title: 'Private chat', innerHTML: ICON.lock })] : []));
     row.onclick = () => openInMain(c.name);

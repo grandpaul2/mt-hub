@@ -75,6 +75,25 @@ await ev(`document.querySelector('#viewer .viewer-stage img').click()`);
 check('zoomed out', await ev(`document.querySelector('.viewer-stage').classList.contains('zoomed')`), false);
 await key('Escape');
 
+// A picture smaller than the window (a.png, 400x300) has no bigger full size to show, so zoom
+// doubles it, centred. Real mouse clicks: the second one, on the zoomed picture, zooms back
+// out and must not close the viewer (the stage holds the pointer while zoomed).
+await ev(`location.hash = '#pics/a.png'`);
+await settle(1000);
+await ev(`document.querySelector('#view .image img').click()`);
+await settle(300);
+const stageImg = () => ev(`(() => { const s = document.querySelector('.viewer-stage'); if (!s) return null; const r = s.querySelector('img').getBoundingClientRect(); const o = s.getBoundingClientRect();
+  return [s.classList.contains('zoomed'), Math.round(r.width), Math.round(r.height), Math.round((r.left + r.right) / 2 - (o.left + o.right) / 2), r.height <= o.height ? Math.round((r.top + r.bottom) / 2 - (o.top + o.bottom) / 2) : 0]; })()`); // (taller than the stage: it scrolls instead)
+const mouseClick = async (x, y) => { for (const type of ['mousePressed', 'mouseReleased']) await send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1 }); };
+check('small picture, fitted at its own size', await stageImg(), [false, 400, 300, 0, 0]);
+await mouseClick(600, 430);
+await settle(300);
+check('small picture zooms to twice the size, centred', await stageImg(), [true, 800, 600, 0, 0]);
+await mouseClick(600, 430);
+await settle(300);
+check('a click on the zoomed picture zooms out and leaves the viewer open', await stageImg(), [false, 400, 300, 0, 0]);
+await key('Escape');
+
 // A video tile opens the file, which plays.
 await ev(`location.hash = '#folder=pics'`);
 await settle(800);
@@ -158,5 +177,22 @@ await settle(1200);
 check('text files: the same bar', await ev(`[[...document.querySelectorAll('#toolbar .single-bar > button, #toolbar .single-actions > button, #toolbar .mode-switch button')].filter((b) => getComputedStyle(b).visibility === 'visible').map((b) => b.textContent),
   document.querySelector('#toolbar .single-name').textContent, [...document.querySelectorAll('#toolbar .single-bar .vtool')].map((b) => b.title)]`),
   [['Edit', 'History'], 'notes.txt', ['Forward', 'Download', 'Open in new tab', 'Delete']]);
+
+// Sound files: a tile with a play mark; the file opens with a player under the single-item
+// bar, ←/→ step through the folder, and there is no full window (nothing to show).
+const noise = new Uint8Array([0xff, 0xfb, 0x90, 0x00, 0, 0, 0, 1, 2, 3, 0, 0]); // not text, as a real sound isn't
+await putFile('sounds/one.mp3', noise);
+await putFile('sounds/two.ogg', noise);
+await settle(300);
+await ev(`location.hash = '#folder=sounds'`);
+await settle(800);
+check('sound tiles have a play mark', await ev(`[...document.querySelectorAll('#main-folder .shot')].map((t) => [t.dataset.path, !!t.querySelector('.folder-audio .play svg')])`), [['sounds/one.mp3', true], ['sounds/two.ogg', true]]);
+await ev(`document.querySelector('#main-folder .shot[data-path="sounds/one.mp3"]').click()`);
+await settle(800);
+const sound = () => ev(`[decodeURIComponent(location.hash), document.querySelector('#view audio[controls]')?.getAttribute('src').split('?')[0] ?? null, document.querySelector('#toolbar .single-bar > button')?.textContent ?? null, [...document.querySelectorAll('#toolbar .vtool')].map((b) => b.title)]`);
+check('a sound opens with a player and the single-item bar', await sound(), ['#sounds/one.mp3', '/api/file/sounds/one.mp3', '← Back to sounds/', ['Forward', 'Download', 'Open in new tab', 'Delete', 'Previous (←)', 'Next (→)']]);
+await key('ArrowRight');
+await settle(800);
+check('→ steps to the next sound', (await sound()).slice(0, 2), ['#sounds/two.ogg', '/api/file/sounds/two.ogg']);
 
 await done();

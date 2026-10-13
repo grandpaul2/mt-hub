@@ -91,7 +91,9 @@ the guide first, with the reason.
       the folder view. A picture or post: **full window**, an expand icon (four corners).
     - No **⋯** on a bar: every action is a button on it.
   - **A magnifier means search**, and nothing else: no magnifier for text size, full window
-    or zooming a picture (the full-window viewer zooms on a click on the picture).
+    or zooming a picture (the full-window viewer zooms on a click on the picture: to full
+    size, or to twice what was showing when full size would be no bigger; a click again
+    zooms back out).
   - **Narrow panels:** the details shorten first, then the buttons drop to their own line.
   - **Folder and board bars** wrap rather than clip.
 - **Phones (under 700 px):** chat only, with the chat picker in the panel header.
@@ -411,14 +413,18 @@ separate dialogs.
   - **Unread:** bold, with a white dot.
   - **Active:** `--tint-3`.
   - **Private chats** show a lock; DMs are listed by their people (see 14).
+  - **`#text-link`** has a link icon where the `#` is, in the list and in its title, as
+    voice-link has in VOICE.
 - **Sidebar sections:** an uppercase 12 px head (FILES, TEXT, VOICE, LIVE), with its
   "+"-style icon buttons on the right.
 - **#voice-link** (VOICE's first row, where set up): a link icon and its name; under it,
   indented, everyone in it, a player in game with their server's tag as in `#text-link`; a
   muted 12 px line "Not connected to the game servers" under the name while that is so.
-- **LIVE:** one row per person sharing, a screen icon and their name, styled like the
-  voice chat rows; your own reads brighter. Watching is silent: the picture fills the main
-  panel, letterboxed in black, with Full screen and Stop watching in its head. Full screen
+- **LIVE:** one row per person sharing, a screen icon and their name (a satellite dish for
+  a stream sent with OBS), styled like the voice chat rows; your own reads brighter. The
+  picture fills the main panel, letterboxed in black, under the single-item bar (2): whose
+  it is and how many are watching, then Stop watching, the sound (a stream's; a shared
+  screen has none) and, in the size slot, full screen. Full screen
   has the sound and Exit full screen over the bottom of the picture, each on its own dark
   patch (no bar across), gone after three still seconds. A stream or screen keeps playing
   when you open something else, until Stop watching. While you watch, a bar like the sharing
@@ -591,6 +597,9 @@ separate dialogs.
 - **Saving is safe:**
   - A stale save is refused and both versions are shown side by side.
   - Moves are followed by links and open tabs.
+- **Sound files** (mp3, ogg, wav, m4a, flac) are media like pictures and videos: a folder
+  tile with a play mark, and a player under the single-item bar, with ←/→ to the next file.
+  No full window: there is nothing to show.
 - **Areas without history:** `large/`, `screenshots/`, `map art/` (and files posted in chat).
   - Uploading to them, or deleting from them, says that nothing can be brought back.
   - They can't be renamed or deleted themselves.

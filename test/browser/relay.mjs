@@ -94,7 +94,7 @@ check('nobody streaming: LIVE is there, empty', [await live(), await ev(`documen
 const alexFeed = publish('alexcam', 0);
 await until('LIVE', async () => (await live()) !== null, 20000);
 check('LIVE has Alex’s stream', await live(), ['Alex (stream)']);
-check('its icon is not the screen share’s, its tooltip says stream', await ev(`(() => { const r = document.querySelector('#live-list .row.relay'); return [r.querySelector('svg circle') !== null, r.title]; })()`), [true, 'Watch Alex’s stream']);
+check('its icon is a satellite dish, not the screen share’s; its tooltip says stream', await ev(`(() => { const r = document.querySelector('#live-list .row.relay'); return [r.querySelector('svg path[d^="M4 10a7.31"]') !== null, r.querySelector('svg rect') === null, r.title]; })()`), [true, true, 'Watch Alex’s stream']);
 check('the hub lists it with the hold-back', await (async () => { const b = await (await api('GET', '/api/streams')).json(); return [b.relay.map((s) => s.name + ':' + s.viewers.length), b.relayDelay, b.streams.length]; })(), [['Alex:0'], 300, 0]);
 check('the relay answers nobody but the hub', (await fetch(`http://127.0.0.1:${whep}/alexcam-web/whep`, { method: 'POST', headers: { 'Content-Type': 'application/sdp' }, body: 'v=0' })).status, 401);
 
@@ -108,6 +108,12 @@ check('the sound controls show', await controls(), { bar: '100', button: 'Mute',
 const rowMark = () => ev(`[...document.querySelector('#live-list .row.relay').classList].filter((c) => c === 'active' || c === 'playing')`);
 check('the row is the open one (grey)', await rowMark(), ['active']);
 await until('the viewer count', async () => (await panel())?.count === '1 watching', 12000);
+// Its bar is the single-item bar every picture and post has: name and details, then Stop
+// watching as a text button, the sound in an icon pill, and full screen last, in its own pill.
+check('the stream’s bar follows the single-item bar', await ev(`(() => { const b = document.querySelector('#main-live .live-head'); const acts = [...b.querySelector('.single-actions').children];
+  return [b.classList.contains('single-bar'), [...b.children].slice(0, 2).map((e) => e.className.split(' ')[0]), acts.map((e) => e.tagName === 'BUTTON' ? e.textContent : e.className),
+    [...b.querySelectorAll('.vtool')].map((v) => v.title.split(' (')[0]), b.querySelector('.single-full .vtool').getBoundingClientRect().width]; })()`),
+  [true, ['single-name', 'single-info'], ['Stop watching', 'live-sound viewer-tools', 'viewer-tools single-full'], ['Mute', 'Full screen'], 30]);
 check('Paul is counted', [(await panel())?.count, await ev(`document.querySelector('.live-count').title`), (await (await api('GET', '/api/streams')).json()).relay[0].viewers], ['1 watching', 'Paul', ['Paul']]);
 await shot('watching');
 

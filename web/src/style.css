@@ -254,6 +254,8 @@ body:has(#offline:not([hidden])) #toast { top: 70px; }
 .empty { padding: 40px; color: var(--muted); text-align: center; }
 .image { padding: 20px; text-align: center; }
 .image video { display: block; margin: 0 auto; max-width: 100%; max-height: calc(100vh - 140px); background: var(--media-bg); }
+.image.audio { padding-top: 60px; }
+.image audio { width: min(560px, 100%); }
 .image img { max-width: 100%; image-rendering: pixelated; background: repeating-conic-gradient(var(--top) 0 25%, var(--hover) 0 50%) 0 0 / 16px 16px; }
 .card { margin: 40px auto; max-width: 420px; padding: 20px; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; }
 .card h2 { margin: 0 0 12px; font-size: 15px; word-break: break-all; }
@@ -930,6 +932,9 @@ body.chat-hidden #chat .pins-btn, body.chat-hidden #chat .files-btn { display: n
 .folder-video .play svg { width: 34px; height: 34px; }
 .folder-icon { display: grid; place-items: center; aspect-ratio: 16 / 9; font-size: 40px; background: var(--panel-2); border-radius: 4px; }
 .folder-icon img { width: 34%; max-width: 96px; aspect-ratio: 1; }
+.folder-audio { position: relative; }
+.folder-audio .play { position: absolute; right: 8px; bottom: 8px; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--pill); color: var(--chat-name); }
+.folder-audio .play svg { width: 14px; height: 14px; }
 .folder-grid .shot { cursor: pointer; }
 .shot-bar .count { min-width: 6ch; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .shot.flash { animation: flash 1.6s ease-out; border-radius: 6px; }
@@ -1267,9 +1272,11 @@ body.chat-hidden #chat .pins-btn, body.chat-hidden #chat .files-btn { display: n
 }
 .viewer-stage img, .viewer-stage video { max-width: 100%; max-height: 100%; object-fit: contain; cursor: zoom-in; user-select: none; }
 .viewer-stage video { cursor: auto; }
-.viewer-stage.zoomed { display: block; overflow: auto; cursor: grab; text-align: center; }
+/* (Auto margins centre a zoomed picture smaller than the stage, and unlike centring by
+   alignment leave every part of a bigger one in reach of the scroll.) */
+.viewer-stage.zoomed { display: flex; align-items: normal; justify-content: normal; overflow: auto; cursor: grab; }
 .viewer-stage.zoomed:active { cursor: grabbing; }
-.viewer-stage.zoomed img { max-width: none; max-height: none; cursor: zoom-out; }
+.viewer-stage.zoomed img { flex: none; margin: auto; max-width: none; max-height: none; cursor: zoom-out; }
 .viewer-prev, .viewer-next {
   position: absolute;
   top: 50%;
@@ -1406,7 +1413,10 @@ h3.md-h { font-size: 15px; }
 .row.channel.voice-more { height: 26px; margin-top: 0; font-size: 14px; }
 /* #voice-link: its name on the first row, everyone under it; a note when the bridge to the
    game servers isn't there. */
-.row.channel.voice.link .hash svg { width: 16px; height: 16px; }
+.row.channel.link .hash { display: inline-flex; justify-content: center; }
+.row.channel.link .hash svg { width: 16px; height: 16px; color: var(--muted); }
+#main-chat-title .link-mark { display: inline-flex; margin-right: 6px; color: var(--chat-muted); }
+#main-chat-title .link-mark svg { width: 15px; height: 15px; }
 .row.channel.voice .tag.via { margin-left: 6px; }
 .voice-note { padding: 0 8px 2px 42px; color: var(--muted); font-size: 12px; }
 .row.channel.voice.here .name { color: var(--chat-name); }
@@ -1423,9 +1433,7 @@ h3.md-h { font-size: 15px; }
 #watch-bar button.share-where { padding: 0; border: 0; border-radius: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
 #watch-bar button svg { display: block; width: 16px; height: 16px; }
 /* Watching someone's screen: the picture fills the main panel, letterboxed in black. */
-#main-live .live-head { padding-left: 20px; }
-#main-live .live-count { font-weight: 400; font-size: 13px; }
-#main-live .live-head button svg { display: block; width: 16px; height: 16px; }
+#main-live .live-head .live-sound:not([hidden]) { gap: 2px; padding-right: 10px; }
 .live-body { position: relative; flex: 1; min-height: 0; background: #000; }
 .live-body video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .live-note { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: var(--scrim-soft); color: var(--chat-muted); font-size: 15px; }
@@ -1449,6 +1457,7 @@ h3.md-h { font-size: 15px; }
 /* A relay stream's sound: mute and a volume bar in the head; "Turn sound on" over the picture
    when the browser wouldn't play sound without a click. */
 #main-live .live-sound:not([hidden]) { display: flex; align-items: center; gap: 6px; }
+#main-live .live-sound[hidden] { display: none; }
 #main-live .live-sound input[type=range] { width: 90px; margin: 0; padding: 0; border: 0; background: none; }
 .live-sound-on { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 1; }
 #live-strip { display: none; }
