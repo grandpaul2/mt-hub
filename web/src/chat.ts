@@ -638,7 +638,7 @@ class ChatView {
     if (mine && m.text) box.append(btn('edit', 'Edit', () => this.startEdit(m.id)));
     const words = splitFiles(m.text, m.channel).words || m.fwd?.text || '';
     if (words) box.append(btn('copy', 'Copy text', () => copyText(words)));
-    if (mine || canModerate(m.channel)) box.append(btn('trash', 'Delete (Shift+click: no question)', (_, e) => deleteMessage(m, e.shiftKey), 'danger'));
+    if (mine || canModerate(m.channel)) box.append(btn('trash', 'Delete (Shift+click: no question)', (_, e) => deleteMessage(this, m, e.shiftKey), 'danger'));
     const { posted, inFiles } = linkedFiles(m);
     if (posted.length) box.append(btn('save', 'Save to Files…', () => saveToFiles(posted)));
     else if (inFiles.length) box.append(btn('folder', 'Open folder', () => hooks.revealMedia(inFiles[0])));
@@ -666,7 +666,7 @@ class ChatView {
     if (words) items.push(['Copy Text', () => copyText(words)]);
     items.push(['Copy Link', () => copyText(`${location.origin}/#chan=${m.channel}&msg=${m.id}`)]);
     if (canPin(m.channel)) items.push(m.pinned ? ['Unpin Message', () => setPinned(m, false)] : ['Pin Message', () => setPinned(m, true)]);
-    if (mine || canModerate(m.channel)) items.push(null, ['Delete', () => deleteMessage(m, false)]);
+    if (mine || canModerate(m.channel)) items.push(null, ['Delete', () => deleteMessage(this, m, false)]);
     return items;
   }
 
@@ -764,7 +764,7 @@ class ChatView {
       if (typed === words && keep.length === files.length) return done();
       if (!typed && !keep.length && !m.fwd) { // nothing left: Discord asks to delete it instead
         done();
-        return deleteMessage(m, false);
+        return deleteMessage(this, m, false);
       }
       const text = joinFiles(typed, keep);
       const r = await req('PATCH', `/api/channels/${m.channel}/messages/${m.id}`, JSON.stringify({ text }));
@@ -1746,7 +1746,8 @@ function setPinned(m: Message, on: boolean) {
 // deleteMessage deletes a message. When it's the last link to files posted in chat (nothing
 // else in any chat links them), the question offers to delete those too, ticked; it shows
 // even on Shift+click, since they have no history. Files still linked elsewhere stay.
-async function deleteMessage(m: Message, noQuestion: boolean) {
+// The question shows the message as the chat draws it (Discord), to look at and not to use.
+async function deleteMessage(v: ChatView, m: Message, noQuestion: boolean) {
   const o = await req('GET', `/api/channels/${m.channel}/messages/${m.id}/orphans`);
   const files = o.ok ? (await json<{ paths: string[] }>(o)).paths : [];
   const one = files.length === 1;
@@ -1755,7 +1756,10 @@ async function deleteMessage(m: Message, noQuestion: boolean) {
       `. No other message links ${one ? 'it' : 'them'}, and files posted in chat have no history: this can’t be undone.`),
     value: true,
   } : undefined;
-  if ((!noQuestion || check) && !await ask({ title: 'Delete this message?', confirm: 'Delete', danger: true, check })) return;
+  const shown = v.renderMessage(m, false, true);
+  shown.inert = true;
+  const body = h('div', { class: 'del-preview' }, shown);
+  if ((!noQuestion || check) && !await ask({ title: 'Delete this message?', body, confirm: 'Delete', danger: true, check })) return;
   const r = await req('DELETE', `/api/channels/${m.channel}/messages/${m.id}${check?.value ? '?files=1' : ''}`);
   if (!r.ok) toastError(`Couldn’t delete it: ${(await r.json().catch(() => ({}))).error ?? r.status}.`);
 }
