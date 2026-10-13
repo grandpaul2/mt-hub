@@ -22,9 +22,10 @@ superseded.
 - **Login:** the hub checks your session and gives the browser a short-lived LiveKit token.
 
 **The sending chain, in order:**
-1. **Microphone:** mono at 48 kHz, with the browser's echo cancellation, noise suppression and
-   gain control all off by default (see the finding below).
-2. **Gain.** A mic level setting for quiet microphones.
+1. **Microphone:** mono at 48 kHz, with the browser's **automatic gain on** (a switch,
+   Automatic level; see the 2026-10-13 finding below) and its echo cancellation and noise
+   suppression off by default (see the echo finding below).
+2. **Gain.** A mic level setting on top, for a microphone that is still quiet.
 3. **DeepFilterNet3**, with RNNoise as the fallback (lighter; used when the CPU can't keep up).
 4. **Silero speech gate**, holding back about 100 to 200 ms (the delay budget is about 150 ms
    mouth to ear).
@@ -94,10 +95,35 @@ with a setting to turn it on for people on speakers. The lab starts with it off.
 Chosen: DeepFilterNet3 as the main filter with RNNoise as the fallback, the Silero speech gate,
 echo cancellation off by default.
 
+### Finding: without automatic gain the chain works on too quiet a signal (2026-10-13)
+
+Measured, not listened to: two people's recordings as a browser's microphone (headless
+Chromium, and headless Firefox with a virtual microphone), through this chain, into Simple
+Voice Chat's decoder, scored with DNSMOS and against the same recordings sent the way a
+player's microphone sends them in game.
+
+- Raw speech from the two microphones sits at −45 and −50 dBFS. With gain control off and the
+  mic level at 0, that is what the filter and the gate get.
+- At that level, in Chromium, DeepFilterNet3 sent **nothing of the quieter microphone for the
+  first 30 seconds** after joining, and never its quiet talking; the gate alone (filter off)
+  cut 40% of its quiet talking; RNNoise lowered both voices another 6 to 8 dB.
+- With the browser's automatic gain on, both voices come out at −24 to −34 dBFS, the 30
+  seconds are gone, quiet talking is whole, and DeepFilterNet3 scores as well as or better
+  than the same person's in-game microphone on every recording. Raising Mic level by hand
+  (+24 dB) does the same. Typing alone and mouse clicks alone still never open the gate.
+- Firefox's automatic gain does the same (it lifts a quiet voice by about 25 dB).
+
+**Consequence:** Automatic level is on by default, with a switch in Voice Settings. The
+filter was not at fault and stays the default.
+
+Also seen: in Firefox, DeepFilterNet3 stalls the audio thread once as it starts (about
+280 ms), and the voice then runs about a quarter second late for the session. Not chased.
+
 ### Left over from the lab
 
 - **Mic level:** one take peaked at only −31 dBFS with all processing off. Quiet mics need a
-  gain slider, or some form of auto gain.
+  gain slider, or some form of auto gain. (Settled 2026-10-13: the browser's automatic gain,
+  finding above.)
 - **Drawing quirk:** the lab sometimes showed DeepFilterNet3 as flat when its audio was fine.
   Not chased.
 - **Delay budget:** mouth to ear should stay under about 150 ms (ITU G.114).

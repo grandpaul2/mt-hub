@@ -9,7 +9,9 @@
 // The hub keeps the list and hands out tokens (internal/server/voice.go); the audio goes
 // through LiveKit on the relay VPS. Your microphone goes through the chain chosen in the voice
 // lab, all in this page:
-//   mic (no browser processing: Firefox's echo cancelling chops up voices on headphones)
+//   mic (the browser's automatic gain on, so a quiet microphone reaches the filter and the
+//   gate at a level they work at; its echo cancelling and noise suppression off: Firefox's
+//   echo cancelling chops up voices on headphones)
 //   -> level (quiet mics) -> DeepFilterNet3 or RNNoise -> 150 ms hold-back -> speech gate
 //   -> LiveKit (Opus mono, with FEC and DTX).
 // The gate opens on speech only (Silero, in vad.worker.ts): typing alone never opens it. The
@@ -27,7 +29,7 @@ const HOLD_BACK = 0.15; // seconds; see docs/voice/README.md on the delay budget
 
 type Person = { name: string; since: string };
 type VoiceChat = { id: string; private?: boolean; starter: string; invited?: string[]; people: Person[] };
-type Settings = { mic: string; level: number; speaker: string; outVol: number; filter: 'dfn3' | 'rnnoise' | 'off'; sensitivity: number; echo: boolean; sfx: boolean; sfxVol: number };
+type Settings = { mic: string; level: number; speaker: string; outVol: number; filter: 'dfn3' | 'rnnoise' | 'off'; sensitivity: number; echo: boolean; gain: boolean; sfx: boolean; sfxVol: number };
 
 let info: { enabled: boolean; url: string; max: number; full: boolean; chats: VoiceChat[] } = { enabled: false, url: '', max: 3, full: false, chats: [] };
 let cur: { id: string; room: LK.Room; chain: Chain; track: LK.LocalAudioTrack } | null = null;
@@ -37,7 +39,7 @@ let muted = false;
 let deafened = false;
 const audioBox = h('div', { hidden: true }); // remote voices' <audio> elements (not Web Audio, so echo cancelling can hear them)
 
-const defaults: Settings = { mic: '', level: 0, speaker: '', outVol: 100, filter: 'dfn3', sensitivity: 50, echo: false, sfx: true, sfxVol: 70 };
+const defaults: Settings = { mic: '', level: 0, speaker: '', outVol: 100, filter: 'dfn3', sensitivity: 50, echo: false, gain: true, sfx: true, sfxVol: 70 };
 let settings: Settings = { ...defaults, ...JSON.parse(load('mt-voice') ?? '{}') };
 const saveSettings = () => store('mt-voice', JSON.stringify(settings));
 // Sensitivity 0..100 is the speech gate's threshold 0.9..0.1 (higher: opens more easily).
@@ -306,7 +308,7 @@ async function connect(id: string, url: string, token: string) {
   try {
     await room.connect(url, token);
     const track = new LocalAudioTrack(chain.out, undefined, true);
-    await room.localParticipant.publishTrack(track, { source: Track.Source.Microphone, dtx: true, red: true, audioPreset: { maxBitrate: 32000 } });
+    await room.localParticipant.publishTrack(track, { source: Track.Source.Microphone, dtx: true, red: true, forceStereo: false, audioPreset: { maxBitrate: 32000 } });
     cur = { id, room, chain, track };
     if (muted) await track.mute();
   } catch (e) {
@@ -502,7 +504,7 @@ registerProcessor('voice-tap', VoiceTap);
 async function buildChain(): Promise<Chain> {
   const files = await loadFiles();
   const mic = await navigator.mediaDevices.getUserMedia({
-    audio: { ...(settings.mic ? { deviceId: { exact: settings.mic } } : {}), channelCount: 1, echoCancellation: settings.echo, noiseSuppression: false, autoGainControl: false },
+    audio: { ...(settings.mic ? { deviceId: { exact: settings.mic } } : {}), channelCount: 1, echoCancellation: settings.echo, noiseSuppression: false, autoGainControl: settings.gain },
   });
   const ctx = new AudioContext({ sampleRate: RATE, latencyHint: 'interactive' });
   const stopAll = () => {
@@ -530,8 +532,10 @@ async function buildChain(): Promise<Chain> {
     hold.delayTime.value = HOLD_BACK;
     const gate = ctx.createGain();
     gate.gain.value = 0;
-    const out = ctx.createMediaStreamDestination();
-    out.channelCount = 1;
+    // One channel from the start. (Made with two and set to one afterwards, its track now and
+    // then still said two when it was published, and the voice went out as stereo Opus: seen
+    // once in 38 runs of a lab that checks every packet.)
+    const out = new MediaStreamAudioDestinationNode(ctx, { channelCount: 1 });
     filtered.connect(hold).connect(gate).connect(out);
 
     const tap = new AudioWorkletNode(ctx, 'voice-tap', { numberOfOutputs: 0 });
@@ -621,6 +625,10 @@ export async function openSettings() {
     settings.echo = on;
     void rebuild();
   });
+  const gain = toggle(settings.gain, 'Automatic level', (on) => {
+    settings.gain = on;
+    void rebuild();
+  });
   const show = () => (levelVal.textContent = `+${level.value} dB`);
   show();
   level.oninput = () => {
@@ -669,7 +677,7 @@ export async function openSettings() {
     }
   };
   testBtn.onclick = () => (test ? stopTest() : void startTest());
-  // A new microphone, filter or echo setting needs the chain built again.
+  // A new microphone, filter, echo or automatic level setting needs the chain built again.
   const rebuild = async () => {
     saveSettings();
     if (test?.own) {
@@ -706,7 +714,8 @@ export async function openSettings() {
   settingsDialog('Voice settings', [
     group('Input',
       row('Microphone', null, [mic]),
-      row('Mic level', 'Raise it if others say you’re quiet.', [level, levelVal]),
+      row('Automatic level', 'Your browser keeps your voice at an even level, so a quiet microphone is heard.', [gain]),
+      row('Mic level', 'Extra, on top. Raise it if others still say you’re quiet.', [level, levelVal]),
       row('Mic test', 'Hear yourself as others will. Use headphones.', [testBtn], meter)),
     group('Output',
       ...(canPickSpeaker ? [row('Speaker', null, [speaker])] : []),

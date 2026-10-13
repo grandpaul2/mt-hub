@@ -87,12 +87,24 @@ check('Stop test stops it', await testBtn(ev), 'Test');
 await ev(`document.querySelector('#dialog .mic-test').click()`);
 await until('test running again', async () => (await testBtn(ev)) === 'Stop test', 20000);
 // Echo cancelling is a switch, saved as it flips.
-await ev(`document.querySelector('#dialog .switch').click()`);
+const ECHO = `document.querySelector('#dialog .switch[aria-label="Echo cancelling"]')`;
+const GAIN = `document.querySelector('#dialog .switch[aria-label="Automatic level"]')`;
+await ev(`${ECHO}.click()`);
 await settle(200);
-check('echo switch on, saved', [await ev(`document.querySelector('#dialog .switch').getAttribute('aria-checked')`), await ev(`JSON.parse(localStorage.getItem('mt-voice')).echo`)], ['true', true]);
-await ev(`document.querySelector('#dialog .switch').click()`);
+check('echo switch on, saved', [await ev(`${ECHO}.getAttribute('aria-checked')`), await ev(`JSON.parse(localStorage.getItem('mt-voice')).echo`)], ['true', true]);
+await ev(`${ECHO}.click()`);
 await settle(200);
 check('and off again', await ev(`JSON.parse(localStorage.getItem('mt-voice')).echo`), false);
+// Automatic level: on unless switched off, and it is what the microphone is asked for. (The
+// page's microphones are watched from here on: what each was asked for and what it reports.)
+await ev(`(() => { window.mics = []; const gum = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices); navigator.mediaDevices.getUserMedia = async (c) => { const s = await gum(c); window.mics.push({ asked: c?.audio?.autoGainControl, reports: s.getAudioTracks()[0]?.getSettings().autoGainControl }); return s; }; })()`);
+check('automatic level is on by default', [await ev(`${GAIN}.getAttribute('aria-checked')`), await ev(`JSON.parse(localStorage.getItem('mt-voice')).gain`)], ['true', true]);
+await ev(`${GAIN}.click()`);
+await until('the microphone opened again without it', async () => (await ev(`window.mics.length >= 1`)) && (await testBtn(ev)) === 'Stop test', 20000);
+check('switched off: saved, and the microphone is opened without it', [await ev(`${GAIN}.getAttribute('aria-checked')`), await ev(`JSON.parse(localStorage.getItem('mt-voice')).gain`), await ev(`window.mics.at(-1)`)], ['false', false, { asked: false, reports: false }]);
+await ev(`${GAIN}.click()`);
+await until('the microphone opened again with it', async () => (await ev(`window.mics.length >= 2`)) && (await testBtn(ev)) === 'Stop test', 20000);
+check('switched on again: the microphone is opened with it', [await ev(`JSON.parse(localStorage.getItem('mt-voice')).gain`), await ev(`window.mics.at(-1)`)], [true, { asked: true, reports: true }]);
 await ev(`document.querySelector('#dialog .dialog-x').click()`);
 check('the X closes it (and ends the test)', await ev(`document.getElementById('overlay').hidden`), true);
 
@@ -159,9 +171,9 @@ await until('settings', () => ev(`document.querySelector('#dialog h2')?.textCont
 check('voice sounds aren’t here (they’re in Sound Settings)', await ev(`[...document.querySelectorAll('#dialog .set-title')].some((t) => /sound/i.test(t.textContent))`), false);
 check('settings: groups, rows, the meter under Mic test, echo off, readouts', [
   await ev(`[...document.querySelectorAll('#dialog .set-group')].map((g) => [g.querySelector('h3').textContent, ...[...g.querySelectorAll('.set-title')].map((t) => t.textContent)])`),
-  await ev(`!!document.querySelector('#dialog .set-row .voice-meter')`), await ev(`document.querySelector('#dialog .switch').getAttribute('aria-checked')`),
+  await ev(`!!document.querySelector('#dialog .set-row .voice-meter')`), await ev(`document.querySelector('#dialog .switch[aria-label="Echo cancelling"]').getAttribute('aria-checked')`),
   await ev(`[...document.querySelectorAll('#dialog .readout')].map((r) => r.textContent)`)],
-  [[['Input', 'Microphone', 'Mic level', 'Mic test'], ['Output', 'Speaker', 'Output volume'], ['Processing', 'Noise filter', 'Voice gate sensitivity', 'Echo cancelling']], true, 'false', ['+0 dB', '100%', '50%']]);
+  [[['Input', 'Microphone', 'Automatic level', 'Mic level', 'Mic test'], ['Output', 'Speaker', 'Output volume'], ['Processing', 'Noise filter', 'Voice gate sensitivity', 'Echo cancelling']], true, 'false', ['+0 dB', '100%', '50%']]);
 // In a voice chat, Mic test plays back the live microphone.
 await ev(`document.querySelector('#dialog .mic-test').click()`);
 await until('test in a call', async () => (await testBtn(ev)) === 'Stop test', 20000);
