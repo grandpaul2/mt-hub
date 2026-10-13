@@ -30,6 +30,10 @@ type Hooks = {
   drag(paths: string[]): void; // these are being dragged (the tree can take them too)
   canDrop(dir: string): boolean; // what's being dragged could move into dir
   drop(dir: string): void; // move it there
+  clip(paths: string[], cut: boolean): void; // Cut or Copy them
+  paste(dir: string): boolean; // paste what was cut or copied into dir (false: nothing was)
+  cancelCut(): boolean; // Esc lets go of a cut (false: there was none)
+  isCut(path: string): boolean; // drawn dimmed until pasted
 };
 
 const IMAGE = /\.(png|jpe?g|gif|webp)$/i;
@@ -141,7 +145,25 @@ let shownPaths: string[] = []; // the tiles on screen, in order
 const pickedPaths = () => shownPaths.filter((p) => picked.has(p));
 
 function paintPicked() {
-  for (const t of grid.querySelectorAll<HTMLElement>('.shot[data-path]')) t.classList.toggle('picked', picked.has(t.dataset.path!));
+  for (const t of grid.querySelectorAll<HTMLElement>('.shot[data-path]')) {
+    t.classList.toggle('picked', picked.has(t.dataset.path!));
+    t.classList.toggle('cut', hooks.isCut(t.dataset.path!));
+  }
+}
+// repaintFolder: what's cut changed. pickInFolder: these (fresh copies) are the picked now.
+export const repaintFolder = () => paintPicked();
+export function pickInFolder(paths: string[]) {
+  // (Not narrowed to the tiles shown: a live update may still be about to draw them, and
+  // render keeps the picked to what it shows.)
+  picked = new Set(paths);
+  pickFrom = '';
+  paintPicked();
+}
+// hasKeys: the folder view takes the keys when nothing else is focused.
+function hasKeys(e: Event) {
+  if (e.defaultPrevented || $('main-folder').hidden || !$('menu').hidden || viewerOpen() || typing(e)) return false;
+  const at = document.activeElement;
+  return !at || at === document.body || $('main-folder').contains(at);
 }
 
 // pickClick is a click on a tile: true when it picked (Ctrl, Shift) and so mustn't open.
@@ -359,17 +381,19 @@ export function setupFolder(h_: Hooks) {
   grid.onmousedown = (e) => {
     if (e.shiftKey) e.preventDefault();
   };
-  // Ctrl+A picks every tile shown, Delete deletes the picked: while the folder view has the
-  // keys (nothing else is focused, and nobody is typing).
+  // Ctrl+A picks every tile shown, Ctrl+X and Ctrl+C cut and copy the picked (selected text
+  // is the browser's to copy), Delete deletes them: while the folder view has the keys.
   document.addEventListener('keydown', (e) => {
-    if (e.defaultPrevented || $('main-folder').hidden || !$('menu').hidden || viewerOpen() || typing(e) || e.altKey) return;
-    const at = document.activeElement;
-    if (at && at !== document.body && !$('main-folder').contains(at)) return;
+    if (!hasKeys(e) || e.altKey) return;
     const mod = e.ctrlKey || e.metaKey;
-    if (mod && e.key.toLowerCase() === 'a') {
+    const k = e.key.toLowerCase();
+    if (mod && k === 'a') {
       e.preventDefault();
       picked = new Set(shownPaths);
       paintPicked();
+    } else if (mod && (k === 'c' || k === 'x') && picked.size && !String(getSelection())) {
+      e.preventDefault();
+      hooks.clip(pickedPaths(), k === 'x');
     } else if (!mod && e.key === 'Delete' && picked.size) {
       e.preventDefault();
       hooks.removeMany(pickedPaths());
@@ -401,10 +425,14 @@ export function setupFolder(h_: Hooks) {
     render();
   };
   // Ctrl+V while a folder shows puts the clipboard's pictures in it, named by when and who.
+  // With no picture there, it pastes what was cut or copied in the hub.
   document.addEventListener('paste', (e) => {
-    if ($('main-folder').hidden || typing(e)) return;
+    if (e.defaultPrevented || $('main-folder').hidden || typing(e)) return;
     const files = [...(e.clipboardData?.files ?? [])].filter((f) => f.type.startsWith('image/'));
-    if (!files.length) return;
+    if (!files.length) {
+      if (hasKeys(e) && hooks.paste(dir)) e.preventDefault();
+      return;
+    }
     e.preventDefault();
     const names = new Set(hooks.list(dir).map((f) => baseName(f.path)));
     hooks.upload(files.map((f) => {
@@ -418,12 +446,13 @@ export function setupFolder(h_: Hooks) {
     store('mt-folder-w', size.value);
     sizeGrid();
   };
-  // Esc lets go of the picked tiles; with none picked it goes up a folder. Not while you're
-  // typing somewhere (the search, chat) or a menu is open.
+  // Esc cancels a cut, else lets go of the picked tiles; with neither it goes up a folder.
+  // Not while you're typing somewhere (the search, chat) or a menu is open.
   document.addEventListener('keydown', (e) => {
     // (defaultPrevented: the same Esc just brought you here from the Schematic Manager.)
     if (e.key !== 'Escape' || e.defaultPrevented || $('main-folder').hidden || e.ctrlKey || e.metaKey || e.altKey) return;
     if (typing(e)) return;
+    if (hooks.cancelCut()) return e.preventDefault();
     if (picked.size) {
       picked.clear();
       paintPicked();

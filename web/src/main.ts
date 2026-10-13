@@ -11,7 +11,7 @@ import {
   dragData, openDialog, setAccounts, showMenu, store, toast, toastError, typing, unreachable, user, Live,
 } from './util';
 import { openSchems, schemPost, setupSchems } from './schems';
-import { byName, folderDir, folderOrder, openFolder, refreshFolder, setupFolder, stampName, startCreate as startFolderCreate } from './folder';
+import { byName, folderDir, folderOrder, openFolder, pickInFolder, refreshFolder, repaintFolder, setupFolder, stampName, startCreate as startFolderCreate } from './folder';
 import { ICON, openViewer, singleBar, viewerOpen } from './viewer';
 import { iconURL, loadIcons } from './icons';
 import { adminChanged, openAdmin } from './admin';
@@ -87,6 +87,9 @@ let renaming: string | null = null; // path with the inline rename box open
 let creating: { dir: string; folder: boolean } | null = null; // inline new file/folder box
 let renameDraft: string | null = null; // what's typed in either box, kept across re-renders
 let dragPaths: string[] = []; // what's being dragged from the tree or the folder view
+// The hub's own clipboard: what Cut or Copy took, for Paste. It is this tab's only, and not
+// the computer's (a page can't put files there).
+let clip: { paths: string[]; cut: boolean } | null = null;
 type Moved = { from: string; to: string; author: string };
 let moves: Moved[] = []; // every rename/move, oldest first, so old links still work
 let cur: Open | null = null;
@@ -156,9 +159,9 @@ function login(why = ''): Promise<void> {
 function shortcuts() {
   const rows: [string, string][] = [
     ['Anywhere', '/ or Ctrl+K: search · Esc: close the menu, popup or dialog on top · Alt+← / Alt+→: back and forward'],
-    ['Files tree', '↑ / ↓ move · Home / End · → / ← open or close a folder · Enter: open · F2: rename · Delete'],
+    ['Files tree', '↑ / ↓ move · Home / End · → / ← open or close a folder · Enter: open · F2: rename · Delete · Ctrl+click, Shift+click, Shift+↑ / ↓: select several · Ctrl+A: all · Ctrl+X, Ctrl+C, Ctrl+V: cut, copy, paste · Esc: cancel a cut, or back to one'],
     ['A picture or post', '← / →: the one before or after · Esc: back to its folder or the board'],
-    ['Folder view', 'Esc: up one folder · Ctrl+V: paste pictures'],
+    ['Folder view', 'Ctrl+click, Shift+click or drag a box from empty space: pick several · Ctrl+A: all · Delete · Ctrl+X, Ctrl+C, Ctrl+V: cut, copy, paste (Ctrl+V also pastes pictures) · Esc: cancel a cut, let go, then up one folder'],
     ['Text file', 'Ctrl+S: save · Ctrl+wheel: zoom'],
     ['Message box', 'Enter: send · Shift+Enter: new line · ↑ in an empty box: edit your last message · Esc: cancel a reply · Ctrl+B, Ctrl+I, Ctrl+U: bold, italic, underline'],
     ['Typing a message', '@: mention someone · : and two letters: emoji · ↑ / ↓ and Enter or Tab: pick'],
@@ -372,6 +375,7 @@ function renderTree() {
       if (isActive(e)) cls += ' active';
       if (focused === e.path) cls += ' focused';
       if (selected.has(e.path)) cls += ' selected';
+      if (isCut(e.path)) cls += ' cut';
       let title = e.dir ? e.path : `${e.path} · ${bytes(e.size)}`;
       if (AREAS.includes(e.path)) title += ' · no history';
       // One guide line per level, like VS Code's indent guides.
@@ -466,9 +470,13 @@ function setExpanded(p: string, open: boolean) {
 function treeKey(ev: KeyboardEvent) {
   if (renaming || creating || ev.altKey) return;
   if (ev.ctrlKey || ev.metaKey) {
-    if (ev.key.toLowerCase() !== 'a') return;
+    // Ctrl+A every row, Ctrl+X / Ctrl+C the selection (Ctrl+V arrives as a paste, below).
+    // Selected text is the browser's to copy.
+    const k = ev.key.toLowerCase();
+    if (k === 'a') selected = new Set(visible.map((v) => v.path));
+    else if ((k === 'c' || k === 'x') && !String(getSelection()) && selected.size) setClip(picks(), k === 'x');
+    else return;
     ev.preventDefault();
-    selected = new Set(visible.map((v) => v.path));
     return renderTree();
   }
   const i = visible.findIndex((e) => e.path === focused);
@@ -476,14 +484,18 @@ function treeKey(ev: KeyboardEvent) {
   const many = selected.size > 1;
   let next = i;
   switch (ev.key) {
-    case 'Escape':
-      // Several selected: Esc goes back to the one the keys are on (and nothing else hears it).
-      if (!many) return;
+    case 'Escape': {
+      // Esc cancels a cut; else, with several selected, goes back to the one the keys are on
+      // (and nothing else hears it).
+      const wasCut = cancelCut();
+      if (!wasCut && !many) return;
       ev.preventDefault();
       ev.stopPropagation();
+      if (wasCut) return;
       if (focused) only(focused);
       else selected.clear();
       return renderTree();
+    }
     case 'ArrowDown': next = Math.min(i + 1, visible.length - 1); break;
     case 'ArrowUp': next = i < 0 ? 0 : Math.max(i - 1, 0); break;
     case 'Home': next = 0; break;
@@ -767,6 +779,98 @@ async function deleteMany(paths: string[]) {
   refreshTree();
 }
 
+// ---- cut, copy, paste, duplicate ----
+
+const isCut = (p: string) => !!clip?.cut && clip.paths.some((c) => within(p, c));
+const count = (n: number) => `${n} item${n === 1 ? '' : 's'}`;
+
+function clipChanged() {
+  renderTree();
+  repaintFolder();
+}
+
+// setClip is Cut or Copy. The fixed top-level folders can't be cut.
+function setClip(paths: string[], cut: boolean) {
+  const all = roots(paths);
+  const take = cut ? all.filter((p) => !AREAS.includes(p)) : all;
+  if (!take.length) return toast(`${all[0]}/ stays where it is`);
+  clip = { paths: take, cut };
+  clipChanged();
+  toast(`${cut ? 'Cut' : 'Copied'} ${count(take.length)}` + (take.length < all.length ? `. ${all.find((p) => AREAS.includes(p))}/ stays where it is.` : ''));
+}
+
+// cancelCut lets go of a cut (Esc); false if there was none.
+function cancelCut() {
+  if (!clip?.cut) return false;
+  clip = null;
+  clipChanged();
+  return true;
+}
+
+// paste puts what was cut or copied into dir: a cut moves (once), a copy can be pasted again.
+async function paste(dir: string) {
+  if (!clip) return;
+  const { cut } = clip;
+  const have = new Set(entries.map((e) => e.path));
+  const paths = clip.paths.filter((p) => have.has(p));
+  if (!paths.length) {
+    clip = null;
+    return toast(`What you ${cut ? 'cut' : 'copied'} isn’t there any more`);
+  }
+  if (!cut) return copyMany(paths, dir);
+  const into = paths.find((p) => within(dir, p));
+  if (into) return toast(`${baseName(into)} can’t move into itself`);
+  await moveMany(paths, dir);
+  // Moved: the cut is spent. Refused (a name taken there), it is still cut.
+  const left = new Set(entries.map((e) => e.path));
+  if (!paths.some((p) => left.has(p))) clip = null;
+  clipChanged();
+}
+
+// copyMany copies files and folders into dir; a name taken there becomes "name copy". A big
+// copy asks first, since it takes that much of the hub's disk again. The copies end up
+// selected.
+async function copyMany(paths: string[], dir: string) {
+  const from = roots(paths);
+  const isDir = new Map(entries.map((e) => [e.path, e.dir]));
+  const into = from.find((p) => isDir.get(p) && within(dir, p));
+  if (into) return toast(`${baseName(into)} can’t be copied into itself`);
+  const inside = entries.filter((e) => !e.dir && from.some((p) => within(e.path, p)));
+  const size = inside.reduce((n, e) => n + e.size, 0);
+  if (size > 100 * 2 ** 20 && !await ask({
+    title: `Copy ${bytes(size)}?`,
+    body: `That is ${inside.length} file${inside.length === 1 ? '' : 's'}. The copy takes that much room on the hub’s disk again.`, confirm: 'Copy',
+  })) return;
+  const r = await req('POST', '/api/batch/copy', JSON.stringify({ from, to: dir }));
+  if (!r.ok) return toastError(`Couldn’t copy: ${(await r.json().catch(() => ({}))).error ?? r.status}.`);
+  const made = (await json<{ paths: string[] }>(r)).paths;
+  if (dir) {
+    expandParents(dir);
+    setExpanded(dir, true);
+  }
+  await refreshTree();
+  focused = anchor = made[0];
+  selected = new Set(made);
+  renderTree();
+  if (mainMode === 'folder') pickInFolder(made);
+  toast(made.length === 1 ? `Copied to ${made[0]}` : `Copied ${count(made.length)} to ${dir ? dir + '/' : 'Files'}`);
+}
+
+// duplicate copies each beside its original.
+async function duplicate(paths: string[]) {
+  const all = roots(paths);
+  for (const dir of new Set(all.map(dirName))) await copyMany(all.filter((p) => dirName(p) === dir), dir);
+}
+
+// The clipboard's part of a right-click menu. Paste is greyed while there's nothing to paste.
+function clipItems(paths: string[], pasteDir: string | null): MenuItem[] {
+  const out: MenuItem[] = [];
+  if (paths.length) out.push(['Cut', () => setClip(paths, true), 'Ctrl+X'], ['Copy', () => setClip(paths, false), 'Ctrl+C']);
+  if (pasteDir !== null) out.push(['Paste', () => paste(pasteDir), 'Ctrl+V', clip ? '' : 'Nothing was cut or copied']);
+  if (paths.length) out.push(['Duplicate', () => duplicate(paths)]);
+  return out;
+}
+
 // manyMenu is the right-click menu for several selected rows or tiles: only what makes
 // sense for more than one.
 function manyMenu(ev: MouseEvent, paths: string[]) {
@@ -777,6 +881,7 @@ function manyMenu(ev: MouseEvent, paths: string[]) {
       a.click();
       a.remove();
     }], null,
+    ...clipItems(paths, null), null,
     ['Delete', () => deleteMany(paths), 'Delete'], null,
     ['Copy Paths', () => copyText(paths.join('\n'))],
   ]);
@@ -795,25 +900,31 @@ function treeMenu(ev: MouseEvent, e: Entry | null, inGrid = false) {
     fn();
   };
   const upload = () => ($('upload-input') as HTMLInputElement).click();
+  // Paste lands in the folder (a file's folder; the top for the empty space).
+  const pasteDir = e ? (e.dir ? e.path : dirName(e.path)) : '';
   let items: MenuItem[];
   if (!e) {
     items = [['New File…', here(newFile)], ['New Folder…', here(newFolder)], ['Upload…', here(upload)], null,
+      ...clipItems([], pasteDir), null,
       ['Collapse Folders', collapseAll]];
   } else if (e.dir) {
     items = [
       ['New File…', here(newFile)], ['New Folder…', here(newFolder)], ['Upload…', here(upload)],
       ['Download as Zip', () => (location.href = `/api/zip/${enc(e.path)}`)], null,
+      ...clipItems([e.path], pasteDir), null,
       ['Rename…', () => startRename(e.path), 'F2'], ['Delete', () => deleteEntry(e), 'Delete'], null,
       ['Copy Path', () => copyText(e.path)],
     ];
   } else {
     items = [
       ['Open', () => openFile(e.path)], ['Download', () => (location.href = fileURL(e.path, '', true))], null,
+      ...clipItems([e.path], pasteDir), null,
       ['Rename…', () => startRename(e.path), 'F2'], ['Delete', () => deleteEntry(e), 'Delete'], null,
       ['Copy Path', () => copyText(e.path)],
     ];
   }
-  if (e && AREAS.includes(e.path)) items = items.filter((it) => !Array.isArray(it) || (it[0] !== 'Rename…' && it[0] !== 'Delete'));
+  // The fixed top-level folders keep their name and place, and are never doubled.
+  if (e && AREAS.includes(e.path)) items = items.filter((it) => !Array.isArray(it) || !['Rename…', 'Delete', 'Cut', 'Duplicate'].includes(it[0]));
   showMenu(ev, items);
 }
 
@@ -1858,6 +1969,14 @@ function setup() {
     }
     dragPaths = [];
   };
+  // Ctrl+V with the tree holding the keys pastes what was cut or copied into the folder of
+  // the row the keys are on (the folder view has its own, in folder.ts).
+  document.addEventListener('paste', (e) => {
+    if (e.defaultPrevented || !clip || typing(e) || document.activeElement !== tree) return;
+    e.preventDefault();
+    const on = entries.find((x) => x.path === focused);
+    paste(on ? (on.dir ? on.path : dirName(on.path)) : '');
+  });
   // A drag that ends anywhere (including the chat box) clears the tree's drag state.
   document.addEventListener('dragend', () => {
     dragPaths = [];
@@ -2021,6 +2140,14 @@ function setup() {
     },
     menuMany: manyMenu,
     removeMany: deleteMany,
+    clip: setClip,
+    paste: (dir) => {
+      const had = !!clip;
+      if (had) paste(dir);
+      return had;
+    },
+    cancelCut,
+    isCut,
     drag: (paths) => (dragPaths = paths),
     canDrop: (dir) => canDrop(dragPaths, dir),
     drop: (dir) => {

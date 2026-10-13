@@ -429,6 +429,16 @@ separate dialogs.
     does (a name taken there stops it and the message names it), into a chat each gets a
     link. Several drag as a small "3 items" label. A folder selected with its own files
     counts once; the fixed top-level folders stay, and the message says so.
+  - **Cut, copy, paste, duplicate** (a file explorer's): Ctrl+X, Ctrl+C and Ctrl+V in the
+    tree and the folder view, and Cut, Copy, Paste and Duplicate in the right-click menus
+    (Paste greyed while there is nothing to paste; the empty space has it too). The clipboard
+    is the hub's own, in this tab: it is not the computer's, so selected text still copies as
+    text and a picture on the computer's clipboard still uploads on Ctrl+V. Paste lands in
+    the folder of the row the keys are on, or the folder the folder view shows. A cut is
+    drawn dimmed until pasted (a move, once) or cancelled with Esc; a copy can be pasted
+    again. Where a copy's name is taken it becomes `name copy.md`, then `name copy 2.md`;
+    Duplicate is a copy beside the original. A copy of more than 100 MB asks first with the
+    size. The copies end up selected. The fixed top-level folders can't be cut or duplicated.
   - **Clicks:** a click opens; only the chevron expands. Plain alphabetical, nothing
     pinned.
 - **Chat rows (Discord):**
@@ -676,9 +686,9 @@ separate dialogs.
 | Where | Keys |
 |---|---|
 | Anywhere | `/` or Ctrl+K: search. Esc: close the menu, popup or dialog on top (one layer per press). Alt+←/→: back and forward |
-| Tree | ↑/↓, Home/End, →/← expand or collapse (then into or out of a folder), Enter, F2 rename, Delete |
+| Tree | ↑/↓, Home/End, →/← expand or collapse (then into or out of a folder), Enter, F2 rename, Delete. Ctrl+click, Shift+click and Shift+↑/↓ select several, Ctrl+A all. Ctrl+X, Ctrl+C, Ctrl+V cut, copy, paste. Esc cancels a cut, or goes back to one row |
 | Single item | ←/→ previous or next picture or post, Esc back to its folder or the board |
-| Folder view | Esc up one folder, Ctrl+V paste pictures |
+| Folder view | Ctrl+click, Shift+click or a box dragged from empty space pick several, Ctrl+A all, Delete. Ctrl+X, Ctrl+C, Ctrl+V cut, copy, paste (Ctrl+V also pastes pictures). Esc cancels a cut, lets go of the picked, then goes up one folder |
 | Text file | Ctrl+S save, Ctrl+wheel zoom |
 | Composer | Enter, Shift+Enter, ↑ edit last, Esc cancel reply, Ctrl+B / Ctrl+I / Ctrl+U bold, italic, underline (also while editing a message) |
 | Popups | ↑/↓, Enter/Tab, Esc |

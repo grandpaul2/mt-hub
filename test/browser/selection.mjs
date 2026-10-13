@@ -96,7 +96,7 @@ check('a plain arrow selects one', (await selected()).length, 1);
 await click(row('one.md'));
 await click(row('two.md'), CTRL);
 await rightClick(row('two.md'));
-check('menu for several', [await menu(), await selected()], [['Download as Zip', 'Delete', 'Copy Paths'], ['one.md', 'two.md']]);
+check('menu for several', [await menu(), await selected()], [['Download as Zip', 'Cut', 'Copy', 'Duplicate', 'Delete', 'Copy Paths'], ['one.md', 'two.md']]);
 await ev(`document.addEventListener('click', (e) => { if (e.target.tagName === 'A' && e.target.hasAttribute('download')) { window.__zip = e.target.getAttribute('href'); e.preventDefault(); } }, true)`);
 await menuPick('Download as Zip');
 const zipURL = await ev(`window.__zip`);
@@ -217,7 +217,7 @@ check('a Ctrl box adds', await picked(), [art(1), art(5)]);
 
 // The menu and the Delete key, as in the tree.
 await rightClick(tile(art(5)));
-check('menu for several tiles', await menu(), ['Download as Zip', 'Delete', 'Copy Paths']);
+check('menu for several tiles', await menu(), ['Download as Zip', 'Cut', 'Copy', 'Duplicate', 'Delete', 'Copy Paths']);
 await closeMenu();
 await rightClick(tile(art(2)));
 check('menu on another tile: just that one', [(await menu()).includes('Rename…'), await picked()], [true, [art(2)]]);

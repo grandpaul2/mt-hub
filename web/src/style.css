@@ -950,6 +950,8 @@ body.chat-hidden #chat .pins-btn, body.chat-hidden #chat .files-btn { display: n
    that would take what's being dragged is outlined dashed, like the tree when it would. */
 .folder-grid .shot.picked { background: var(--select); box-shadow: 0 0 0 4px var(--select); outline: 1px solid var(--focus); outline-offset: 4px; }
 .folder-grid .shot.drop-target, .shot-bar button.drop-target { outline: 1px dashed var(--focus); outline-offset: 4px; }
+/* Cut, until it is pasted or the cut is cancelled: dimmed. */
+#tree .row.cut, .folder-grid .shot.cut { opacity: .45; }
 /* The box dragged from empty space to pick tiles. */
 .shot-scroll { position: relative; }
 .pick-box { position: absolute; z-index: 2; background: color-mix(in srgb, var(--focus) 18%, transparent); border: 1px solid var(--focus); pointer-events: none; }

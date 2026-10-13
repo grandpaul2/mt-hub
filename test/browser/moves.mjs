@@ -87,7 +87,7 @@ await settle(900);
 check('blur creates', await exists('docs/blurred.txt'), true);
 await ev(`document.querySelector('.row[data-path="docs"]').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 50, clientY: 100 }))`);
 check('folder menu', await ev(`[...document.querySelectorAll('#menu button span:first-child')].map((s) => s.textContent)`),
-  ['New File…', 'New Folder…', 'Upload…', 'Download as Zip', 'Rename…', 'Delete', 'Copy Path']);
+  ['New File…', 'New Folder…', 'Upload…', 'Download as Zip', 'Cut', 'Copy', 'Paste', 'Duplicate', 'Rename…', 'Delete', 'Copy Path']);
 await shot('menu2');
 
 await done();
