@@ -48,7 +48,8 @@ type Watch = {
   relay: boolean; // a relay stream, not a screen share
   id: string; room: LK.Room | null; // a screen share: the hub's id for it, its LiveKit room
   pc: RTCPeerConnection | null; session: string; // a relay stream: its connection, the hub's id for it (to end it)
-  shown: boolean; // a picture has come at least once
+  shown: boolean; // a picture has come at least once, and kept coming (a relay stream: see prove)
+  proof: number; fail: (() => void) | null; // a relay stream's first picture: the check that more follow, and what to do if not
   live: boolean; // the connection there is now is showing one
   over: boolean; // ended or failed: the panel says why, nothing is connected or will be
   tries: number; again: number; // reconnecting: tries so far, the timer for the next
@@ -385,7 +386,7 @@ function newWatch(name: string, relay: boolean): Watch {
   backByHistory = cameByClick;
   cameByClick = false;
   stopWatching();
-  const w: Watch = { name, relay, id: '', room: null, pc: null, session: '', shown: false, live: false, over: false, tries: 0, again: 0, wait: 0, away: 0 };
+  const w: Watch = { name, relay, id: '', room: null, pc: null, session: '', shown: false, proof: 0, fail: null, live: false, over: false, tries: 0, again: 0, wait: 0, away: 0 };
   watching = w;
   video.srcObject = null;
   video.muted = true; // a screen share has no sound; a relay stream's is set by applySound
@@ -400,6 +401,8 @@ function newWatch(name: string, relay: boolean): Watch {
 // hangUp closes the connection there is; the watch itself goes on (or is ended by the caller).
 function hangUp(w: Watch) {
   clearTimeout(w.wait);
+  clearTimeout(w.proof);
+  w.fail = null;
   const room = w.room;
   w.room = null;
   void room?.disconnect();
@@ -628,9 +631,11 @@ async function connectRelay(w: Watch) {
   // After one has, it is a drop, and the watch reconnects.
   const failed = (text?: string) => {
     if (watching !== w || w.pc !== pc) return;
+    clearTimeout(w.proof);
     if (w.shown) return again(w);
     finish(w, text ?? `${name === user.name ? 'Your' : `${name}’s`} stream can’t be shown in the hub: it needs the OBS setting bframes=0.`, !!text);
   };
+  w.fail = () => failed();
   try {
     pc.addTransceiver('video', { direction: 'recvonly' });
     pc.addTransceiver('audio', { direction: 'recvonly' });
@@ -650,7 +655,7 @@ async function connectRelay(w: Watch) {
       else if (s === 'connected' && w.live) setNote('');
       else if (s === 'disconnected') {
         // It can pass by itself; give it a few seconds before starting over.
-        if (w.live) setNote('Reconnecting…');
+        if (w.live && w.shown) setNote('Reconnecting…');
         setTimeout(() => { if (w.pc === pc && pc.connectionState !== 'connected') failed(); }, 6000);
       }
     };
@@ -679,6 +684,37 @@ async function connectRelay(w: Watch) {
   } catch (e) {
     failed(`Couldn’t connect: ${(e as Error).message}`);
   }
+}
+
+// prove: a relay stream's first picture is not yet a stream that works. The relay lets a
+// frame or two of a stream with B-frames out before it ends the connection, and the browser
+// takes five seconds to notice the end. So a picture counts once more frames have followed
+// it; one that stays frozen for PROOF_MS is the same as one that never came, and gets the
+// same answer (not a reconnect, which would go round for ever).
+const PROOF_FRAMES = 6;
+const PROOF_MS = 4000;
+// decoded is how many video frames a connection has decoded so far (null: the browser doesn't say).
+async function decoded(pc: RTCPeerConnection) {
+  let n: number | null = null;
+  for (const r of (await pc.getStats()).values()) if (r.type === 'inbound-rtp' && r.kind === 'video' && typeof r.framesDecoded === 'number') n = r.framesDecoded;
+  return n;
+}
+function prove(w: Watch) {
+  const pc = w.pc;
+  if (!pc || w.proof) return; // (already counting for this connection)
+  const until = Date.now() + PROOF_MS;
+  let first: number | null = null;
+  const look = async () => {
+    const n = await decoded(pc).catch(() => null);
+    if (watching !== w || w.pc !== pc || w.over) return;
+    w.proof = 0;
+    if (n === null) return void (w.shown = true);
+    first ??= n;
+    if (n - first >= PROOF_FRAMES) return void (w.shown = true);
+    if (Date.now() >= until) return w.fail?.();
+    w.proof = window.setTimeout(() => void look(), 250);
+  };
+  w.proof = window.setTimeout(() => void look(), 250);
 }
 
 // stopWatching hangs up and forgets the watch.
@@ -725,7 +761,9 @@ function buildPanel() {
     if (!w || w.over || !(w.relay ? w.pc : w.room)) return;
     if (w.relay && video.videoWidth <= 2) return;
     clearTimeout(w.wait);
-    w.shown = w.live = true;
+    w.live = true;
+    if (!w.relay) w.shown = true;
+    else if (!w.shown) prove(w);
     w.tries = 0;
     setNote('');
     renderWatchBar();
