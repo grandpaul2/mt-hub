@@ -99,6 +99,10 @@ func (s *Server) renameChannel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	from := r.PathValue("name")
+	if s.linkFixed(from) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": errLinkFixed.Error()})
+		return
+	}
 	if err := s.chat.RenameChannel(from, req.Name, s.author(r).Name); err != nil {
 		chatFail(w, err)
 		return
@@ -116,6 +120,10 @@ func (s *Server) deleteChannel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := r.PathValue("name")
+	if s.linkFixed(name) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": errLinkFixed.Error()})
+		return
+	}
 	meta, _ := s.chat.MetaOf(name)
 	if err := s.chat.DeleteChannel(name); err != nil {
 		chatFail(w, err)

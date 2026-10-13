@@ -10,8 +10,8 @@ cannot break with a Minecraft update.
 ## What it does
 
 - A person shares a window or screen. The browser asks which one, every time (a browser rule).
-- While they share, a LIVE section appears in the sidebar for everyone, with one row per
-  person sharing. Clicking a row plays the stream in the main panel (address `#live=<name>`).
+- While they share, the sidebar's LIVE section has one row per
+  person sharing, for everyone. Clicking a row plays the stream in the main panel (address `#live=<name>`).
   Watching is silent.
 - It ends when the streamer clicks Stop, closes the shared window (the browser ends the capture
   itself), closes or reloads the hub, or loses their connection.
@@ -71,7 +71,7 @@ people who never share or watch.
 
 ### Starting
 
-- CHATS' "+" menu and LIVE's own "+" have **Share Your Screen…**. It is greyed out with a
+- LIVE's "+" shares your screen. It is greyed out with a
   tooltip when 3 streams are running, and hidden in browsers without `getDisplayMedia`
   (phones).
 - The click calls `navigator.mediaDevices.getDisplayMedia` first, straight from the click
@@ -98,12 +98,12 @@ button. Losing the connection toasts "Screen sharing stopped: the connection dro
 
 ### The sidebar
 
-FILES and CHATS are always there. **VOICE** appears only while a voice chat you can see
-exists, and **LIVE** only while anyone is sharing; both sit under CHATS. A LIVE row is a
+FILES, TEXT (the chats), **VOICE** and **LIVE** are always there (since 2026-10-13; VOICE
+and LIVE used to appear only while in use), in that order. A LIVE row is a
 screen icon and the streamer's name; your own row reads "You're sharing your screen", and
 clicking it watches it. Right-click a row: Watch, or Stop Watching on the one you are
 watching; Message; Stop Stream for an admin who
-outranks the streamer. Sections appear and go with the `voice` and `stream` events, without
+outranks the streamer. Rows appear and go with the `voice` and `stream` events, without
 animation.
 
 ### Watching

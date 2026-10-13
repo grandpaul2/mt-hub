@@ -16,8 +16,8 @@ instead of a login) are marked.
 | POST | `/api/screenshots?name=<game file name>&poster=<Minecraft name>` | body = PNG. Saved as `screenshots/<date> <time> <poster>.png` (the poster: a server token's `?poster=`, or the hub account that Minecraft name is linked to; from the page, you), the time from Minecraft's `2026-10-03_21.04.11.png` name (the player's clock), else now; numbered if taken. `{path}`. A server token may post 300 a day |
 | POST | `/api/server-status` | a game server's report, server tokens only, every 10 s: `{players, bots, mspt, mspt_max, mem_used, mem_max}` (the average tick since its last report, and the longest one) (bytes of Java heap). Kept in memory for ten minutes, never stored |
 | GET | `/api/server-status` | for the page's `/serverstatus` command: every server that has a token, `[{name, up, seen, players, bots, mspt, peak, mem_used, mem_max, hist}]`. `up`: reported in the last 30 s; `mspt` and `mem_used` are the last minute's average; `peak` is the longest single tick in the ten minutes; `hist` is `[seconds ago, mspt]` pairs. Survival first |
-| POST | `/api/server-link` | server tokens only: `{player, text}`, a line a player started with `$ ` in game. Posted in `#server-link` under the hub account that Minecraft name is linked to (else the Minecraft name), with `via`: the server's tag (SMP, CMP). 60 a minute per server |
-| GET | `/api/server-link?after=<id>&wait=<seconds>` | server tokens only: `{you, last, messages: [{id, tag, user, text}]}`, the messages in `#server-link` newer than `after` that this server didn't send, as plain one-line text (tag SMP, CMP or HUB), `user` being the Minecraft name linked to that hub account (the hub name if none). With none, the answer waits up to `wait` (30 s at most) for one. Without `after`: just `last`, where to start. The first call makes the chat |
+| POST | `/api/server-link` | server tokens only: `{player, text}`, a line a player started with `$ ` in game. Posted in `#text-link` under the hub account that Minecraft name is linked to (else the Minecraft name), with `via`: the server's tag (SMP, CMP). 60 a minute per server |
+| GET | `/api/server-link?after=<id>&wait=<seconds>` | server tokens only: `{you, last, messages: [{id, tag, user, text}]}`, the messages in `#text-link` newer than `after` that this server didn't send, as plain one-line text (tag SMP, CMP or HUB), `user` being the Minecraft name linked to that hub account (the hub name if none). With none, the answer waits up to `wait` (30 s at most) for one. Without `after`: just `last`, where to start. The first call makes the chat |
 | GET | `/api/users` | `[{name, admin}]`, every account |
 | GET | `/api/admin/users` | admins: every account with last-seen time, roles, ban and tag |
 | POST | `/api/admin/users` | admins: `{name, admin}` makes an account and returns its temporary password, once |
@@ -40,7 +40,7 @@ instead of a login) are marked.
 | GET | `/api/schematics` | every post in `schematics/`, newest first (also open to server tokens) |
 | GET | `/api/channels` | `[{name, last_id}]` |
 | POST | `/api/channels` | `{name}` creates one |
-| PATCH / DELETE | `/api/channels/<name>` | admins: `{name}` renames; delete moves its folder (files posted in it included) to `chat/.deleted/<name>-<time>` |
+| PATCH / DELETE | `/api/channels/<name>` | admins: `{name}` renames; delete moves its folder (files posted in it included) to `chat/.deleted/<name>-<time>`. `400` for `#text-link` on a hub with a game server token: that chat is always there |
 | POST | `/api/channels/<name>/media?name=<file>` | body: a file (any kind, at most 50 MB) posted in the chat; a name already there gets " (2)". `{path}`: `media/<chat>/<file>`, to link |
 | GET | `/api/channels/<name>/media/<file>` | a file posted in the chat; `?download=1` saves it |
 | GET | `/api/channels/<name>/thumb/<file>` | a thumbnail of a picture posted in the chat (as `/api/thumb`) |
@@ -70,7 +70,7 @@ instead of a login) are marked.
 | POST | `/api/streams` | starts your share (one you already have is ended) and returns a LiveKit token that may publish a screen share only |
 | POST | `/api/streams/<id>/watch` | a watch-only token |
 | POST | `/api/streams/<id>/stop` | the streamer, or an admin who outranks them |
-| GET | `/api/streams` | also `relay`: `[{name, started, viewers}]`, the live relay streams, and `relayDelay` (ms the page holds them back) |
+| GET | `/api/streams` | also `relay`: `[{name, started, viewers}]`, the live relay streams, and `relayDelay` (ms the page holds them back); `relayOn`: relay streams are set up |
 | POST | `/api/relay/<name>/watch` | `{sdp}` (a WebRTC offer): passed to the stream relay with the hub's account; returns `{id, sdp}` (the answer). 404 when that person isn't streaming |
 | DELETE | `/api/relay/sessions/<id>` | ends your own watching session on the relay |
 | POST | `/api/voice-lab/log` | a line from the voice lab test page, appended to `voice-lab.jsonl` (size-limited) |

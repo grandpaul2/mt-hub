@@ -1,9 +1,9 @@
 // Voice chats (agreed design: docs/voice/rooms-design.md).
 //
-// No permanent rooms: CHATS' "+" (or VOICE's) starts a voice chat (or a private one, for the
-// people you invite), others click it to join, and it ends when the last person leaves. A
-// voice chat has no name: it's shown under VOICE (there only while there's a voice chat) as
-// the people in it, in the order they joined. You're in one at
+// No permanent rooms: VOICE's "+" starts a voice chat (or a private one, for the people you
+// invite), others click it to join, and it ends when the last person leaves. A voice chat has
+// no name: it's shown under VOICE (always in the sidebar where voice chats are set up) as the
+// people in it, in the order they joined. You're in one at
 // a time; the bar at the bottom of the sidebar has mute, deafen, settings and leave.
 //
 // The hub keeps the list and hands out tokens (internal/server/voice.go); the audio goes
@@ -64,13 +64,13 @@ async function loadVoice() {
   renderBar();
 }
 
-// renderList draws VOICE in the sidebar (its own section, there only while a voice
-// chat is): each voice chat is its people, the first one with the speaker icon, the others
+// renderList draws VOICE in the sidebar (its own section, always there on a hub with voice
+// chats set up): each voice chat is its people, the first one with the speaker icon, the others
 // under it.
 function renderList() {
   const rows = voiceRows();
   $('voice-list').replaceChildren(...rows);
-  $('voice-section').hidden = !rows.length;
+  $('voice-section').hidden = !info.enabled;
 }
 
 function voiceRows(): HTMLElement[] {
@@ -192,11 +192,11 @@ function volumeItem(name: string) {
   return h('div', { class: 'menu-volume' }, h('div', { class: 'label' }, 'User Volume'), h('div', { class: 'line' }, h('div', { class: 'slider' }, vol, tick), out));
 }
 
-// The "+" menu's voice entries (chat.ts adds them).
-export function voiceMenuItems(): MenuItem[] {
+// The entries of VOICE's "+" menu.
+function voiceMenuItems(): MenuItem[] {
   if (!info.enabled) return [];
   const full = info.full ? `There are already ${info.max} voice chats.` : undefined;
-  return [null, ['New Voice Chat', () => void start(false, []), undefined, full],
+  return [['New Voice Chat', () => void start(false, []), undefined, full],
     ['New Private Voice Chat…', () => startPrivate(), undefined, full]];
 }
 
@@ -726,7 +726,7 @@ export async function openSettings() {
 export function setupVoice(events: Live) {
   document.body.append(audioBox);
   $('side-foot').prepend(bar);
-  $('new-voice').onclick = (e) => showMenu(e, voiceMenuItems().filter((x) => x), $('new-voice'));
+  $('new-voice').onclick = (e) => showMenu(e, voiceMenuItems(), $('new-voice'));
   events.addEventListener('voice', () => void loadVoice());
   events.addEventListener('open', () => void loadVoice());
   void loadVoice();

@@ -76,6 +76,7 @@ func New(us *auth.Store, ws *workspace.Workspace, cs *chat.Store, ls *preview.St
 	s.statusRoutes()
 	s.linkPosts = newLimiter(linkPerMin, time.Minute)
 	s.linkRoutes()
+	s.linkSetup()
 
 	s.mux.HandleFunc("GET /api/tree", s.tree)
 	s.mux.HandleFunc("GET /api/stat/{path...}", s.stat)

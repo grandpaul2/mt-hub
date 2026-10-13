@@ -8,8 +8,6 @@ import { maskCode, renderMarkdown, stripMarkdown, withoutCode } from './markdown
 import { emojiImg, emojiPicker as pickerContent } from './emoji';
 import { autocomplete } from './autocomplete';
 import { commandIn, type Command } from './commands';
-import { voiceMenuItems } from './voice';
-import { streamMenuItems } from './stream';
 import { dingFor, setupDing } from './ding';
 import { $, accounts, ask, bytes, opTag, tagOf, dateTime, fullDate, GLYPH, time, closeDialog, copyText, dialog, enc, h, isAdmin, json, labels, load, req, showMenu, store, toast, toastError, user, type MenuItem, type Live, thumbOr } from './util';
 import { iconURL } from './icons';
@@ -67,7 +65,7 @@ let chanError = '';
 let chanFocus = false;
 
 // The server link (internal/server/link.go): this chat is shared with game chat on our servers.
-const LINK_CHAT = 'server-link';
+const LINK_CHAT = 'text-link';
 const SERVER_NAMES: Record<string, string> = { SMP: 'Survival', CMP: 'Creative' };
 
 class ChatView {
@@ -896,7 +894,7 @@ export function setupChat(events: Live, h_: Hooks) {
   // your screen (VOICE and LIVE only show while in use, so they start here too).
   $('new-channel').onclick = (e) => {
     showMenu(e, [['New Chat', newChannel], ...(isAdmin(user.name) ? [['New Private Chat…', newPrivateChat]] as MenuItem[] : []),
-      ['New Direct Message…', newDM], ...voiceMenuItems(), ...streamMenuItems()], $('new-channel'));
+      ['New Direct Message…', newDM]], $('new-channel'));
   };
 
   const views = () => [side, main];
@@ -1506,7 +1504,8 @@ function chanMenu(e: MouseEvent, name: string, unread: boolean) {
     items.push(null, ...(kind === 'private'
       ? [['Members…', () => editMembers(name)], ['Make Public', () => makePublic(name)]] as MenuItem[]
       : [['Make Private…', () => editMembers(name)]] as MenuItem[]),
-    null, ['Rename…', () => openChanEdit({ kind: 'rename', name })], ['Delete', () => deleteChannel(name)]);
+    // (The chat linked to game chat is always there: no Rename or Delete.)
+    ...(name === LINK_CHAT ? [] : [null, ['Rename…', () => openChanEdit({ kind: 'rename', name })], ['Delete', () => deleteChannel(name)]] as MenuItem[]));
   }
   showMenu(e, items);
 }

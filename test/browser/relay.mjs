@@ -75,7 +75,7 @@ await send('Page.navigate', { url: HUB });
 await until('the page', () => ev(`!!document.getElementById('channels').children.length`));
 await settle(300);
 
-const live = () => ev(`document.getElementById('live-section').hidden ? null : [...document.querySelectorAll('#live-list .row.live')].map((r) => r.dataset.who + (r.classList.contains('relay') ? ' (stream)' : '') + (r.classList.contains('here') ? '*' : ''))`);
+const live = () => ev(`(() => { const rows = [...document.querySelectorAll('#live-list .row.live')].map((r) => r.dataset.who + (r.classList.contains('relay') ? ' (stream)' : '') + (r.classList.contains('here') ? '*' : '')); return rows.length ? rows : null; })()`);
 const panel = () => ev(`document.getElementById('main-live').hidden ? null : { title: document.querySelector('.live-title').textContent, count: document.querySelector('.live-count').textContent, note: document.querySelector('.live-note').hidden ? '' : document.querySelector('.live-note').firstChild?.textContent ?? '' }`);
 const video = () => ev(`(() => { const v = document.querySelector('#main-live video'); return { picture: v.videoWidth > 0 && v.readyState >= 2, muted: v.muted, volume: Math.round(v.volume * 1000) / 1000, sound: v.srcObject?.getAudioTracks().length ?? 0 }; })()`);
 const moving = async () => { const a = await ev(`document.querySelector('#main-live video').currentTime`); await settle(700); return (await ev(`document.querySelector('#main-live video').currentTime`)) > a; };
@@ -88,7 +88,7 @@ const rowMenu = async (who) => { await ev(`(() => { const r = [...document.query
 const sessionIds = async () => (await (await fetch(`http://127.0.0.1:${apiPort}/v3/webrtcsessions/list`, { headers: { Authorization: 'Basic ' + btoa('hub:hub-pass') } })).json()).items.map((x) => x.id);
 const row = (who) => ev(`[...document.querySelectorAll('#live-list .row.relay')].find((r) => r.dataset.who === '${who}').click()`);
 
-check('nobody streaming: no LIVE', [await live(), (await (await api('GET', '/api/streams')).json()).relay], [null, []]);
+check('nobody streaming: LIVE is there, empty', [await live(), await ev(`document.getElementById('live-section').hidden`), (await (await api('GET', '/api/streams')).json()).relay], [null, false, []]);
 
 // Alex starts streaming: within the hub's 5-second check, LIVE has a row with the stream icon.
 const alexFeed = publish('alexcam', 0);

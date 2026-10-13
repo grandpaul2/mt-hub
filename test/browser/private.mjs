@@ -1,4 +1,4 @@
-// Private chats and DMs (backlog item 13; style guide 14): starting a DM from the CHATS
+// Private chats and DMs (backlog item 13; style guide 14): starting a DM from the TEXT
 // "+" menu, its media kept out of Files, who sees what, a private chat with a lock, hiding a
 // DM until its next message, and making a chat public again.
 import { api, as, check, done, ev, HUB, hub, key, send, settle, shot, typeText } from './lib.mjs';
@@ -37,7 +37,7 @@ await tick('Alex');
 await shot('dm-picker');
 await confirmBtn('Message');
 await settle(1200);
-check('DM opens, named by who it’s with, in CHATS after the chats', [await ev(`document.getElementById('main-chat-title').textContent`), await rows('channels')], ['@ Alex', ['#general', '@Alex']]);
+check('DM opens, named by who it’s with, in TEXT after the chats', [await ev(`document.getElementById('main-chat-title').textContent`), await rows('channels')], ['@ Alex', ['#general', '@Alex']]);
 check('who can see it, said at the top', await ev(`document.querySelector('${M} .chat-privacy').textContent.startsWith('Only the people in this conversation')`), true);
 check('placeholder', await ev(`document.querySelector('${M} .compose').placeholder`), 'Message @Alex');
 await ev(`document.querySelector('${M} .compose').focus()`);

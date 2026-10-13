@@ -78,7 +78,7 @@ await alex.send('Page.navigate', { url: HUB });
 await until('both pages', async () => (await ev(`!!document.getElementById('channels').children.length`)) && (await alex.ev(`!!document.getElementById('channels').children.length`)));
 await settle(500);
 
-const live = (evaluate) => evaluate(`document.getElementById('live-section').hidden ? null : [...document.querySelectorAll('#live-list .row.live')].map((r) => r.dataset.who + (r.classList.contains('here') ? '*' : ''))`);
+const live = (evaluate) => evaluate(`(() => { const rows = [...document.querySelectorAll('#live-list .row.live')].map((r) => r.dataset.who + (r.classList.contains('here') ? '*' : '')); return rows.length ? rows : null; })()`);
 const shareBar = (evaluate) => evaluate(`document.getElementById('share-bar').hidden ? null : document.querySelector('#share-bar .muted').textContent`);
 const panel = (evaluate) => evaluate(`document.getElementById('main-live').hidden ? null : { title: document.querySelector('.live-title').textContent, count: document.querySelector('.live-count').textContent, note: document.querySelector('.live-note').hidden ? '' : document.querySelector('.live-note').firstChild?.textContent ?? '' }`);
 const picture = (evaluate) => evaluate(`(() => { const v = document.querySelector('#main-live video'); return !!v && v.videoWidth > 0 && v.readyState >= 2; })()`);
@@ -87,11 +87,13 @@ const pick = (evaluate, label) => evaluate(`[...document.querySelectorAll('#menu
 
 check('nobody sharing: no LIVE', [await live(ev), await live(alex.ev)], [null, null]);
 
-// Paul shares from the + menu.
+// LIVE is in the sidebar with nobody sharing. Paul shares from its +.
+check('LIVE is there, empty, with its +', await ev(`(() => { const s = document.getElementById('live-section'); const b = document.getElementById('new-share'); return [s.hidden, s.querySelector('.side-head span').textContent, b.hidden, b.disabled, b.title]; })()`), [false, 'LIVE', false, false, 'Share your screen']);
 await ev(`document.getElementById('new-channel').click()`);
 await settle(200);
-check('+ menu ends with Share Your Screen…', (await menu(ev)).slice(-1), ['Share Your Screen…']);
-await pick(ev, 'Share Your Screen…');
+check('TEXT’s + does not share screens', (await menu(ev)).includes('Share Your Screen…'), false);
+await ev(`document.getElementById('menu').hidden = true`);
+await ev(`document.getElementById('new-share').click()`);
 await until('Paul sharing', async () => (await shareBar(ev)) !== null, 20000);
 check('Paul’s bar', await shareBar(ev), 'Nobody watching yet');
 await until('Alex sees LIVE', async () => JSON.stringify(await live(alex.ev)) === '["Paul"]', 20000);
@@ -114,7 +116,8 @@ await alex.send('Page.captureScreenshot').then((s) => writeFileSync(join(import.
 await alex.ev(`location.hash = '#chan=general'`);
 await until('Alex in the chat', () => alex.ev(`!document.getElementById('main-chat').hidden`));
 const at = await alex.ev(`document.querySelector('#main-live video').currentTime`);
-await settle(800);
+// (Frames from the fake capture come slowly when every suite runs at once: wait for one.)
+await until('a new frame behind the chat', async () => (await alex.ev(`document.querySelector('#main-live video').currentTime`)) > at, 8000);
 check('behind a chat: the picture keeps coming, a bar says so', [(await alex.ev(`document.querySelector('#main-live video').currentTime`)) > at, await alex.ev(`[...document.querySelectorAll('#watch-bar .share-where span')].map((s) => s.textContent)`), await alex.ev(`document.querySelectorAll('#watch-bar > button').length`)], [true, ['Watching', 'Paul’s screen'], 2]);
 check('Alex still counts', await shareBar(ev), '1 watching');
 await alex.ev(`document.querySelector('#watch-bar .share-where').click()`);
