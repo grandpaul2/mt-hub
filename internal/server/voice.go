@@ -13,6 +13,12 @@ package server
 //
 // voice.json in the data directory holds LiveKit's address and key; without it, voice chats
 // are off.
+//
+// One voice chat is different (docs/voice/svc/hub-link-spec.md): #voice-link, there when
+// voice.json has "link_voice": true. It is always listed, never ends, and is the same room as
+// the Simple Voice Chat group on our game servers. A separate program (cmd/voicebridge) is in
+// its LiveKit room as a listener and as one participant for each player in that group; the
+// hub learns of them as of anyone, from LiveKit, and tells them apart by their identities.
 
 import (
 	"bytes"
@@ -43,15 +49,27 @@ const maxVoiceChats = 3
 const voiceUnusedFor = time.Minute
 
 type voiceConf struct {
-	URL    string `json:"url"` // what browsers connect to (wss://)
-	API    string `json:"api"` // where the hub calls LiveKit's API (https://)
-	Key    string `json:"key"`
-	Secret string `json:"secret"`
+	URL       string `json:"url"` // what browsers connect to (wss://)
+	API       string `json:"api"` // where the hub calls LiveKit's API (https://)
+	Key       string `json:"key"`
+	Secret    string `json:"secret"`
+	LinkVoice bool   `json:"link_voice"` // #voice-link exists (a bridge to the game servers runs beside LiveKit)
 }
 
+// LinkVoiceID is #voice-link's id, and its LiveKit room. The bridge's participants there:
+// its listener, and "link:<server>:<Minecraft name>" for each player. An account name cannot
+// contain ":", so no member's token can pose as one.
+const (
+	LinkVoiceID      = "voice-link"
+	linkVoiceListen  = "link:listener"
+	linkVoicePlayers = "link:"
+)
+
 type voicePerson struct {
-	Name  string    `json:"name"`
+	Name  string    `json:"name"` // their account; for a player in game, the bridge's identity for them
 	Since time.Time `json:"since"`
+	Show  string    `json:"show,omitempty"` // a player in game: their Minecraft name
+	Via   string    `json:"via,omitempty"`  // and their server's tag (SMP, CMP), as in #text-link
 }
 
 type voiceChat struct {
@@ -61,6 +79,45 @@ type voiceChat struct {
 	Invited []string      `json:"invited,omitempty"` // private only; the starter is included
 	People  []voicePerson `json:"people"`            // in the order they joined
 	Started time.Time     `json:"started"`
+	Link    bool          `json:"link,omitempty"`   // #voice-link
+	Linked  bool          `json:"linked,omitempty"` // and the bridge is in it: the game servers hear it
+}
+
+// voicePersonFor is the list entry for a LiveKit identity: an account, or a player in game.
+func voicePersonFor(identity string, since time.Time) voicePerson {
+	p := voicePerson{Name: identity, Since: since}
+	if rest, ok := strings.CutPrefix(identity, linkVoicePlayers); ok {
+		if server, name, ok := strings.Cut(rest, ":"); ok {
+			p.Show, p.Via = name, linkTag(server)
+		}
+	}
+	return p
+}
+
+// linkVoice keeps #voice-link there while voice.json asks for it, and takes it away when it
+// stops. Called with mu held; says whether anything changed.
+func (v *voice) linkVoice(conf *voiceConf) bool {
+	vc, there := v.chats[LinkVoiceID]
+	want := conf != nil && conf.LinkVoice
+	switch {
+	case want && !there:
+		v.chats[LinkVoiceID] = &voiceChat{ID: LinkVoiceID, Link: true, People: []voicePerson{}}
+	case !want && there && vc.Link:
+		delete(v.chats, LinkVoiceID)
+	default:
+		return false
+	}
+	v.save()
+	return true
+}
+
+// started is how many voice chats people have started: the limit does not count #voice-link.
+func (v *voice) started() int {
+	n := len(v.chats)
+	if vc := v.chats[LinkVoiceID]; vc != nil && vc.Link {
+		n--
+	}
+	return n
 }
 
 type voice struct {
@@ -150,18 +207,20 @@ func (s *Server) voiceChanged() { s.bus.publish("voice", struct{}{}) }
 
 func (s *Server) voiceList(w http.ResponseWriter, r *http.Request) {
 	me := who(r).Name
+	conf := s.voice.config()
 	s.voice.mu.Lock()
 	defer s.voice.mu.Unlock()
+	s.voice.linkVoice(conf)
 	out := []*voiceChat{}
 	for _, vc := range s.voice.chats {
 		if vc.sees(me) {
 			out = append(out, vc)
 		}
 	}
+	// (#voice-link's start is the zero time: first.)
 	slices.SortFunc(out, func(a, b *voiceChat) int { return a.Started.Compare(b.Started) })
-	conf := s.voice.config()
-	// full counts every voice chat, including private ones this person can't see.
-	resp := map[string]any{"enabled": conf != nil, "chats": out, "max": maxVoiceChats, "full": len(s.voice.chats) >= maxVoiceChats}
+	// full counts every voice chat people started, including private ones this person can't see.
+	resp := map[string]any{"enabled": conf != nil, "chats": out, "max": maxVoiceChats, "full": s.voice.started() >= maxVoiceChats}
 	if conf != nil {
 		resp["url"] = conf.URL
 	}
@@ -201,7 +260,7 @@ func (s *Server) voiceStart(w http.ResponseWriter, r *http.Request) {
 			delete(s.voice.chats, id)
 		}
 	}
-	if len(s.voice.chats) >= maxVoiceChats {
+	if s.voice.started() >= maxVoiceChats {
 		s.voice.save()
 		s.voice.mu.Unlock()
 		writeJSON(w, http.StatusConflict, map[string]string{"error": fmt.Sprintf("There are already %d voice chats. Join one of them.", maxVoiceChats)})
@@ -215,7 +274,9 @@ func (s *Server) voiceStart(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) voiceJoin(w http.ResponseWriter, r *http.Request) {
 	id, me := r.PathValue("id"), who(r).Name
+	conf := s.voice.config()
 	s.voice.mu.Lock()
+	s.voice.linkVoice(conf)
 	vc, ok := s.voice.chats[id]
 	ok = ok && vc.sees(me)
 	s.voice.mu.Unlock()
@@ -355,12 +416,38 @@ func (s *Server) voiceInvite(w http.ResponseWriter, r *http.Request) {
 // voicePart puts someone in a voice chat (in) or takes them out. Being in one voice chat
 // takes you out of any other. A voice chat nobody is left in ends.
 func (s *Server) voicePart(id, name string, in bool, since time.Time) {
+	conf := s.voice.config()
 	s.voice.mu.Lock()
-	changed := false
+	changed := s.voice.linkVoice(conf)
+	// The bridge's own participants are #voice-link's alone. Its listener is not a person:
+	// it being there is what "linked" means.
+	if strings.HasPrefix(name, linkVoicePlayers) {
+		vc := s.voice.chats[LinkVoiceID]
+		switch {
+		case vc == nil || !vc.Link || id != LinkVoiceID:
+		case name == linkVoiceListen:
+			changed = changed || vc.Linked != in
+			vc.Linked = in
+		case in && !vc.has(name):
+			vc.People = append(vc.People, voicePersonFor(name, since))
+			changed = true
+		case !in && vc.has(name):
+			vc.People = slices.DeleteFunc(vc.People, func(p voicePerson) bool { return p.Name == name })
+			changed = true
+		}
+		if changed {
+			s.voice.save()
+		}
+		s.voice.mu.Unlock()
+		if changed {
+			s.voiceChanged()
+		}
+		return
+	}
 	for cid, vc := range s.voice.chats {
 		if cid == id && in {
 			if !vc.has(name) {
-				vc.People = append(vc.People, voicePerson{name, since})
+				vc.People = append(vc.People, voicePerson{Name: name, Since: since})
 				changed = true
 			}
 			continue
@@ -368,7 +455,7 @@ func (s *Server) voicePart(id, name string, in bool, since time.Time) {
 		if (cid == id || in) && vc.has(name) {
 			vc.People = slices.DeleteFunc(vc.People, func(p voicePerson) bool { return p.Name == name })
 			changed = true
-			if len(vc.People) == 0 {
+			if len(vc.People) == 0 && !vc.Link {
 				delete(s.voice.chats, cid)
 			}
 		}
@@ -461,10 +548,17 @@ func (s *Server) voiceWebhook(w http.ResponseWriter, r *http.Request) {
 	case "participant_left":
 		s.voicePart(ev.Room.Name, ev.Participant.Identity, false, time.Time{})
 	case "room_finished":
-		// LiveKit closed the room (everyone gone): the voice chat is over.
+		// LiveKit closed the room (everyone gone): the voice chat is over. (#voice-link is
+		// only empty.)
 		s.voice.mu.Lock()
-		_, ok := s.voice.chats[ev.Room.Name]
-		if ok {
+		vc, ok := s.voice.chats[ev.Room.Name]
+		if ok && vc.Link {
+			ok = len(vc.People) > 0 || vc.Linked
+			vc.People, vc.Linked = []voicePerson{}, false
+			if ok {
+				s.voice.save()
+			}
+		} else if ok {
 			delete(s.voice.chats, ev.Room.Name)
 			s.voice.save()
 		}
@@ -527,6 +621,9 @@ func (s *Server) voiceCheckOnce() {
 		return
 	}
 	s.voice.mu.Lock()
+	if s.voice.linkVoice(conf) {
+		defer s.voiceChanged()
+	}
 	ids := make([]string, 0, len(s.voice.chats))
 	for id := range s.voice.chats {
 		ids = append(ids, id)
@@ -539,7 +636,11 @@ func (s *Server) voiceCheckOnce() {
 			continue
 		}
 		// Banned or deleted (however it was done: the Admin page, ssh, users.json): out.
+		// (The bridge's participants in #voice-link are not accounts, and stay.)
 		people = slices.DeleteFunc(people, func(p voicePerson) bool {
+			if id == LinkVoiceID && strings.HasPrefix(p.Name, linkVoicePlayers) {
+				return false
+			}
 			if u, ok := s.users.Get(p.Name); ok && !u.Banned {
 				return false
 			}
@@ -562,7 +663,12 @@ func (s *Server) voiceSync(id string, live []voicePerson) {
 		s.voice.mu.Unlock()
 		return
 	}
-	before, _ := json.Marshal(vc.People)
+	before, _ := json.Marshal(vc)
+	if vc.Link {
+		// The bridge's listener is not a person: it being there is what "linked" means.
+		vc.Linked = slices.ContainsFunc(live, func(l voicePerson) bool { return l.Name == linkVoiceListen })
+		live = slices.DeleteFunc(slices.Clone(live), func(l voicePerson) bool { return l.Name == linkVoiceListen })
+	}
 	kept := slices.DeleteFunc(slices.Clone(vc.People), func(p voicePerson) bool {
 		return !slices.ContainsFunc(live, func(l voicePerson) bool { return l.Name == p.Name })
 	})
@@ -572,8 +678,8 @@ func (s *Server) voiceSync(id string, live []voicePerson) {
 		}
 	}
 	vc.People = kept
-	after, _ := json.Marshal(vc.People)
-	ended := len(vc.People) == 0 && time.Since(vc.Started) > voiceUnusedFor
+	after, _ := json.Marshal(vc)
+	ended := len(vc.People) == 0 && time.Since(vc.Started) > voiceUnusedFor && !vc.Link
 	if ended {
 		delete(s.voice.chats, id)
 	}
@@ -639,7 +745,7 @@ func (c *voiceConf) participants(id string) ([]voicePerson, error) {
 		if at == nil {
 			at = p.JoinedA2
 		}
-		people = append(people, voicePerson{p.Identity, unixTime(at)})
+		people = append(people, voicePersonFor(p.Identity, unixTime(at)))
 	}
 	slices.SortStableFunc(people, func(a, b voicePerson) int { return a.Since.Compare(b.Since) })
 	return people, nil

@@ -1,8 +1,8 @@
 package server
 
 import (
-	"log"
 	"errors"
+	"log"
 	"net/http"
 	"path"
 	"regexp"

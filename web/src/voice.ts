@@ -27,8 +27,11 @@ const BASE = '/voice/'; // the filter files (build.mjs)
 const RATE = 48000;
 const HOLD_BACK = 0.15; // seconds; see docs/voice/README.md on the delay budget
 
-type Person = { name: string; since: string };
-type VoiceChat = { id: string; private?: boolean; starter: string; invited?: string[]; people: Person[] };
+// (show and via: a player in game, in #voice-link: their Minecraft name and server tag; name is
+// then the bridge's identity for them, which is also who their sound comes from.)
+type Person = { name: string; since: string; show?: string; via?: string };
+// (link: #voice-link, always there; linked: the bridge to the game servers is in it.)
+type VoiceChat = { id: string; private?: boolean; starter: string; invited?: string[]; people: Person[]; link?: boolean; linked?: boolean };
 type Settings = { mic: string; level: number; speaker: string; outVol: number; filter: 'dfn3' | 'rnnoise' | 'off'; sensitivity: number; echo: boolean; gain: boolean; sfx: boolean; sfxVol: number };
 
 let info: { enabled: boolean; url: string; max: number; full: boolean; chats: VoiceChat[] } = { enabled: false, url: '', max: 3, full: false, chats: [] };
@@ -78,6 +81,10 @@ function renderList() {
 function voiceRows(): HTMLElement[] {
   const rows: HTMLElement[] = [];
   for (const c of info.chats) {
+    if (c.link) {
+      rows.push(...linkRows(c));
+      continue;
+    }
     const people = c.people.map((p) => p.name);
     if (!people.length && !(cur?.id === c.id || joining === c.id)) continue; // started, nobody in yet
     if (!people.length) people.push(user.name);
@@ -102,6 +109,42 @@ function voiceRows(): HTMLElement[] {
       };
       rows.push(row);
     });
+  }
+  return rows;
+}
+
+// linkRows is #voice-link (docs/voice/svc/hub-link-spec.md): the one voice chat with a name,
+// always listed. Under it, everyone in it: members, and the players in the group in game
+// with their server's tag. They hear each other.
+function linkRows(c: VoiceChat): HTMLElement[] {
+  const here = cur?.id === c.id;
+  const menu = (e: MouseEvent, more: MenuItem[] = []) => {
+    e.preventDefault();
+    showMenu(e, [here ? ['Leave', () => void leave(true)] : ['Join', () => void join(c.id)], ...more]);
+  };
+  const head = h('div', { class: 'row channel voice link' + (here ? ' here' : ''), title: here ? 'You’re in this voice chat' : 'Join: the hub and the voice-link group in game hear each other' },
+    h('span', { class: 'hash', innerHTML: CHAT_ICON.link }), h('span', { class: 'name' }, 'voice-link'));
+  head.dataset.voice = c.id;
+  head.onclick = () => void join(c.id);
+  head.oncontextmenu = (e) => menu(e);
+  const rows = [head];
+  if (!c.linked) rows.push(h('div', { class: 'voice-note' }, 'Not connected to the game servers'));
+  const people = [...c.people];
+  if ((here || joining === c.id) && !people.some((p) => p.name === user.name)) people.push({ name: user.name, since: '' });
+  for (const p of people) {
+    const row = h('div', {
+      class: 'row channel voice voice-more' + (here ? ' here' : '') + (speaking.has(p.name) ? ' speaking' : ''),
+      title: p.via ? `${p.show} is in the voice-link group in game` : here ? 'You’re in this voice chat' : 'Join this voice chat',
+    },
+    h('span', { class: 'hash' }), h('span', { class: 'name' }, p.show ?? p.name),
+    ...(p.via ? [h('span', { class: 'tag via' }, p.via)] : []));
+    row.dataset.voice = c.id;
+    row.dataset.who = p.name;
+    row.onclick = () => void join(c.id);
+    // A player is not a hub account here: their volume for you, nothing else.
+    row.oncontextmenu = (e) => menu(e, p.name === user.name ? [] : !p.via ? personItems(c.id, p.name, here)
+      : here ? [null, volumeItem(p.name), [pref(p.name).muted ? 'Unmute' : 'Mute', () => setPref(p.name, { muted: !pref(p.name).muted })]] : []);
+    rows.push(row);
   }
   return rows;
 }
@@ -355,7 +398,7 @@ function renderBar() {
   bar.hidden = !cur;
   if (!cur) return;
   const c = info.chats.find((x) => x.id === cur!.id);
-  const top = c?.people[0]?.name ?? user.name;
+  const top = c?.link ? 'voice-link' : c?.people[0]?.name ?? user.name;
   const btn = (title: string, icon: string, on: () => void, cls = '') => {
     const b = h('button', { class: 'tool ' + cls, title, innerHTML: icon });
     b.onclick = on;

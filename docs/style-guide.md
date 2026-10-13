@@ -413,6 +413,9 @@ separate dialogs.
   - **Private chats** show a lock; DMs are listed by their people (see 14).
 - **Sidebar sections:** an uppercase 12 px head (FILES, TEXT, VOICE, LIVE), with its
   "+"-style icon buttons on the right.
+- **#voice-link** (VOICE's first row, where set up): a link icon and its name; under it,
+  indented, everyone in it, a player in game with their server's tag as in `#text-link`; a
+  muted 12 px line "Not connected to the game servers" under the name while that is so.
 - **LIVE:** one row per person sharing, a screen icon and their name, styled like the
   voice chat rows; your own reads brighter. Watching is silent: the picture fills the main
   panel, letterboxed in black, with Full screen and Stop watching in its head. Full screen

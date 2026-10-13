@@ -9,6 +9,15 @@ one is seen only by the people invited, not even admins. At most 3 at once. The 
 [`voice/rooms-design.md`](voice/rooms-design.md), with the research and the voice lab's
 results beside it.
 
+**#voice-link** is the one exception ([`voice/svc/hub-link-spec.md`](voice/svc/hub-link-spec.md)):
+a voice chat with a name, always listed first, that never ends and is not one of the 3. It is
+the same room as the Simple Voice Chat group on the game servers. It is there when
+`voice.json` has `"link_voice": true`, which is for a hub that runs `cmd/voicebridge` beside
+LiveKit and the voicelink relay. The bridge is in the LiveKit room as `link:listener` and as
+`link:<server>:<Minecraft name>` for each player in the group; the hub lists those as players
+with their server's tag, shows "Not connected to the game servers" while the listener is not
+there, and never treats them as accounts.
+
 - **Audio:** a LiveKit server (the hub is tested against 1.13.7), reached through the same
   reverse proxy:
   `/rtc` for browsers and `/twirp` for the hub's API calls.
@@ -18,8 +27,8 @@ results beside it.
   and left; every 20 seconds the hub also asks LiveKit, in case one went missing.
 - **`<data>/voice.json`** holds LiveKit's addresses, key and secret (the same as in LiveKit's
   own config). Without it voice chats are off; edits take effect without a restart.
-- **In the page** (`voice.ts`): mic with no browser processing (Firefox's echo cancelling chops
-  up voices on headphones) → level → DeepFilterNet3 (or RNNoise, or off) → 150 ms hold-back →
+- **In the page** (`voice.ts`): mic with the browser's automatic gain on (Automatic level) and
+  no other browser processing (Firefox's echo cancelling chops up voices on headphones) → level → DeepFilterNet3 (or RNNoise, or off) → 150 ms hold-back →
   the Silero speech gate (`vad.worker.ts`) → LiveKit. Settings are per browser.
 - **Tests:** `TestVoice` (rules, privacy, webhooks, restart) and the `voice` browser suite,
   which runs a local LiveKit (`fetched/livekit-server`, downloaded on first run; see

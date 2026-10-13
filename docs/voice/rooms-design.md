@@ -11,7 +11,10 @@ The audio choices come from the research and the lab (`README.md` in this folder
 
 ## What people see
 
-- **No permanent rooms.** VOICE's "+" menu has **New Voice Chat** and **New Private Voice
+- **One permanent room, #voice-link**, on a hub joined to game servers
+  (`svc/hub-link-spec.md`): listed first by its name with a link icon, everyone in it under
+  it, players in game with their server's tag. Everything below is about the others.
+- **No other permanent rooms.** VOICE's "+" menu has **New Voice Chat** and **New Private Voice
   Chat…**; the second uses the same member picker as private chats. (Until 2026-10-13 they
   were in the chats' "+" menu, because VOICE was only in the sidebar while in use.)
 - **A voice chat has no name.** It's the list of people in it, in join order, shown under

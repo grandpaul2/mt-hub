@@ -1404,6 +1404,11 @@ h3.md-h { font-size: 15px; }
 /* What you're watching while something else is open: an outline, so only one row is grey. */
 .row.channel.live.playing { box-shadow: inset 0 0 0 1px var(--border-hi); }
 .row.channel.voice-more { height: 26px; margin-top: 0; font-size: 14px; }
+/* #voice-link: its name on the first row, everyone under it; a note when the bridge to the
+   game servers isn't there. */
+.row.channel.voice.link .hash svg { width: 16px; height: 16px; }
+.row.channel.voice .tag.via { margin-left: 6px; }
+.voice-note { padding: 0 8px 2px 42px; color: var(--muted); font-size: 12px; }
 .row.channel.voice.here .name { color: var(--chat-name); }
 .row.channel.voice.speaking .name { color: var(--ok); }
 .row.channel.voice.speaking .hash svg { color: var(--ok); }
