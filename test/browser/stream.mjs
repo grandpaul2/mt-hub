@@ -130,6 +130,30 @@ await until('Paul sees his own picture', () => picture(ev), 20000);
 check('Paul watches himself', [(await panel(ev))?.title, await picture(ev)], ['Your screen', true]);
 await until('two watching', async () => (await shareBar(ev)) === '2 watching');
 check('two watching', await shareBar(ev), '2 watching');
+// A tag: a line under your name in LIVE saying what the stream is. Yours to add, change and
+// remove from your row's menu; everyone sees it, under the row and in the stream's bar.
+const ownMenu = async (evaluate) => { await evaluate(`(() => { const r = document.querySelector('#live-list .row.live'); const b = r.getBoundingClientRect(); r.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: b.left + 20, clientY: b.top + 5 })); })()`); await settle(200); return menu(evaluate); };
+const chips = (evaluate) => evaluate(`[[...document.querySelectorAll('#live-list .live-tag .live-chip')].map((c) => c.textContent), (() => { const c = document.querySelector('#main-live .live-head .live-chip'); return c && !c.hidden ? c.textContent : null; })()]`);
+check('your own row’s menu has Add Tag…', await ownMenu(ev), ['Stop Watching', '-', 'Add Tag…', '-', 'Stop Sharing']);
+check('someone else’s row has none', (await ownMenu(alex.ev)).filter((i) => i.includes('Tag')), []);
+await alex.ev(`document.getElementById('menu').hidden = true`);
+await pick(ev, 'Add Tag…');
+await settle(300);
+check('a dialog asks for it', [await ev(`document.querySelector('#dialog h2').textContent`), await ev(`document.activeElement === document.querySelector('#dialog input')`), await ev(`document.querySelector('#dialog input').maxLength`)], ['Add tag', true, 40]);
+await ev(`(() => { document.querySelector('#dialog input').value = 'ghast farm,   phase 2'; document.querySelector('#dialog form').requestSubmit(); })()`);
+await until('the tag on Alex’s page', async () => (await chips(alex.ev))[0].length === 1);
+check('the tag shows under the row and in the bar, for both', [await chips(ev), await chips(alex.ev), await ev(`document.getElementById('overlay').hidden`)], [[['ghast farm, phase 2'], 'ghast farm, phase 2'], [['ghast farm, phase 2'], 'ghast farm, phase 2'], true]);
+check('the chip is under the name, in the sidebar’s width', await ev(`(() => { const row = document.querySelector('#live-list .row.live').getBoundingClientRect(); const c = document.querySelector('#live-list .live-chip').getBoundingClientRect(); const side = document.getElementById('side').getBoundingClientRect();
+  return [c.top >= row.bottom, c.left > row.left + 20, c.right <= side.right]; })()`), [true, true, true]);
+check('then the menu has Edit Tag… and Remove Tag', await ownMenu(ev), ['Stop Watching', '-', 'Edit Tag…', 'Remove Tag', '-', 'Stop Sharing']);
+await ev(`document.getElementById('menu').hidden = true`);
+check('41 characters are refused; someone not live can’t have one; a member can’t touch another’s', [
+  (await api('PUT', '/api/streams/tags/Paul', { tag: 'x'.repeat(41) }, 'Paul')).status, (await api('PUT', '/api/streams/tags/Alex', { tag: 'hello' }, 'Alex')).status,
+  (await api('PUT', '/api/streams/tags/Paul', { tag: '' }, 'Alex')).status], [400, 409, 403]);
+await ownMenu(ev);
+await pick(ev, 'Remove Tag');
+await until('the tag gone from Alex’s page', async () => (await chips(alex.ev))[0].length === 0);
+check('Remove Tag takes it away', [await chips(ev), await chips(alex.ev)], [[[], null], [[], null]]);
 await shot('own');
 // Stop watching goes back; the count drops.
 await ev(`[...document.querySelectorAll('#main-live button')].find((b) => b.textContent === 'Stop watching').click()`);
@@ -141,7 +165,7 @@ check('back to one', await shareBar(ev), '1 watching');
 // Paul's right-click on his own row; Alex's on Paul's (a member: no Stop Stream).
 await ev(`(() => { const r = document.querySelector('#live-list .row.live'); const b = r.getBoundingClientRect(); r.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: b.left + 20, clientY: b.top + 5 })); })()`);
 await settle(200);
-check('Paul right-clicks his own', await menu(ev), ['Watch', '-', 'Stop Sharing']);
+check('Paul right-clicks his own', await menu(ev), ['Watch', '-', 'Add Tag…', '-', 'Stop Sharing']);
 await ev(`document.getElementById('menu').hidden = true`);
 await alex.ev(`(() => { const r = document.querySelector('#live-list .row.live'); const b = r.getBoundingClientRect(); r.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: b.left + 20, clientY: b.top + 5 })); })()`);
 await settle(200);

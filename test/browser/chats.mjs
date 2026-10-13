@@ -106,4 +106,17 @@ await ev(`location.hash = '#folder=docs'`);
 await settle(800);
 check('a folder in the main panel: no chat row is marked', [await ev(`document.getElementById('main-folder').hidden`), await openRows()], [false, []]);
 
+// One height for every panel's bar, so the lines under them meet across the three columns:
+// the sidebar's head, the main panel's bar whatever it shows, and the side chat's.
+const barEnds = () => ev(`['#side > .side-head', '#main > :not([hidden]) .chat-head, #main > :not([hidden]) #toolbar, #main > :not([hidden]) .single-bar', '#chat .chat-head'].map((sel) => { const e = [...document.querySelectorAll(sel)].find((x) => x.getClientRects().length); return e ? e.getBoundingClientRect().bottom : null; })`);
+// (In a window wide enough for each bar to be one line; a narrow panel's bar wraps to two.)
+await send('Emulation.setDeviceMetricsOverride', { width: 1800, height: 900, deviceScaleFactor: 1, mobile: false });
+const ends = {};
+for (const hash of ['#chan=general', '#folder=docs', '#docs/guide.md', '#screenshots/2026-09-01 15.00.01 Paul.png', '#schems', '#schem=Build 2']) {
+  await ev(`location.hash = ${JSON.stringify(hash)}`);
+  await settle(900);
+  ends[hash] = await barEnds();
+}
+check('the bars end on one line, whatever the main panel shows', ends, Object.fromEntries(Object.keys(ends).map((k) => [k, [75, 75, 75]])));
+
 await done();

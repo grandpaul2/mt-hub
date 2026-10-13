@@ -119,6 +119,7 @@ func (s *Server) addUser(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Name  string
 		Admin bool
+		MC    string
 	}
 	if !readJSON(w, r, &req) {
 		return
@@ -128,6 +129,18 @@ func (s *Server) addUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := strings.TrimSpace(req.Name)
+	// Their Minecraft name, given with the account: checked first, so a bad one makes nothing.
+	mc := strings.TrimSpace(req.MC)
+	if mc != "" {
+		if err := auth.CheckMC(mc); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		if _, taken := s.users.ByMC(mc); taken {
+			writeJSON(w, http.StatusConflict, map[string]string{"error": auth.ErrMCTaken.Error()})
+			return
+		}
+	}
 	pw, err := s.users.Add(name, req.Admin)
 	if errors.Is(err, auth.ErrExists) || errors.Is(err, auth.ErrRetired) {
 		writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
@@ -137,13 +150,20 @@ func (s *Server) addUser(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
+	if mc != "" {
+		if err := s.users.SetMC(name, mc); err != nil { // (taken in the meantime: the account stands, without it)
+			log.Printf("add %s: Minecraft name: %v", name, err)
+		}
+	}
 	s.logAction(r, "add", name)
 	s.bus.publish("users", struct{}{})
 	writeJSON(w, http.StatusOK, map[string]string{"password": pw})
 }
 
-// changeUser: {"banned": bool} and/or {"admin": bool}, or {"mc": ""} to unlink their Minecraft
-// name (anyone can claim one, so a wrong claim needs an admin). A ban ends their open pages at once.
+// changeUser: {"banned": bool} and/or {"admin": bool}, or {"mc": "Name"} to set their Minecraft
+// name ("" takes it away). Admins set Minecraft names, for the people they may act on and
+// for themselves: screenshots and game chat from that player then go under the hub name. A
+// ban ends their open pages at once.
 func (s *Server) changeUser(w http.ResponseWriter, r *http.Request) {
 	if !s.admin(w, r) {
 		return
@@ -155,22 +175,33 @@ func (s *Server) changeUser(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &req) {
 		return
 	}
-	name, u, ok := s.target(w, r)
-	if !ok {
-		return
+	var name string
+	var u auth.User
+	if own := r.PathValue("name") == who(r).Name && req.MC != nil && req.Banned == nil && req.Admin == nil; own {
+		name = who(r).Name
+		u, _ = s.users.Get(name)
+	} else {
+		var ok bool
+		if name, u, ok = s.target(w, r); !ok {
+			return
+		}
 	}
 	if req.Admin != nil && !who(r).Owner {
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "only the owner can make or remove admins"})
 		return
 	}
-	if req.MC != nil && *req.MC != "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "an admin can only unlink a Minecraft name"})
-		return
+	if req.MC != nil {
+		err := s.users.SetMC(name, *req.MC)
+		if errors.Is(err, auth.ErrMCTaken) {
+			writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
+			return
+		}
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
 	}
 	err := s.users.Change(name, func(u *auth.User) {
-		if req.MC != nil {
-			u.MC = ""
-		}
 		if req.Banned != nil {
 			u.Banned = *req.Banned
 		}
@@ -195,8 +226,8 @@ func (s *Server) changeUser(w http.ResponseWriter, r *http.Request) {
 		s.bus.kick(name)
 		s.logAction(r, map[bool]string{true: "admin", false: "unadmin"}[*req.Admin], name)
 	}
-	if req.MC != nil && u.MC != "" {
-		s.logAction(r, "unlink-mc", name)
+	if req.MC != nil && strings.TrimSpace(*req.MC) != u.MC {
+		s.logAction(r, map[bool]string{true: "unlink-mc", false: "set-mc"}[strings.TrimSpace(*req.MC) == ""], name)
 	}
 	s.bus.publish("users", struct{}{})
 	writeJSON(w, http.StatusOK, map[string]string{})
@@ -254,11 +285,15 @@ func (s *Server) adminLog(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, entries)
 }
 
-// setMC: {"mc"} links your Minecraft name ("" unlinks), so screenshots a server posts for
-// that name go under your hub name.
+// setMC: {"mc"} sets your own Minecraft name ("" takes it away), for admins. Members no longer
+// set theirs: an admin does, in Admin (a page from before that change may still ask).
 func (s *Server) setMC(w http.ResponseWriter, r *http.Request) {
 	var req struct{ MC string }
 	if !readJSON(w, r, &req) {
+		return
+	}
+	if who(r).rank() == 0 {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "An admin sets your Minecraft name: ask one."})
 		return
 	}
 	if err := s.users.SetMC(who(r).Name, req.MC); err != nil {

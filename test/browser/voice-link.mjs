@@ -118,6 +118,12 @@ check('a player’s name lights up while they talk', lit, true);
 await talking;
 await shot('talking');
 await until('Steve’s name unlit', async () => (await rows()).includes('  Steve [SMP]*'), 8000);
+// People read as people: light blurple, a step further in than the voice chat's own name
+// (green while talking); the name voice-link itself is neither.
+check('people under voice-link: blurple and indented; its name is not', await ev(`(() => { const css = (e, p) => getComputedStyle(e)[p]; const head = document.querySelector('#voice-list .row.voice.link');
+  const people = [...document.querySelectorAll('#voice-list .row.voice.voice-more')];
+  return [people.length > 0, people.every((r) => ['rgb(201, 205, 251)', 'rgb(115, 201, 145)'].includes(css(r.querySelector('.name'), 'color'))), css(head.querySelector('.name'), 'color') === 'rgb(201, 205, 251)',
+    people.every((r) => r.querySelector('.name').getBoundingClientRect().left - head.querySelector('.name').getBoundingClientRect().left === 16)]; })()`), [true, true, false, true]);
 check('and goes out when they stop', (await rows()).includes('  Steve [SMP]*'), true);
 
 // A player is not a hub account: their volume for you, and nothing else. Paul's own row: Leave.

@@ -1,6 +1,6 @@
 // The Admin page (a settings dialog, from the menu on your name; style guide 6.8): adding an
 // account; every account as a row (name, role badges, online or last seen) with its actions
-// behind "⋯" (Reset password, Unlink Minecraft name; Ban and Delete in red, each asking for a
+// behind "⋯" (Reset password, Minecraft Name…; Ban and Delete in red, each asking for a
 // second click; a deleted account's name can't be used again); a log
 // of who did what. All admins see the same page; the owner's menus also have Make Admin and,
 // on an admin, Remove Admin. The server enforces who may do what: admins act on members, only
@@ -12,7 +12,7 @@ type LogEntry = { t: string; by: string; action: string; user: string };
 
 const ACTIONS: Record<string, string> = {
   ban: 'banned', unban: 'unbanned', reset: 'reset the password of', delete: 'deleted',
-  add: 'added', admin: 'made admin', unadmin: 'removed admin from', 'unlink-mc': 'unlinked the Minecraft name of',
+  add: 'added', admin: 'made admin', unadmin: 'removed admin from', 'unlink-mc': 'took away the Minecraft name of', 'set-mc': 'set the Minecraft name of',
   'voice-disconnect': 'disconnected {} from a voice chat', 'voice-mute': 'muted {} for everyone in a voice chat',
 };
 // logLine is one entry as words: "Steve banned Alex" ({} puts the name mid-sentence).
@@ -23,11 +23,13 @@ const logLine = (e: LogEntry) => {
 
 let panel: HTMLElement | null = null; // the open page, if any
 let shown: { name: string; password: string } | null = null; // a new password, shown once
+let naming = ''; // whose Minecraft name is being typed in their row, if anyone's
 
 
 export function openAdmin() {
   panel = h('div', { class: 'admin' });
   shown = null;
+  naming = '';
   settingsDialog('Admin', [panel], () => (panel = null));
   render();
 }
@@ -59,14 +61,43 @@ async function render() {
   const who = (u: AdminUser) => h('span', { class: 'who' }, h('span', { class: 'name' }, u.name),
     u.owner || u.admin ? opTag(u.tag) : '',
     u.banned ? h('span', { class: 'tag banned' }, 'banned') : '');
-  const seen = (u: AdminUser) => (u.online ? h('span', { class: 'online' }, ...glyphs('● online')) : u.seen ? `Last seen ${ago(u.seen)}` : 'Never signed in');
+  // Under the name: their Minecraft name (or that there is none yet), then online or last seen.
+  const seen = (u: AdminUser) => h('span', {}, u.mc ? `Minecraft: ${u.mc}` : h('span', { class: 'no-mc' }, 'No Minecraft name'), ' · ',
+    u.online ? h('span', { class: 'online' }, ...glyphs('● online')) : u.seen ? `Last seen ${ago(u.seen)}` : 'Never signed in');
   const reset = (u: AdminUser): MenuItem => ['Reset Password', async () => {
     const out = await act('POST', `${url(u)}/password`);
     if (out) shown = { name: u.name, password: out.password };
     render();
   }, undefined, undefined, { confirm: 'Reset? Click again' }];
-  // Anyone can claim a Minecraft name (screenshots are credited by it), so an admin can undo one.
-  const unlink = (u: AdminUser): MenuItem[] => (u.mc ? [[`Unlink Minecraft Name (${u.mc})`, () => act('PATCH', url(u), { mc: '' }).then(render)]] : []);
+  // Admins give people their Minecraft names (screenshots and game chat from that player then
+  // go under the hub name): the box is typed in the person's row. Enter saves, Esc cancels,
+  // an empty box takes the name away.
+  const mcItem = (u: AdminUser): MenuItem => ['Minecraft Name…', () => {
+    naming = u.name;
+    render();
+  }];
+  const mcBox = (u: AdminUser) => {
+    const box = h('input', { class: 'mc-box', placeholder: 'Minecraft name', spellcheck: false, maxLength: 16, value: u.mc ?? '' });
+    box.setAttribute('aria-label', `Minecraft name for ${u.name}`);
+    box.dataset.esc = '1';
+    const save = h('button', { type: 'submit' }, 'Save');
+    const form = h('form', { class: 'mc-form' }, box, save);
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      if (box.value.trim() !== (u.mc ?? '') && !await act('PATCH', url(u), { mc: box.value.trim() })) return;
+      naming = '';
+      render();
+    };
+    box.onkeydown = (e) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      e.stopPropagation(); // (Esc here closes the box, not Admin)
+      naming = '';
+      render();
+    };
+    queueMicrotask(() => box.isConnected && (box.focus(), box.select()));
+    return form;
+  };
   // more is the "⋯" button that opens a person's actions.
   const more = (u: AdminUser, items: () => MenuItem[]) => {
     const b = h('button', { type: 'button', class: 'icon-btn more', title: `Actions for ${u.name}`, innerHTML: GLYPH.more });
@@ -80,10 +111,12 @@ async function render() {
   // Accounts: members can be acted on here; admins and the owner in the Admins group.
   const name = h('input', { placeholder: 'Name', spellcheck: false, maxLength: 32 });
   name.setAttribute('aria-label', 'New account name');
-  const add = h('form', { class: 'add-user' }, name, h('button', { class: 'primary', type: 'submit' }, 'Add account'));
+  const newMC = h('input', { placeholder: 'Minecraft name', spellcheck: false, maxLength: 16 });
+  newMC.setAttribute('aria-label', 'New account’s Minecraft name');
+  const add = h('form', { class: 'add-user' }, name, newMC, h('button', { class: 'primary', type: 'submit' }, 'Add account'));
   add.onsubmit = async (e) => {
     e.preventDefault();
-    const out = await act('POST', '/api/admin/users', { name: name.value.trim() });
+    const out = await act('POST', '/api/admin/users', { name: name.value.trim(), mc: newMC.value.trim() });
     if (!out) return;
     shown = { name: name.value.trim(), password: out.password };
     render();
@@ -125,7 +158,7 @@ async function render() {
     if (u.name !== user.name && !u.owner && !u.admin) {
       control.push(more(u, () => [
         reset(u),
-        ...unlink(u),
+        mcItem(u),
         ...(user.owner && !u.banned ? [['Make Admin', () => act('PATCH', url(u), { admin: true }).then(render)] as MenuItem] : []),
         null,
         u.banned
@@ -136,11 +169,14 @@ async function render() {
     } else if (u.name !== user.name && u.admin && !u.owner && user.owner) {
       // An admin, for the owner: reset (an admin account someone else got into), or remove
       // admin. To ban or delete an admin, remove admin first.
-      control.push(more(u, () => [reset(u), ...unlink(u), null, ['Remove Admin', () => act('PATCH', url(u), { admin: false }).then(render)]]));
+      control.push(more(u, () => [reset(u), mcItem(u), null, ['Remove Admin', () => act('PATCH', url(u), { admin: false }).then(render)]]));
+    } else if (u.name === user.name || (u.admin && !u.owner)) {
+      // Yourself: only your Minecraft name. (Another admin, for an admin: nothing.)
+      if (u.name === user.name) control.push(more(u, () => [mcItem(u)]));
     }
     // No "⋯": keep its space, so the colour wells line up.
     if (control.length && !control.some((c) => c instanceof HTMLElement && c.classList.contains('more'))) control.push(h('span', { class: 'more-slot' }));
-    const r = row(who(u), seen(u), control);
+    const r = row(who(u), naming === u.name ? mcBox(u) : seen(u), control);
     r.dataset.user = u.name;
     if (u.banned) r.classList.add('is-banned');
     return r;

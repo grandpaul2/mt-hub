@@ -52,6 +52,7 @@ type Server struct {
 	voice     *voice
 	streams   *streams
 	relay     *relay
+	tags      liveTags
 	status    *gameStatus // what the game servers last reported (status.go)
 	linkNew   linkWake    // a new message in #server-link (link.go)
 	linkPosts *limiter    // lines posted to it per game server token

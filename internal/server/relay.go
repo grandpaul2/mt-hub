@@ -78,6 +78,7 @@ type relayStream struct {
 	Name    string    `json:"name"`
 	Started time.Time `json:"started"`
 	Viewers []string  `json:"viewers"`
+	Tag     string    `json:"tag,omitempty"` // their stream tag (livetag.go), filled in for the list
 }
 
 // relaySession is one viewer's connection to the relay, made through the hub.

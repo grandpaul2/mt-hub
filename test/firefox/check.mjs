@@ -215,10 +215,15 @@ for (const [name, hash] of VIEWS) {
     await idle(800);
   }
   if (name === 'minecraft name') {
+    // An admin gives it, in Admin: the box typed in a person's row (the first row with a "⋯").
     await js(`(() => { document.getElementById('user').click();
-      [...document.querySelectorAll('#menu button')].find((b) => b.firstChild.textContent === 'Minecraft Name').click();
-      document.querySelector('#dialog input').value = 'Peggy_jig'; })()`);
-    await shown(name, 'the dialog', `!document.getElementById('overlay').hidden && !!document.querySelector('#dialog h2')`);
+      [...document.querySelectorAll('#menu button')].find((b) => b.firstChild.textContent === 'Admin').click(); })()`);
+    await shown(name, 'Admin', `document.querySelectorAll('.admin section').length > 0`);
+    await js(`document.querySelector('.admin .icon-btn.more').click()`);
+    await shown(name, 'the menu', `!document.getElementById('menu').hidden`);
+    await js(`[...document.querySelectorAll('#menu button')].find((b) => b.firstChild.textContent === 'Minecraft Name…').click()`);
+    await shown(name, 'the box', `!!document.querySelector('.admin .mc-form input')`);
+    await js(`document.querySelector('.admin .mc-form input').value = 'Peggy_jig'`);
     await idle(600);
   }
   // The settings dialogs (style guide 6.8), from the menu on your name.

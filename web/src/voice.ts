@@ -98,7 +98,7 @@ function voiceRows(): HTMLElement[] {
     const here = cur?.id === c.id;
     people.forEach((name, i) => {
       const row = h('div', {
-        class: 'row channel voice' + (i ? ' voice-more' : '') + (here ? ' here' : '') + (speaking.has(name) ? ' speaking' : ''),
+        class: 'row channel voice person' + (i ? ' voice-more' : '') + (here ? ' here' : '') + (speaking.has(name) ? ' speaking' : ''),
         title: here ? 'You’re in this voice chat' : 'Join this voice chat',
       },
       h('span', { class: 'hash', innerHTML: i ? '' : ICON.speaker }),
@@ -140,7 +140,7 @@ function linkRows(c: VoiceChat): HTMLElement[] {
   if ((here || joining === c.id) && !people.some((p) => p.name === user.name)) people.push({ name: user.name, since: '' });
   for (const p of people) {
     const row = h('div', {
-      class: 'row channel voice voice-more' + (here ? ' here' : '') + (speaking.has(p.name) ? ' speaking' : ''),
+      class: 'row channel voice voice-more person in-link' + (here ? ' here' : '') + (speaking.has(p.name) ? ' speaking' : ''),
       title: p.via ? `${p.show} is in the voice-link group in game` : here ? 'You’re in this voice chat' : 'Join this voice chat',
     },
     h('span', { class: 'hash' }), h('span', { class: 'name' }, p.show ?? p.name),

@@ -153,6 +153,7 @@ await until('Paul sees Alex', async () => JSON.stringify(await rows(ev)) === '["
 check('Alex under Paul (Paul’s page)', await rows(ev), ['Paul*', 'Alex*']);
 await until('Paul hears Alex arrive', async () => (await sfx(ev)).at(-1) === 'otherJoin');
 check('sounds: Alex hears his join, Paul hears someone arrive', [(await sfx(alex.ev)).at(-1), (await sfx(ev)).at(-1)], ['join', 'otherJoin']);
+check('people in a voice chat are light blurple (green while talking)', await ev(`[...document.querySelectorAll('#voice-list .row.voice .name')].map((n) => getComputedStyle(n).color).every((c) => ['rgb(201, 205, 251)', 'rgb(115, 201, 145)'].includes(c))`), true);
 check('only the first has the speaker icon', await ev(`[...document.querySelectorAll('#voice-list .row.voice')].map((r) => !!r.querySelector('.hash svg'))`), [true, false]);
 await until('Alex hears Paul', () => alex.ev(`document.querySelectorAll('body > div[hidden] audio').length >= 1`), 15000);
 await until('Paul hears Alex', () => ev(`document.querySelectorAll('body > div[hidden] audio').length >= 1`), 15000);

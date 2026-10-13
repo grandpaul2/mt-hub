@@ -208,12 +208,22 @@ var MCNameRE = regexp.MustCompile(`^[A-Za-z0-9_]{1,16}$`)
 
 var ErrMCTaken = errors.New("another account has that Minecraft name")
 
+// CheckMC says what is wrong with a Minecraft name, if anything.
+func CheckMC(mc string) error {
+	if !MCNameRE.MatchString(mc) || len(mc) < 3 {
+		return errors.New("that isn’t a Minecraft name: 3 to 16 letters, digits and _")
+	}
+	return nil
+}
+
 // SetMC links a Minecraft name to an account, or unlinks with "". A name links to one
 // account at most, whatever its case.
 func (s *Store) SetMC(name, mc string) error {
 	mc = strings.TrimSpace(mc)
-	if mc != "" && (!MCNameRE.MatchString(mc) || len(mc) < 3) {
-		return errors.New("that isn’t a Minecraft name: 3 to 16 letters, digits and _")
+	if mc != "" {
+		if err := CheckMC(mc); err != nil {
+			return err
+		}
 	}
 	return s.update(func(users map[string]User) error {
 		u, ok := users[name]

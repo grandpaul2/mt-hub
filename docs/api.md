@@ -11,7 +11,7 @@ instead of a login) are marked.
 | POST | `/api/logout` | clears it |
 | POST | `/api/logout-all` | Log Out Everywhere: ends all your sessions; this browser gets a new cookie |
 | GET | `/api/me` | `{name, admin}`; with a server token, the server's name and `token: server` |
-| POST | `/api/mc` | `{mc}` links your Minecraft name (`""` unlinks); 400 if taken or not a Minecraft name. `/api/me` shows it as `mc` |
+| POST | `/api/mc` | admins: `{mc}` sets your own Minecraft name (`""` takes it away); 400 if taken or not a Minecraft name; 403 for a member (an admin sets theirs, below). `/api/me` shows it as `mc` |
 | POST | `/api/password` | `{old, new}` (8+ characters): your other sessions end |
 | POST | `/api/screenshots?name=<game file name>&poster=<Minecraft name>` | body = PNG. Saved as `screenshots/<date> <time> <poster>.png` (the poster: a server token's `?poster=`, or the hub account that Minecraft name is linked to; from the page, you), the time from Minecraft's `2026-10-03_21.04.11.png` name (the player's clock), else now; numbered if taken. `{path}`. A server token may post 300 a day |
 | POST | `/api/server-status` | a game server's report, server tokens only, every 10 s: `{players, bots, mspt, mspt_max, mem_used, mem_max}` (the average tick since its last report, and the longest one) (bytes of Java heap). Kept in memory for ten minutes, never stored |
@@ -20,8 +20,8 @@ instead of a login) are marked.
 | GET | `/api/server-link?after=<id>&wait=<seconds>` | server tokens only: `{you, last, messages: [{id, tag, user, text}]}`, the messages in `#text-link` newer than `after` that this server didn't send, as plain one-line text (tag SMP, CMP or HUB), `user` being the Minecraft name linked to that hub account (the hub name if none). With none, the answer waits up to `wait` (30 s at most) for one. Without `after`: just `last`, where to start. The first call makes the chat |
 | GET | `/api/users` | `[{name, admin}]`, every account |
 | GET | `/api/admin/users` | admins: every account with last-seen time, roles, ban and tag |
-| POST | `/api/admin/users` | admins: `{name, admin}` makes an account and returns its temporary password, once |
-| PATCH | `/api/admin/users/<name>` | `{banned?, admin?}` or `{mc: ""}` (unlink a Minecraft name); what you may do to whom is the Admin page's rule (see [`admin.md`](admin.md)) |
+| POST | `/api/admin/users` | admins: `{name, admin, mc?}` makes an account, with its Minecraft name if given (409 if another account has it, and no account is made), and returns its temporary password, once |
+| PATCH | `/api/admin/users/<name>` | `{banned?, admin?}` or `{mc}` (their Minecraft name; `""` takes it away; 409 if another account has it); what you may do to whom is the Admin page's rule (see [`admin.md`](admin.md)), and `{mc}` alone also works on yourself |
 | PUT | `/api/admin/users/<name>/tag` | `{tag}`: an admin's tag colour; your own, or anyone's for the owner |
 | POST | `/api/admin/users/<name>/password` | a new temporary password, returned once; ends their sessions |
 | DELETE | `/api/admin/users/<name>` | removes the account; their messages and files keep the name, which is retired |
@@ -70,6 +70,7 @@ instead of a login) are marked.
 | POST | `/api/streams` | starts your share (one you already have is ended) and returns a LiveKit token that may publish a screen share only |
 | POST | `/api/streams/<id>/watch` | a watch-only token |
 | POST | `/api/streams/<id>/stop` | the streamer, or an admin who outranks them |
+| PUT | `/api/streams/tags/<name>` | `{tag}`: the line under your name in LIVE while you share or stream (40 characters at most, 400; 409 when you have nothing live); `""` takes it away, which an admin may do to anyone's. Each entry of `streams` and `relay` carries its person's `tag`. It goes a minute after their stream ends |
 | GET | `/api/streams` | also `relay`: `[{name, started, viewers}]`, the live relay streams, and `relayDelay` (ms the page holds them back); `relayOn`: relay streams are set up |
 | POST | `/api/relay/<name>/watch` | `{sdp}` (a WebRTC offer): passed to the stream relay with the hub's account; returns `{id, sdp}` (the answer). 404 when that person isn't streaming |
 | DELETE | `/api/relay/sessions/<id>` | ends your own watching session on the relay |

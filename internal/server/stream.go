@@ -90,6 +90,8 @@ func (s *Server) streamRoutes() {
 	s.mux.HandleFunc("POST /api/streams", s.streamStart)
 	s.mux.HandleFunc("POST /api/streams/{id}/watch", s.streamWatch)
 	s.mux.HandleFunc("POST /api/streams/{id}/stop", s.streamStop)
+	s.mux.HandleFunc("PUT /api/streams/tags/{name}", s.streamTag)
+	go s.tagSweep()
 	go s.streamCheck()
 }
 
@@ -98,15 +100,24 @@ func (s *Server) streamChanged() { s.bus.publish("stream", struct{}{}) }
 
 func (s *Server) streamList(w http.ResponseWriter, r *http.Request) {
 	relayed, delay := s.relayList() // streams sent to the stream relay with OBS (relay.go)
+	tags := s.tags.sweep(s.liveNow(), time.Now())
+	for i := range relayed {
+		relayed[i].Tag = tags[relayed[i].Name]
+	}
 	s.streams.mu.Lock()
 	defer s.streams.mu.Unlock()
-	out := []*stream{}
+	// (tagged: a stream with its person's tag, livetag.go; the kept record has none.)
+	type tagged struct {
+		*stream
+		Tag string `json:"tag,omitempty"`
+	}
+	out := []tagged{}
 	for _, x := range s.streams.all {
 		if x.Live {
-			out = append(out, x)
+			out = append(out, tagged{x, tags[x.Name]})
 		}
 	}
-	slices.SortFunc(out, func(a, b *stream) int { return a.Started.Compare(b.Started) })
+	slices.SortFunc(out, func(a, b tagged) int { return a.Started.Compare(b.Started) })
 	resp := map[string]any{"enabled": s.voice.config() != nil, "streams": out, "max": maxStreams, "full": s.streamsFull(who(r).Name)}
 	resp["relay"], resp["relayDelay"] = relayed, delay
 	resp["relayOn"] = s.relay.config() != nil // (relay streams are set up: LIVE is in the sidebar)
