@@ -256,3 +256,41 @@ func TestZipAll(t *testing.T) {
 		t.Fatalf("missing: %v, %d bytes written", err, buf.Len())
 	}
 }
+
+// A folder goes only when someone deletes it: deleting the last thing in it, one at a time
+// or several at once, in git or outside it, leaves the folder (empty) in the tree.
+func TestDeleteLeavesTheFolder(t *testing.T) {
+	w, _ := Open(t.TempDir())
+	paul := Author{"paul"}
+	for _, p := range []string{"one/a.md", "many/a.md", "many/b.md", "outer/inner/a.md", "large/pack/w.zip", "large/packs/a.zip", "large/packs/b.zip"} {
+		w.Write(p, []byte(p), "", paul)
+	}
+	if err := w.Delete("one/a.md", mustRev(t, w, "one/a.md"), paul); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.DeleteAll([]string{"many/a.md", "many/b.md", "large/packs/a.zip", "large/packs/b.zip"}, paul); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.DeleteDir("outer/inner", paul); err != nil {
+		t.Fatal(err)
+	}
+	_, rev, _ := w.Stat("large/pack/w.zip")
+	if err := w.Delete("large/pack/w.zip", rev, paul); err != nil {
+		t.Fatal(err)
+	}
+	tree, _ := w.Tree()
+	var dirs []string
+	for _, e := range tree {
+		if !e.Dir {
+			t.Errorf("%s is still there", e.Path)
+		} else if !isArea(e.Path) {
+			dirs = append(dirs, e.Path)
+		}
+	}
+	if got := strings.Join(dirs, " "); got != "large/pack large/packs many one outer" {
+		t.Fatalf("folders left: %s", got)
+	}
+	if tracked(w) != "" {
+		t.Fatalf("still tracked: %s", tracked(w))
+	}
+}

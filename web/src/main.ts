@@ -1240,7 +1240,7 @@ function renderToolbar() {
   const folder = dirName(p);
   const mod = entries.find((e) => e.path === p)?.mod;
   bar.append(singleBar({
-    back: folder ? { label: `← Back to ${folder}/`, title: 'Back to the folder (Esc)', go: () => backToFolder(folder) } : undefined,
+    back: { label: folder ? `← Back to ${folder}/` : '← Back to Files', title: 'Back to the folder (Esc)', go: () => backToFolder(folder) },
     name,
     info: [mod ? dateTime(mod) : '', bytes(c.stat.size)].filter(Boolean).join(' · '),
     forward: () => shareLink(pathRef(p)),
@@ -1292,7 +1292,7 @@ function mediaBar(c: Open) {
     render();
   };
   return singleBar({
-    back: folder ? { label: `← Back to ${folder}/`, title: 'Back to the folder (Esc)', go: () => backToFolder(folder) } : undefined,
+    back: { label: folder ? `← Back to ${folder}/` : '← Back to Files', title: 'Back to the folder (Esc)', go: () => backToFolder(folder) },
     name: baseName(p),
     info: [mod ? dateTime(mod) : '', bytes(c.stat.size)].filter(Boolean).join(' · '),
     prev: sibs.length > 1 ? go(before) : undefined,
@@ -2005,7 +2005,7 @@ function setup() {
     const folder = dirName(cur.stat.path);
     if (e.key === 'ArrowLeft' && isMedia(cur)) stepMedia(-1);
     else if (e.key === 'ArrowRight' && isMedia(cur)) stepMedia(1);
-    else if (e.key === 'Escape' && folder) backToFolder(folder);
+    else if (e.key === 'Escape') backToFolder(folder); // (a top-level file's folder is Files)
     else return;
     e.preventDefault();
   });

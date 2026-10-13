@@ -534,7 +534,8 @@ var compressed = map[string]bool{
 }
 
 // DeleteDir removes a folder and everything in it as one commit (or, in an area outside
-// git, moves it to the trash). The areas' own folders stay.
+// git, moves it to the trash). The areas' own folders stay, and so does the folder it was
+// in, also when that is left empty: a folder goes only when someone deletes it.
 func (w *Workspace) DeleteDir(p string, a Author) error {
 	if isArea(p) {
 		return ErrBadPath
@@ -550,16 +551,11 @@ func (w *Workspace) DeleteDir(p string, a Author) error {
 		return err
 	}
 	if IsLarge(p) {
-		if err := w.toTrash(p, "delete", a, time.Now()); err != nil {
-			return err
-		}
-		w.removeEmptyParents(p)
-		return nil
+		return w.toTrash(p, "delete", a, time.Now())
 	}
 	if err := os.RemoveAll(w.abs(p)); err != nil {
 		return err
 	}
-	w.removeEmptyParents(p)
 	if _, err := w.git(nil, "add", "-A"); err != nil {
 		return err
 	}
@@ -568,7 +564,8 @@ func (w *Workspace) DeleteDir(p string, a Author) error {
 }
 
 // removeEmptyParents removes the folders above p that are now empty, as git rm does,
-// stopping at the root and at large/ and media/.
+// stopping at the root and at large/ and media/. For a move, which takes its folder's
+// last file somewhere else; a delete leaves the folder.
 func (w *Workspace) removeEmptyParents(p string) {
 	for d := path.Dir(p); d != "." && !isArea(d); d = path.Dir(d) {
 		if os.Remove(w.abs(d)) != nil { // fails unless empty
@@ -578,7 +575,7 @@ func (w *Workspace) removeEmptyParents(p string) {
 }
 
 // Delete removes p as a commit (or, outside git, moves it to the trash), with the same
-// conflict rule as Write.
+// conflict rule as Write. Its folder stays, also when this was the last file in it.
 func (w *Workspace) Delete(p, baseRev string, a Author) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -594,13 +591,13 @@ func (w *Workspace) Delete(p, baseRev string, a Author) error {
 		return &ConflictError{Current: cur}
 	}
 	if IsLarge(p) {
-		if err := w.toTrash(p, "delete", a, time.Now()); err != nil {
-			return err
-		}
-		w.removeEmptyParents(p)
-		return nil
+		return w.toTrash(p, "delete", a, time.Now())
 	}
 	if _, err := w.git(nil, "rm", "-q", "--", p); err != nil {
+		return err
+	}
+	// (git rm takes the folders it emptied with it.)
+	if err := os.MkdirAll(filepath.Dir(w.abs(p)), 0o755); err != nil {
 		return err
 	}
 	_, err = w.commit(a, "Delete "+p)
