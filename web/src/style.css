@@ -958,9 +958,26 @@ body.chat-hidden #chat .pins-btn, body.chat-hidden #chat .files-btn { display: n
 /* What several dragged files show under the pointer: "3 items". Kept off screen; the
    browser takes its picture. */
 .drag-ghost { position: fixed; top: -100px; left: 0; padding: 3px 10px; background: var(--panel); border: 1px solid var(--focus); border-radius: 6px; color: var(--text); font-size: 13px; }
-/* The names in "Delete 5 items?". */
-.del-list { margin: 8px 0 12px; padding: 6px 10px; max-height: 160px; overflow-y: auto; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--chat-text); font-size: 13px; line-height: 20px; }
-.del-list div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The Trash row, last in the tree, and the Trash itself: a list in the main panel, each row
+   its icon, name over a muted line (where it was, who, when, how long it has left), then
+   its buttons. */
+#tree .row.trash-row { margin-top: 6px; }
+#tree .row.trash-row .icon { display: grid; place-items: center; color: var(--muted); }
+#tree .row.trash-row .icon svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+#tree .row.trash-row.drop-target { outline: 1px dashed var(--focus); outline-offset: -1px; }
+#main-trash { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.trash-list { display: flex; flex-direction: column; gap: 2px; max-width: 900px; }
+.trash-item { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 6px; cursor: grab; }
+.trash-item:hover { background: var(--hover); }
+.trash-item .icon { width: 20px; height: 20px; flex: none; }
+.trash-what { flex: 1; min-width: 0; }
+.trash-name { display: flex; gap: 8px; align-items: baseline; color: var(--chat-name); font-size: 14px; }
+.trash-name > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trash-tag { flex: none; padding: 0 6px; border-radius: 4px; background: var(--panel-2); color: var(--muted); font-size: 11px; }
+.trash-meta { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trash-item button { flex: none; }
+/* Undo, in the "Moved … to Trash" toast. */
+#toast .toast-act { margin-left: 14px; padding: 1px 10px; }
 .shot-bar .count { min-width: 6ch; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .shot.flash { animation: flash 1.6s ease-out; border-radius: 6px; }
 .shot-meta { display: flex; flex-wrap: wrap; gap: 0 8px; align-items: baseline; margin-top: 5px; font-size: 13px; }

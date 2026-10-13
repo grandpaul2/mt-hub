@@ -35,7 +35,8 @@ are in [`style-guide.md`](style-guide.md).
   its files along (old links follow). A message that links a file from another chat (pasted
   or forwarded, when posted or edited) gets its own copy in its chat, so its people can see
   it and it outlives the original; only from chats the poster can see. Deleting the last
-  message that links a file asks whether to delete the file too (ticked; it goes to the trash);
+  message that links a file asks whether to move the file to Trash too (ticked; from a public
+  chat it then shows in the Trash, from a private chat or a DM it is kept but never shown);
   a file another message still
   links is never deleted. Deleting a chat keeps its files with it in `chat/.deleted/`.
   `media/` is not a Files folder: Files refuses the name.
@@ -58,7 +59,7 @@ are in [`style-guide.md`](style-guide.md).
   (`MA-001 MacroTech Logo.png`). The `#shots` and `#mapart` addresses open the folders.
 - **One item on its own** (a picture or video file, one schematic post) gets the same bar:
   back and the name on the left; on the right the text buttons (a post's blue Edit, as on a
-  text file), the icon buttons (forward, download, open in a new tab, delete, red on hover),
+  text file), the icon buttons (forward, download, open in a new tab, move to Trash, red on hover),
   previous/next (also ←/→, Esc goes back) and full window last. A text file has its Size
   slider in that last place. The folder's own bar (filters, search, size) hides
   meanwhile.

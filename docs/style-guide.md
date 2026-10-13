@@ -350,10 +350,12 @@ dialog, click-twice in Admin, and Shift+click. The rule:
 - **"Delete this message?" shows the message** (Discord): drawn as the chat draws it (name,
   time, text, its pictures and file cards) in a bordered box on `--bg` under the title, with
   nothing in it to click. Taller than 200 px, the box scrolls.
-- **A folder goes only when someone deletes it.** Deleting the last file in a folder, one at
-  a time or several at once, leaves the folder there, empty.
-- **Deleting several files asks once** ("Delete 5 items?"), with their names in the same
-  kind of box, how many files that is with the folders' contents, and what is lost.
+- **A folder goes only when someone moves it to Trash.** When the last file in a folder
+  goes, one at a time or several at once, the folder stays there, empty.
+- **Files are never deleted from Files: they are moved to Trash**, and the page says so
+  everywhere ("Move to Trash", "Moved 5 items to Trash"). It asks nothing: they can be
+  brought back for 30 days. "Delete" is for what has no Trash: messages, chats, accounts.
+  **Delete Forever** and **Empty Trash**, in the Trash, are admins' and do ask, in red.
 - **Two allowed shortcuts:**
   - **Shift+click** on a message's trash icon skips the question (Discord).
   - **Admin row actions** (Reset Password, Ban, Delete) keep click-twice-within-3-s, now
@@ -363,16 +365,21 @@ dialog, click-twice in Admin, and Shift+click. The rule:
   - Overwriting something versioned in git is recoverable; say so instead of asking. ("The old
     version stays in its history.") Uploading over a versioned file now just replaces it and
     says so in the toast.
-  - Deleting a file still asks: its history is kept, but nothing in the page brings a deleted
-    file back yet (item 16 on the Later list).
-  - Media and `large/` have no history, so ask there.
-- **No undo toasts** (nothing to undo against yet).
+  - Moving a file or folder to Trash doesn't ask (above).
+  - Uploading over a file in `large/`, `screenshots/` or `map art/` asks "Replace x?": they
+    have no history. The old copy goes to Trash for 30 days, and the question says so.
+  - Deleting a message that is the last link to files posted in chat offers to move them to
+    Trash too (ticked). From a private chat or a DM it adds that they are kept 30 days and
+    only an admin can get them back, since the Trash never shows those.
+- **Undo** is on one toast: "Moved … to Trash". It puts back what that move took.
 
 ### 6.7 Toasts and banners
 
 - **Toast:**
   - One at a time, top centre, 8 px radius, dismissed by time; a new one replaces it.
   - **Two kinds:** **info** (2.5 s) and **error** (6 s, red edge).
+  - **One has a button:** "Moved … to Trash" stays 6 s and has **Undo** (a plain button after
+    the words).
   - Progress (uploads) stays until done.
   - Toasts never ask anything; a question is a dialog.
 - **Banner:** a `--warn` strip under a file's bar, for "this file changed under you". It stays
@@ -431,6 +438,10 @@ separate dialogs.
     does (a name taken there stops it and the message names it), into a chat each gets a
     link. Several drag as a small "3 items" label. A folder selected with its own files
     counts once; the fixed top-level folders stay, and the message says so.
+  - **Trash** is the tree's last row, a little apart, with a trash icon in grey. It isn't a
+    folder: a click opens the Trash, and nothing is renamed, made or uploaded in it. Rows and
+    tiles dropped on it are moved to Trash (outlined dashed while they would be). While it is
+    open it is the one grey row.
   - **Cut, copy, paste, duplicate** (a file explorer's): Ctrl+X, Ctrl+C and Ctrl+V in the
     tree and the folder view, and Cut, Copy, Paste and Duplicate in the right-click menus
     (Paste greyed while there is nothing to paste; the empty space has it too). The clipboard
@@ -502,6 +513,15 @@ separate dialogs.
     fill with a `--focus` edge. A search or a filter lets go of what it hides. The menu,
     Delete and dragging work as for rows; tiles drop on a folder's tile or on Back to move
     there (outlined dashed while they would).
+  - **The Trash** (main panel): a bar with its name and count (admins: Empty Trash on the
+    right), then a list, newest first, 900 px at most. A row is the item's icon, its name
+    (14 px; a "replaced" chip for the old copy from a replace) over one muted 12 px line
+    ("from docs/ · who · when · size · 29 days left"; a chat file reads "from #general"), then
+    plain buttons: **Restore**, and for admins **Delete Forever**. Restore puts it back where
+    it was (a taken name comes back as `name (restored).md`); a file posted in a chat asks for
+    a folder with the Save to Files picker. A row dragged onto a folder in the tree is
+    restored there. Files from private chats and DMs never show. Empty: "Trash is empty.
+    What you move here stays 30 days."
   - **Schematic cards:** text left, render right, on grey.
   - **Link previews:** a coloured left edge.
   - **Mod release cards**: the link-preview look with
@@ -688,9 +708,9 @@ separate dialogs.
 | Where | Keys |
 |---|---|
 | Anywhere | `/` or Ctrl+K: search. Esc: close the menu, popup or dialog on top (one layer per press). Alt+←/→: back and forward |
-| Tree | ↑/↓, Home/End, →/← expand or collapse (then into or out of a folder), Enter, F2 rename, Delete. Ctrl+click, Shift+click and Shift+↑/↓ select several, Ctrl+A all. Ctrl+X, Ctrl+C, Ctrl+V cut, copy, paste. Esc cancels a cut, or goes back to one row |
+| Tree | ↑/↓, Home/End, →/← expand or collapse (then into or out of a folder), Enter, F2 rename, Delete moves to Trash. Ctrl+click, Shift+click and Shift+↑/↓ select several, Ctrl+A all. Ctrl+X, Ctrl+C, Ctrl+V cut, copy, paste. Esc cancels a cut, or goes back to one row |
 | Single item | ←/→ previous or next picture or post, Esc back to its folder or the board |
-| Folder view | Ctrl+click, Shift+click or a box dragged from empty space pick several, Ctrl+A all, Delete. Ctrl+X, Ctrl+C, Ctrl+V cut, copy, paste (Ctrl+V also pastes pictures). Esc cancels a cut, lets go of the picked, then goes up one folder |
+| Folder view | Ctrl+click, Shift+click or a box dragged from empty space pick several, Ctrl+A all, Delete moves to Trash. Ctrl+X, Ctrl+C, Ctrl+V cut, copy, paste (Ctrl+V also pastes pictures). Esc cancels a cut, lets go of the picked, then goes up one folder |
 | Text file | Ctrl+S save, Ctrl+wheel zoom |
 | Composer | Enter, Shift+Enter, ↑ edit last, Esc cancel reply, Ctrl+B / Ctrl+I / Ctrl+U bold, italic, underline (also while editing a message) |
 | Popups | ↑/↓, Enter/Tab, Esc |

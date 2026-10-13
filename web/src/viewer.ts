@@ -111,7 +111,7 @@ export function singleBar(o: SingleBar) {
     const url = o.newTab;
     tools.append(tool(ICON.newTab, 'Open in new tab', () => window.open(url, '_blank', 'noopener')));
   }
-  if (o.del) tools.append(tool(ICON.trash, 'Delete', o.del, 'del'));
+  if (o.del) tools.append(tool(ICON.trash, 'Move to Trash', o.del, 'del'));
   if (tools.children.length) actions.append(tools);
   if (o.prev !== undefined || o.next !== undefined) {
     actions.append(h('div', { class: 'viewer-tools single-nav' },

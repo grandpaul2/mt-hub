@@ -162,7 +162,7 @@ await settle(1000);
 await ev(`${msgEl(soloMsg.id)}.querySelector('[data-tool="trash"]').click()`);
 await settle(500);
 check('last link: asks about the file', await ev(`[!document.getElementById('overlay').hidden, document.querySelector('#dialog label.check')?.textContent, document.querySelector('#dialog label.check input').checked]`),
-  [true, 'Also delete its file: solo.png. No other message links it, and files posted in chat have no history: this can’t be undone.', true]);
+  [true, 'Also move its file to Trash: solo.png. No other message links it.', true]);
 await shot('delete-file');
 await ev(`document.querySelector('#dialog .actions .danger').click()`);
 await settle(800);

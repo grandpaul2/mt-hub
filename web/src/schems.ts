@@ -18,6 +18,7 @@ type Hooks = {
   forward(link: string): void; // post a link in a chat
   openFolder(path: string): void; // show a folder in Files (a post's, or schematics/ itself)
   changed(): void; // the posts changed (chat shows links to them as cards)
+  trash(path: string): Promise<boolean>; // move a post's folder to the Trash (true: it went)
 };
 
 export const SCHEM_DIR = 'schematics';
@@ -238,10 +239,9 @@ function renderPost(dir: string) {
     zoom: p.images.length ? () => openViewer(pictures(), 0) : undefined,
     forward: () => hooks.forward(pathRef(path(p))),
     download: file ? { href: fileURL(path(p, file.name), '', true), name: file.name } : undefined,
+    // The post's folder goes to the Trash (no question: it can be brought back from there).
     del: async () => {
-      if (!await ask({ title: `Delete “${p.title}”?`, body: `Its folder (${path(p)}/) goes too. Its files stay in the hub’s history.`, confirm: 'Delete', danger: true })) return;
-      const r = await req('DELETE', `/api/file/${enc(path(p))}?dir=1`);
-      if (!r.ok) return toastError(`Couldn’t delete the post: ${(await r.json().catch(() => ({}))).error ?? r.status}.`);
+      if (!await hooks.trash(path(p))) return;
       backToBoard();
       refresh();
     },

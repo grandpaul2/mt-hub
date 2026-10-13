@@ -31,6 +31,14 @@ is a commit under the person's name. A save carries the revision the editor star
 the file has changed since then, the server refuses the save (HTTP 409) and the page shows
 both versions side by side.
 
+**The Trash.** Whatever is moved out of Files (a delete in the page), in git or not, goes to
+`<data>/trash/<date> <time> <who>/<its path>` for 30 days, and `<data>/trash/log.jsonl`
+records each move. For a file in git the removal is also a commit. So does the old copy when
+a file in `large/`, `screenshots/` or `map art/` is replaced, and a file posted in a chat
+once no message links it. The page lists the trash and restores from it (the tree's Trash
+row); a file from a private chat or a DM is kept there but never listed. The hub purges
+entries older than 30 days each hour; admins can erase sooner (Delete Forever, Empty Trash).
+
 ## Chat
 
 Channels are folders in `<data>/chat/`, holding one file per month:

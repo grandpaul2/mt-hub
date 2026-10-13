@@ -1677,7 +1677,7 @@ async function addToLarge(files: File[], add: () => void, priv = false) {
 // folderPicker asks for a Files folder (style guide 14): a box and every folder, starting at
 // the tree's selected one; typing narrows the list, or names a new folder. Then Cancel and
 // the confirm button; Esc cancels. priv warns that Files is everyone's.
-function folderPicker(o: { heading: string; body: string; confirm: string; priv: boolean; done: (dir: string) => void }) {
+export function folderPicker(o: { heading: string; body: string; confirm: string; priv: boolean; done: (dir: string) => void }) {
   const all = ['', ...hooks.folders().sort((a, b) => a.localeCompare(b))];
   const box = h('input', { type: 'text', value: hooks.currentFolder(), placeholder: 'Folder…', autocomplete: 'off', spellcheck: false });
   const list = h('div', { class: 'folder-pick' });
@@ -1745,15 +1745,18 @@ function setPinned(m: Message, on: boolean) {
 
 // deleteMessage deletes a message. When it's the last link to files posted in chat (nothing
 // else in any chat links them), the question offers to delete those too, ticked; it shows
-// even on Shift+click, since they have no history. Files still linked elsewhere stay.
+// even on Shift+click, so files never go unasked. Files still linked elsewhere stay.
 // The question shows the message as the chat draws it (Discord), to look at and not to use.
 async function deleteMessage(v: ChatView, m: Message, noQuestion: boolean) {
   const o = await req('GET', `/api/channels/${m.channel}/messages/${m.id}/orphans`);
   const files = o.ok ? (await json<{ paths: string[] }>(o)).paths : [];
   const one = files.length === 1;
+  // Its files go to the Trash. From a chat everyone can read they show there, to be restored
+  // into Files; from a private chat or a DM they are kept but shown to nobody.
+  const priv = info(m.channel)?.kind === 'private' || info(m.channel)?.kind === 'dm';
   const check = files.length ? {
-    label: h('span', {}, `Also delete ${one ? 'its file' : `its ${files.length} files`}: `, h('b', {}, files.map((p) => p.slice(p.lastIndexOf('/') + 1)).join(', ')),
-      `. No other message links ${one ? 'it' : 'them'}, and files posted in chat have no history: this can’t be undone.`),
+    label: h('span', {}, `Also move ${one ? 'its file' : `its ${files.length} files`} to Trash: `, h('b', {}, files.map((p) => p.slice(p.lastIndexOf('/') + 1)).join(', ')),
+      `. No other message links ${one ? 'it' : 'them'}.` + (priv ? ` ${one ? 'It is' : 'They are'} kept 30 days, and only an admin can get ${one ? 'it' : 'them'} back.` : '')),
     value: true,
   } : undefined;
   const shown = v.renderMessage(m, false, true);

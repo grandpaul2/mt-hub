@@ -8,7 +8,7 @@ import './style.css';
 import {
   cleanHTML,
   $, GLYPH, ago, glyphs, ask, baseName, dateTime, bytes, closeDialog, closeMenu, copyText, dialog, dirName, enc, fileURL, go, h, inMenuAnchor, json, load, loadBundle, MenuItem, req,
-  dragData, openDialog, setAccounts, showMenu, store, toast, toastError, typing, unreachable, user, Live,
+  dragData, openDialog, setAccounts, showMenu, store, toast, toastError, toastUndo, typing, unreachable, user, Live,
 } from './util';
 import { openSchems, schemPost, setupSchems } from './schems';
 import { byName, folderDir, folderOrder, openFolder, pickInFolder, refreshFolder, repaintFolder, setupFolder, stampName, startCreate as startFolderCreate } from './folder';
@@ -16,7 +16,8 @@ import { ICON, openViewer, singleBar, viewerOpen } from './viewer';
 import { iconURL, loadIcons } from './icons';
 import { adminChanged, openAdmin } from './admin';
 import { setupSearch } from './search';
-import { layoutChanged, mainChannel, onFilesChanged as chatFilesChanged, onUsersChanged as chatUsersChanged, openInMain, setupChat, shareLink } from './chat';
+import { folderPicker, layoutChanged, mainChannel, onFilesChanged as chatFilesChanged, onUsersChanged as chatUsersChanged, openInMain, setupChat, shareLink } from './chat';
+import { openTrash, refreshTrash, setupTrash } from './trash';
 import { openSettings, setupVoice } from './voice';
 import { setupStreams, streamPanel, watchRelay, watchStream } from './stream';
 import { openSoundSettings } from './sounds';
@@ -87,6 +88,7 @@ let renaming: string | null = null; // path with the inline rename box open
 let creating: { dir: string; folder: boolean } | null = null; // inline new file/folder box
 let renameDraft: string | null = null; // what's typed in either box, kept across re-renders
 let dragPaths: string[] = []; // what's being dragged from the tree or the folder view
+let dragTrash: string[] = []; // Trash rows being dragged out (their ids)
 // The hub's own clipboard: what Cut or Copy took, for Paste. It is this tab's only, and not
 // the computer's (a page can't put files there).
 let clip: { paths: string[]; cut: boolean } | null = null;
@@ -98,7 +100,7 @@ let diff: M.editor.IStandaloneDiffEditor | null = null;
 let tempModels: M.editor.ITextModel[] = [];
 let uploading = 0;
 // The main panel shows the open file, a channel, a folder or the Schematic Manager (picked in the left list).
-let mainMode: 'file' | 'chat' | 'schems' | 'folder' | 'live' = 'file';
+let mainMode: 'file' | 'chat' | 'schems' | 'folder' | 'live' | 'trash' = 'file';
 
 // ---- helpers ----
 
@@ -159,9 +161,9 @@ function login(why = ''): Promise<void> {
 function shortcuts() {
   const rows: [string, string][] = [
     ['Anywhere', '/ or Ctrl+K: search · Esc: close the menu, popup or dialog on top · Alt+← / Alt+→: back and forward'],
-    ['Files tree', '↑ / ↓ move · Home / End · → / ← open or close a folder · Enter: open · F2: rename · Delete · Ctrl+click, Shift+click, Shift+↑ / ↓: select several · Ctrl+A: all · Ctrl+X, Ctrl+C, Ctrl+V: cut, copy, paste · Esc: cancel a cut, or back to one'],
+    ['Files tree', '↑ / ↓ move · Home / End · → / ← open or close a folder · Enter: open · F2: rename · Delete: move to Trash · Ctrl+click, Shift+click, Shift+↑ / ↓: select several · Ctrl+A: all · Ctrl+X, Ctrl+C, Ctrl+V: cut, copy, paste · Esc: cancel a cut, or back to one'],
     ['A picture or post', '← / →: the one before or after · Esc: back to its folder or the board'],
-    ['Folder view', 'Ctrl+click, Shift+click or drag a box from empty space: pick several · Ctrl+A: all · Delete · Ctrl+X, Ctrl+C, Ctrl+V: cut, copy, paste (Ctrl+V also pastes pictures) · Esc: cancel a cut, let go, then up one folder'],
+    ['Folder view', 'Ctrl+click, Shift+click or drag a box from empty space: pick several · Ctrl+A: all · Delete: move to Trash · Ctrl+X, Ctrl+C, Ctrl+V: cut, copy, paste (Ctrl+V also pastes pictures) · Esc: cancel a cut, let go, then up one folder'],
     ['Text file', 'Ctrl+S: save · Ctrl+wheel: zoom'],
     ['Message box', 'Enter: send · Shift+Enter: new line · ↑ in an empty box: edit your last message · Esc: cancel a reply · Ctrl+B, Ctrl+I, Ctrl+U: bold, italic, underline'],
     ['Typing a message', '@: mention someone · : and two letters: emoji · ↑ / ↓ and Enter or Tab: pick'],
@@ -431,6 +433,7 @@ function renderTree() {
   };
   visible = [];
   build('', 0);
+  root.append(trashRow());
   // A fresh rename box selects the name without its extension, as VS Code does; a new
   // file's box (".md") has the cursor before the extension. One rebuilt by a re-render (a
   // live update, say) keeps the cursor at the end.
@@ -441,6 +444,20 @@ function renderTree() {
     if (renameDraft === null) box.setSelectionRange(0, dot > 0 || creating ? Math.max(dot, 0) : box.value.length);
     renameDraft = box.value;
   }
+}
+
+// trashRow is the Trash, the tree's last row: a click opens it, and rows or tiles dropped on
+// it are moved there. It isn't a folder: nothing is renamed, made or uploaded in it.
+function trashRow() {
+  const row = h('div', { class: 'row trash-row' + (mainMode === 'trash' ? ' active selected' : ''), title: 'What was moved to Trash in the last 30 days' },
+    h('span', { class: 'indent' }), h('span', { class: 'twisty' }), h('span', { class: 'icon', innerHTML: ICON.trash }), h('span', { class: 'name' }, 'Trash'));
+  row.onclick = () => openTrash();
+  row.oncontextmenu = (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    showMenu(ev, [['Open', () => openTrash()]]);
+  };
+  return row;
 }
 
 // activate is a click on a row: a file opens, a folder opens the folder view (and becomes
@@ -517,10 +534,8 @@ function treeKey(ev: KeyboardEvent) {
     case 'F2':
     case 'Delete':
       ev.preventDefault();
-      if (many) {
-        if (ev.key === 'Delete') deleteMany(picks());
-      } else if (e && ev.key === 'F2') startRename(e.path);
-      else if (e) deleteEntry(e);
+      if (ev.key === 'Delete') toTrash(many ? picks() : e ? [e.path] : []);
+      else if (!many && e) startRename(e.path);
       return;
     default: return;
   }
@@ -669,27 +684,6 @@ async function movePath(from: string, to: string) {
   renderTree();
 }
 
-async function deleteEntry(e: Entry) {
-  const inside = (p: string) => p === e.path || p.startsWith(e.path + '/');
-  if (AREAS.includes(e.path)) return toast(`${e.path}/ itself can’t be deleted`);
-  const files = entries.filter((x) => !x.dir && inside(x.path)).length;
-  const body = (e.dir ? `The ${files} file${files === 1 ? '' : 's'} in it go too. ` : '')
-    + (isLarge(e.path) ? 'Large files have no history: this can’t be undone.' : 'Earlier versions stay in the hub’s history, but nothing here brings them back yet.');
-  if (!await ask({ title: `Delete ${e.dir ? 'the folder ' : ''}${baseName(e.path)}?`, body, confirm: 'Delete', danger: true })) return;
-  let r: Response;
-  if (e.dir) {
-    r = await req('DELETE', `/api/file/${enc(e.path)}?dir=1`);
-  } else {
-    const s = await req('GET', `/api/stat/${enc(e.path)}`);
-    if (!s.ok) return refreshTree();
-    r = await req('DELETE', `/api/file/${enc(e.path)}?base=${(await s.json()).rev}`);
-  }
-  if (!r.ok) return toastError(r.status === 409 ? 'Someone changed it just now, so it wasn’t deleted.' : 'Couldn’t delete it.');
-  toast(`Deleted ${baseName(e.path)}`);
-  if (cur && inside(cur.stat.path)) closeFile();
-  refreshTree();
-}
-
 // moveMany moves a selection into dir. One thing goes the way a single move always has;
 // several go in one call that moves all of them or none (a name taken there stops it, and
 // the message names it). The fixed top-level folders stay, and it says so.
@@ -742,41 +736,59 @@ async function moveMany(paths: string[], dir: string) {
   toast(`Moved ${moving.length} items to ${dir ? dir + '/' : 'Files'}` + (stays ? `. ${stays}.` : ''));
 }
 
-// deleteMany deletes a selection after one question that lists it. One thing is asked about
-// the way a single delete always has. The fixed top-level folders stay.
-async function deleteMany(paths: string[]) {
+// toTrash moves files and folders to the Trash. Nothing is asked, since they can be brought
+// back for 30 days: the toast has Undo, and the Trash has Restore. The fixed top-level
+// folders stay, and it says so.
+async function toTrash(paths: string[]): Promise<boolean> {
   const all = roots(paths);
   const fixed = all.filter((p) => AREAS.includes(p));
   const going = all.filter((p) => !AREAS.includes(p));
-  const isDir = new Map(entries.map((e) => [e.path, e.dir]));
-  if (!going.length) return fixed.length ? toast(`${fixed[0]}/ itself can’t be deleted`) : undefined;
-  if (going.length === 1 && !fixed.length) {
-    const e = entries.find((x) => x.path === going[0]);
-    return e && deleteEntry(e);
+  const stays = fixed.length ? `${fixed.map((p) => p + '/').join(' and ')} ${fixed.length === 1 ? 'stays where it is' : 'stay where they are'}` : '';
+  if (!going.length) {
+    if (stays) toast(stays);
+    return false;
   }
-  if (cur && dirty() && going.some((p) => within(cur!.stat.path, p))) return toast(`Save or discard your changes to ${baseName(cur.stat.path)} first`);
-  const files = entries.filter((x) => !x.dir && going.some((p) => within(x.path, p))).length;
-  const large = going.filter(isLarge).length;
-  const n = going.length;
-  const lines = [
-    going.some((p) => isDir.get(p)) ? `With what is in the folders, that is ${files} file${files === 1 ? '' : 's'}.` : '',
-    large === n ? 'Large files have no history: this can’t be undone.'
-      : large ? 'Some of these have no history: deleting them can’t be undone.'
-      : 'Earlier versions stay in the hub’s history, but nothing here brings them back yet.',
-    fixed.length ? `${fixed.map((p) => p + '/').join(' and ')} ${fixed.length === 1 ? 'itself stays' : 'themselves stay'}.` : '',
-  ];
-  const body = h('div', {},
-    h('div', { class: 'del-list' }, ...going.map((p) => h('div', { title: p }, baseName(p) + (isDir.get(p) ? '/' : '')))),
-    h('p', {}, lines.filter(Boolean).join(' ')));
-  if (!await ask({ title: `Delete ${n} item${n === 1 ? '' : 's'}?`, body, confirm: 'Delete', danger: true })) return;
+  if (cur && dirty() && going.some((p) => within(cur!.stat.path, p))) {
+    toast(`Save or discard your changes to ${baseName(cur.stat.path)} first`);
+    return false;
+  }
+  const what = going.length === 1 ? baseName(going[0]) : count(going.length);
   const r = await req('POST', '/api/batch/delete', JSON.stringify({ paths: going }));
-  if (!r.ok) {
-    toastError(`Couldn’t delete them: ${(await r.json().catch(() => ({}))).error ?? r.status}.`);
-    return refreshTree();
+  if (r.status === 404 && going.length === 1) toast('Someone already moved it to Trash.'); // gone either way
+  else if (!r.ok) {
+    toastError(`Couldn’t move ${what} to Trash: ${(await r.json().catch(() => ({}))).error ?? r.status}.`);
+    await refreshTree();
+    return false;
+  } else {
+    const ids = (await json<{ trash?: string[] }>(r)).trash ?? [];
+    toastUndo(`Moved ${what} to Trash` + (stays ? `. ${stays}.` : ''), () => void restore(ids));
   }
-  toast(`Deleted ${n} item${n === 1 ? '' : 's'}`);
-  if (cur && going.some((p) => within(cur!.stat.path, p))) closeFile();
-  refreshTree();
+  const open = cur && going.some((p) => within(cur!.stat.path, p)) ? cur.stat.path : '';
+  if (open) closeFile();
+  await refreshTree();
+  // The open file went: back to its folder, which stays.
+  if (open && mainMode === 'file' && entries.some((e) => e.dir && e.path === dirName(open))) openFolder(dirName(open));
+  return true;
+}
+
+// restore puts Trash entries back: where each was, or into the folder to (dragged out of
+// the Trash, or picked for a file that was posted in a chat). They end up selected.
+async function restore(ids: string[], to?: string) {
+  if (!ids.length) return;
+  const r = await req('POST', '/api/trash/restore', JSON.stringify(to === undefined ? { ids } : { ids, to }));
+  if (!r.ok) {
+    toastError(r.status === 404 ? 'It isn’t in the Trash any more.' : `Couldn’t restore: ${(await r.json().catch(() => ({}))).error ?? r.status}.`);
+    return void refreshTrash();
+  }
+  const back = (await json<{ paths: string[] }>(r)).paths;
+  for (const p of back) expandParents(p);
+  await refreshTree();
+  focused = anchor = back[0];
+  selected = new Set(back);
+  renderTree();
+  refreshTrash();
+  const where = dirName(back[0]) ? dirName(back[0]) + '/' : 'Files';
+  toast(back.length === 1 ? `Restored ${baseName(back[0])} to ${where}` : `Restored ${count(back.length)}`);
 }
 
 // ---- cut, copy, paste, duplicate ----
@@ -882,7 +894,7 @@ function manyMenu(ev: MouseEvent, paths: string[]) {
       a.remove();
     }], null,
     ...clipItems(paths, null), null,
-    ['Delete', () => deleteMany(paths), 'Delete'], null,
+    ['Move to Trash', () => toTrash(paths), 'Delete'], null,
     ['Copy Paths', () => copyText(paths.join('\n'))],
   ]);
 }
@@ -912,19 +924,19 @@ function treeMenu(ev: MouseEvent, e: Entry | null, inGrid = false) {
       ['New File…', here(newFile)], ['New Folder…', here(newFolder)], ['Upload…', here(upload)],
       ['Download as Zip', () => (location.href = `/api/zip/${enc(e.path)}`)], null,
       ...clipItems([e.path], pasteDir), null,
-      ['Rename…', () => startRename(e.path), 'F2'], ['Delete', () => deleteEntry(e), 'Delete'], null,
+      ['Rename…', () => startRename(e.path), 'F2'], ['Move to Trash', () => toTrash([e.path]), 'Delete'], null,
       ['Copy Path', () => copyText(e.path)],
     ];
   } else {
     items = [
       ['Open', () => openFile(e.path)], ['Download', () => (location.href = fileURL(e.path, '', true))], null,
       ...clipItems([e.path], pasteDir), null,
-      ['Rename…', () => startRename(e.path), 'F2'], ['Delete', () => deleteEntry(e), 'Delete'], null,
+      ['Rename…', () => startRename(e.path), 'F2'], ['Move to Trash', () => toTrash([e.path]), 'Delete'], null,
       ['Copy Path', () => copyText(e.path)],
     ];
   }
   // The fixed top-level folders keep their name and place, and are never doubled.
-  if (e && AREAS.includes(e.path)) items = items.filter((it) => !Array.isArray(it) || !['Rename…', 'Delete', 'Cut', 'Duplicate'].includes(it[0]));
+  if (e && AREAS.includes(e.path)) items = items.filter((it) => !Array.isArray(it) || !['Rename…', 'Move to Trash', 'Cut', 'Duplicate'].includes(it[0]));
   showMenu(ev, items);
 }
 
@@ -939,7 +951,7 @@ function dropDirAt(target: EventTarget | null): string | null {
 function showDrop(dir: string | null) {
   const tree = $('tree');
   tree.classList.toggle('drop', dir === '');
-  for (const row of tree.querySelectorAll<HTMLElement>('.row')) {
+  for (const row of tree.querySelectorAll<HTMLElement>('.row[data-path]')) { // (not the Trash row)
     const p = row.dataset.path!;
     row.classList.toggle('drop-target', !!dir && (p === dir || p.startsWith(dir + '/')));
   }
@@ -1441,29 +1453,9 @@ function closeFile() {
   render();
 }
 
+// del is the file bar's trash button: the open file goes to the Trash.
 async function del() {
-  const c = cur;
-  if (!c) return;
-  const body = c.stat.large ? 'Large files have no history: this can’t be undone.' : 'Earlier versions stay in the hub’s history, but nothing here brings them back yet.';
-  if (!await ask({ title: `Delete ${baseName(c.stat.path)}?`, body, confirm: 'Delete', danger: true })) return;
-  const r = await req('DELETE', `/api/file/${enc(c.stat.path)}?base=${c.stat.rev}`);
-  if (r.status === 409) {
-    toastError('Someone changed this file since you opened it, so it wasn’t deleted.');
-    return;
-  }
-  if (r.status === 404) {
-    toast('Someone already deleted it.'); // gone either way: close it, as for a delete
-  } else if (!r.ok) {
-    toastError(`Couldn’t delete it: ${(await r.json().catch(() => ({}))).error ?? r.status}.`);
-    return;
-  } else {
-    toast(`Deleted ${baseName(c.stat.path)}`);
-  }
-  closeFile();
-  await refreshTree();
-  // A file deleted from a folder goes back to the folder.
-  const folder = dirName(c.stat.path);
-  if (folder && entries.some((e) => e.dir && e.path === folder)) openFolder(folder);
+  if (cur) await toTrash([cur.stat.path]);
 }
 
 // ---- history ----
@@ -1620,9 +1612,10 @@ async function upload(files: File[], dir: string) {
       const progress = (x: number) => toast(`Uploading ${f.name}: ${Math.floor(x * 100)}% of ${bytes(f.size)}`, 0);
       let r = await put(`/api/file/${enc(p)}?base=`, f, progress);
       // Already there: a versioned file is replaced (the old one stays in its history, so
-      // there's nothing to ask, style guide 6.6); a large one has no history, so it asks.
+      // there's nothing to ask, style guide 6.6); a large one has no history, so it asks (the
+      // old copy goes to the Trash).
       if (r.status === 409) {
-        if (isLarge(p) && !await ask({ title: `Replace ${baseName(p)}?`, body: `${p} already exists. Large files have no history: this can’t be undone.`, confirm: 'Replace', danger: true })) continue;
+        if (isLarge(p) && !await ask({ title: `Replace ${baseName(p)}?`, body: `${p} already exists. The old copy goes to Trash for 30 days.`, confirm: 'Replace', danger: true })) continue;
         r = await put(`/api/file/${enc(p)}?base=${r.body.current}`, f, progress);
         if (r.status === 200 && !isLarge(p)) replaced.push(baseName(p));
       }
@@ -1672,6 +1665,7 @@ function setMode(m: typeof mainMode) {
   $('main-chat').hidden = m !== 'chat';
   $('main-schems').hidden = m !== 'schems';
   $('main-folder').hidden = m !== 'folder';
+  $('main-trash').hidden = m !== 'trash';
   renderTree();
   layoutChanged(); // (the chat list too: a chat's row is the open one only while the chat is)
 }
@@ -1713,6 +1707,8 @@ async function openHash() {
     openFolder(old[h]);
   } else if (h === 'schems' || h.startsWith('schem=')) {
     openSchems(h.startsWith('schem=') ? h.slice(6) : ''); // an old #schem=<id> finds no post: the board
+  } else if (h === 'trash') {
+    openTrash();
   } else if (h.startsWith('folder=')) {
     // #folder=<path>, or #folder=<path>&item=<name> to point at one file (Open folder).
     // Split before decoding, so an "&" in a name can't pass for the separator.
@@ -1834,6 +1830,7 @@ function resizer(id: string, prop: string, key: string, min: number, widthAt: (x
 
 async function onFilesChanged() {
   await refreshTree().catch(() => {});
+  void refreshTrash(); // (what left Files is in it)
   const c = cur;
   if (!c || (c.mode !== 'edit' && c.mode !== 'view')) return;
   const r = await req('GET', `/api/stat/${enc(c.stat.path)}`).catch(() => null);
@@ -1841,7 +1838,7 @@ async function onFilesChanged() {
   if (r.status === 404) {
     const now = movedTo(c.stat.path);
     if (now && now.path !== c.stat.path) return followMove(c, now.path, now.by ?? 'Someone');
-    banner(isMedia(c) ? 'Someone deleted this file.' : 'Someone deleted this file. Saving will offer to recreate it.');
+    banner(isMedia(c) ? 'Someone moved this file to Trash.' : 'Someone moved this file to Trash. Saving will offer to recreate it.');
     return;
   }
   const s: Stat = await r.json();
@@ -1925,17 +1922,31 @@ function setup() {
   let hoverTimer = 0;
   let hoverDir: string | null = null;
   const internal = (e: DragEvent) => !!e.dataTransfer?.types.includes('text/x-mt-path');
+  const fromTrash = (e: DragEvent) => !!e.dataTransfer?.types.includes('text/x-mt-trash') && dragTrash.length > 0;
+  const onTrash = (e: DragEvent) => (e.target as HTMLElement).closest<HTMLElement>('.trash-row');
   const canMoveTo = (dir: string) => canDrop(dragPaths, dir);
   tree.ondragover = (e) => {
+    // Onto the Trash row: rows and tiles are moved to Trash (not the fixed folders alone,
+    // and not what is already in it).
+    const bin = onTrash(e);
+    tree.querySelector('.trash-row')?.classList.toggle('drop-target', !!bin && internal(e) && dragPaths.some((p) => !AREAS.includes(p)));
+    if (bin) {
+      showDrop(null);
+      if (!internal(e) || !dragPaths.some((p) => !AREAS.includes(p))) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      return;
+    }
     const dir = dropDirAt(e.target);
-    const ok = dir !== null && (internal(e) ? canMoveTo(dir) : !!e.dataTransfer?.types.includes('Files'));
+    // A Trash row dragged out lands in any folder (restored there).
+    const ok = dir !== null && (fromTrash(e) || (internal(e) ? canMoveTo(dir) : !!e.dataTransfer?.types.includes('Files')));
     if (dir === null || !ok) {
       if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
       showDrop(null);
       return;
     }
     e.preventDefault();
-    if (e.dataTransfer) e.dataTransfer.dropEffect = internal(e) ? 'move' : 'copy';
+    if (e.dataTransfer) e.dataTransfer.dropEffect = internal(e) || fromTrash(e) ? 'move' : 'copy';
     showDrop(dir);
     if (dir !== hoverDir) {
       hoverDir = dir;
@@ -1953,16 +1964,27 @@ function setup() {
     clearTimeout(hoverTimer);
     hoverDir = null;
     showDrop(null);
+    tree.querySelector('.trash-row')?.classList.remove('drop-target');
   };
   tree.ondragleave = (e) => {
     if (!tree.contains(e.relatedTarget as Node)) endDrag();
   };
   tree.ondrop = (e) => {
     e.preventDefault();
+    const bin = onTrash(e);
     const dir = dropDirAt(e.target);
     endDrag();
+    if (bin) {
+      const paths = dragPaths;
+      dragPaths = [];
+      if (internal(e)) toTrash(paths);
+      return;
+    }
     if (dir === null) return;
-    if (internal(e)) {
+    if (fromTrash(e)) {
+      restore(dragTrash, dir);
+      dragTrash = [];
+    } else if (internal(e)) {
       if (canMoveTo(dir)) moveMany(dragPaths, dir);
     } else {
       upload([...(e.dataTransfer?.files ?? [])], dir);
@@ -1980,6 +2002,7 @@ function setup() {
   // A drag that ends anywhere (including the chat box) clears the tree's drag state.
   document.addEventListener('dragend', () => {
     dragPaths = [];
+    dragTrash = [];
     endDrag();
   });
 
@@ -2103,7 +2126,7 @@ function setup() {
     folders: () => entries.filter((e) => e.dir).map((e) => e.path),
   });
   setupSchems(events, {
-    show: showSchems, shown: () => mainMode === 'schems', forward: shareLink, changed: chatFilesChanged,
+    show: showSchems, shown: () => mainMode === 'schems', forward: shareLink, changed: chatFilesChanged, trash: (p) => toTrash([p]),
     openFolder: (p) => {
       expandParents(p + '/x');
       targetDir = p;
@@ -2139,7 +2162,7 @@ function setup() {
       if (e) treeMenu(ev, e, true);
     },
     menuMany: manyMenu,
-    removeMany: deleteMany,
+    removeMany: (paths) => void toTrash(paths),
     clip: setClip,
     paste: (dir) => {
       const had = !!clip;
@@ -2156,6 +2179,20 @@ function setup() {
       if (canDrop(paths, dir)) moveMany(paths, dir);
     },
   });
+
+  setupTrash({
+    // (The Trash row is the one grey row while it is open.)
+    show: () => {
+      focused = anchor = '';
+      selected.clear();
+      setMode('trash');
+    },
+    shown: () => mainMode === 'trash',
+    restore,
+    pickFolder: (name, done) => folderPicker({ heading: `Restore ${name} to Files`, body: 'It was posted in a chat, so it has no folder to go back to. Pick one.', confirm: 'Restore', priv: false, done }),
+    drag: (ids) => (dragTrash = ids),
+  });
+  events.addEventListener('trash', () => void refreshTrash());
 
   $('user').textContent = user.name;
   $('user').hidden = false;
