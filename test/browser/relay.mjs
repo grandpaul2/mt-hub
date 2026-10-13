@@ -2,8 +2,9 @@
 // relay and ffmpeg (on the PATH) for OBS, publishing a moving picture and a tone as
 // "<channel>-web", which is what the relay's own conversion produces. Paul watches Alex's
 // stream: the row in LIVE with its own icon, #stream=, picture and sound, the viewer count,
-// the volume kept, sound refused without a click, a stream with B-frames, the stream ending,
-// and a phone.
+// the volume kept, playing on behind a chat (the bar in the sidebar, Stop Watching on the row),
+// the full-screen bar, a dropped connection reconnecting, sound refused without a click, a
+// stream with B-frames, the stream blinking and ending, and a phone.
 import { spawn, spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
@@ -68,6 +69,8 @@ const until = async (what, fn, ms = 15000) => {
 const ev = async (expression) => (await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true, userGesture: true }))?.result?.value;
 const sessions = async () => (await (await fetch(`http://127.0.0.1:${apiPort}/v3/webrtcsessions/list`, { headers: { Authorization: 'Basic ' + btoa('hub:hub-pass') } })).json()).items.length;
 
+// The page gives a stream that left the list a minute to come back; here, 12 seconds.
+await send('Page.addScriptToEvaluateOnNewDocument', { source: `{ const st = window.setTimeout; window.setTimeout = (f, ms, ...a) => st(f, ms === 60000 ? 12000 : ms, ...a); }` });
 await send('Page.navigate', { url: HUB });
 await until('the page', () => ev(`!!document.getElementById('channels').children.length`));
 await settle(300);
@@ -77,6 +80,13 @@ const panel = () => ev(`document.getElementById('main-live').hidden ? null : { t
 const video = () => ev(`(() => { const v = document.querySelector('#main-live video'); return { picture: v.videoWidth > 0 && v.readyState >= 2, muted: v.muted, volume: Math.round(v.volume * 1000) / 1000, sound: v.srcObject?.getAudioTracks().length ?? 0 }; })()`);
 const moving = async () => { const a = await ev(`document.querySelector('#main-live video').currentTime`); await settle(700); return (await ev(`document.querySelector('#main-live video').currentTime`)) > a; };
 const controls = () => ev(`(() => { const s = document.querySelector('.live-sound'); return s.hidden ? null : { bar: s.querySelector('input').value, button: s.querySelector('button').title, on: !document.querySelector('.live-sound-on').hidden }; })()`);
+
+const media = () => ev(`document.querySelector('#main-live video').srcObject?.id ?? null`);
+const bar = () => ev(`(() => { const b = document.getElementById('watch-bar'); return b.hidden ? null : [...b.querySelectorAll('.share-where span')].map((s) => s.textContent); })()`);
+const menu = () => ev(`[...document.getElementById('menu').children].map((c) => c.classList.contains('sep') ? '-' : c.firstChild.textContent)`);
+const rowMenu = async (who) => { await ev(`(() => { const r = [...document.querySelectorAll('#live-list .row.relay')].find((r) => r.dataset.who === '${who}'); const b = r.getBoundingClientRect(); r.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: b.left + 20, clientY: b.top + 5 })); })()`); await settle(200); return menu(); };
+const sessionIds = async () => (await (await fetch(`http://127.0.0.1:${apiPort}/v3/webrtcsessions/list`, { headers: { Authorization: 'Basic ' + btoa('hub:hub-pass') } })).json()).items.map((x) => x.id);
+const row = (who) => ev(`[...document.querySelectorAll('#live-list .row.relay')].find((r) => r.dataset.who === '${who}').click()`);
 
 check('nobody streaming: no LIVE', [await live(), (await (await api('GET', '/api/streams')).json()).relay], [null, []]);
 
@@ -107,6 +117,57 @@ await ev(`document.querySelector('.live-sound button').click()`);
 check('mute', [(await video()).muted, await controls()], [true, { bar: '0', button: 'Unmute', on: false }]);
 await ev(`document.querySelector('.live-sound button').click()`);
 check('unmute goes back to the level', [(await video()).muted, (await controls()).bar], [false, '50']);
+
+// Opening something else leaves it playing: the chat shows, the stream goes on behind it with
+// its sound, the relay keeps the one session, and a bar in the sidebar says so.
+const first = await media();
+check('no bar while the panel is open; the row offers Stop Watching', [await bar(), await rowMenu('Alex')], [null, ['Watch', 'Stop Watching', '-', 'Message']]);
+await ev(`document.getElementById('menu').hidden = true`);
+await ev(`location.hash = '#chan=general'`);
+await until('the chat', () => ev(`!document.getElementById('main-chat').hidden`));
+check('behind a chat: still drawn, still playing, same connection', [await ev(`document.getElementById('main-live').classList.contains('behind') && getComputedStyle(document.getElementById('main-live')).display !== 'none'`), await moving(), (await video()).muted, await sessions(), (await media()) === first], [true, true, false, 1, true]);
+check('the bar says what is playing', await bar(), ['Watching', 'Alex’s stream']);
+check('still counted as watching', (await (await api('GET', '/api/streams')).json()).relay[0].viewers, ['Paul']);
+await ev(`document.querySelector('#watch-bar > button.tool').click()`);
+check('the bar mutes', [(await video()).muted, await ev(`document.querySelector('#watch-bar > button.tool').title`)], [true, 'Unmute']);
+await ev(`document.querySelector('#watch-bar > button.tool').click()`);
+await shot('behind');
+await ev(`document.querySelector('#watch-bar .share-where').click()`);
+await until('the panel back', async () => (await panel()) !== null);
+check('the bar leads back to the same picture', [await ev(`location.hash`), await bar(), (await media()) === first, await sessions()], ['#stream=Alex', null, true, 1]);
+
+// Full screen is the picture with a bar over it: the sound, and a button out.
+await ev(`document.querySelector('#main-live .live-head button[title^="Full screen"]').click()`);
+await until('full screen', () => ev(`!!document.fullscreenElement`), 5000);
+check('full screen: the picture’s box, with the bar', [await ev(`document.fullscreenElement?.className`), await ev(`getComputedStyle(document.querySelector('.live-over')).display`), await ev(`document.querySelector('.live-over .live-sound').hidden`)], ['live-body', 'flex', false]);
+await ev(`(() => { const i = document.querySelector('.live-over input'); i.value = '80'; i.dispatchEvent(new Event('input')); })()`);
+check('its volume bar works, and the head’s follows', [(await video()).volume, (await controls()).bar], [0.512, '80']);
+await ev(`(() => { const i = document.querySelector('.live-over input'); i.value = '50'; i.dispatchEvent(new Event('input')); })()`);
+await shot('fullscreen');
+await ev(`[...document.querySelectorAll('.live-over button')].find((b) => b.textContent === 'Exit full screen').click()`);
+await until('out of full screen', () => ev(`!document.fullscreenElement`), 5000);
+check('Exit full screen leaves it, still watching', [await ev(`!!document.fullscreenElement`), (await panel())?.note, await sessions()], [false, '', 1]);
+check('outside full screen the bar is not there', await ev(`getComputedStyle(document.querySelector('.live-over')).display`), 'none');
+
+// The connection drops (the relay ends the session): the page says so and connects again by
+// itself, with no reload.
+await ev(`(() => { window.sameDocument = true; window.notes = []; const n = document.querySelector('.live-note'); new MutationObserver(() => window.notes.push(n.hidden ? '' : n.firstChild?.textContent ?? '')).observe(n, { childList: true, attributes: true }); })()`);
+const [before] = await sessionIds();
+await fetch(`http://127.0.0.1:${apiPort}/v3/webrtcsessions/kick/${before}`, { method: 'POST', headers: { Authorization: 'Basic ' + btoa('hub:hub-pass') } });
+await until('a new session', async () => { const ids = await sessionIds(); return ids.length === 1 && ids[0] !== before && (await panel())?.note === '' && (await moving()); }, 30000);
+check('a dropped connection: Reconnecting…, then the picture again by itself', [(await ev(`window.notes`)).includes('Reconnecting…'), (await panel())?.note, await moving(), (await sessionIds()).includes(before), await ev(`window.sameDocument`), await ev(`location.hash`)], [true, '', true, false, true, '#stream=Alex']);
+check('the sound is as it was', [(await video()).muted, (await video()).volume], [false, 0.125]);
+
+// Stop Watching from the row, with a chat open: it ends, and the chat stays.
+await ev(`location.hash = '#chan=general'`);
+await until('the chat', () => ev(`!document.getElementById('main-chat').hidden`));
+await rowMenu('Alex');
+await ev(`[...document.querySelectorAll('#menu button')].find((b) => b.firstChild.textContent === 'Stop Watching').click()`);
+await until('the session gone', async () => (await sessions()) === 0, 5000);
+check('Stop Watching on the row: ended, bar gone, chat still open', [await sessions(), await bar(), await ev(`location.hash`), await ev(`document.getElementById('main-live').hidden`), await rowMenu('Alex')], [0, null, '#chan=general', true, ['Watch', '-', 'Message']]);
+await ev(`document.getElementById('menu').hidden = true`);
+await row('Alex');
+await until('the picture again', async () => (await sessions()) === 1 && (await moving()), 20000);
 
 // Stop watching: the relay's session ends at once, and the count drops.
 check('one session on the relay', await sessions(), 1);
@@ -139,9 +200,32 @@ await until('the note', async () => (await panel())?.note.includes('isn’t stre
 check('nobody by that name streaming', (await panel())?.note, 'Eve isn’t streaming right now.');
 await ev(`[...document.querySelectorAll('#live-list .row.relay')].find((r) => r.dataset.who === 'Alex').click()`);
 await until('the picture again', async () => (await video()).picture, 20000);
+// The stream blinks (the streamer's own connection): the page waits and plays it again.
 alexFeed.kill();
-await until('stopped', async () => (await panel())?.note.includes('stopped'), 20000);
+await until('waiting', async () => (await panel())?.note.includes('Waiting'), 20000);
+check('the stream gone: waiting for it', (await panel())?.note, 'Alex’s stream stopped. Waiting for it to come back…');
+let feed = publish('alexcam', 0);
+await until('back by itself', async () => (await panel())?.note === '' && (await sessions()) === 1 && (await moving()), 30000);
+check('it came back: playing again by itself', [(await panel())?.note, await moving()], ['', true]);
+// It ends for good: said after the wait.
+feed.kill();
+await until('stopped', async () => (await panel())?.note === 'Alex stopped streaming.', 40000);
 check('the stream ending says so', [(await panel())?.note, await live()], ['Alex stopped streaming.', ['Steve (stream)']]);
+// Streaming again later: the row plays it, though the address has not changed.
+feed = publish('alexcam', 0);
+await until('Alex listed again', async () => (await live())?.includes('Alex (stream)'), 20000);
+check('the address is still the stream’s', await ev(`location.hash`), '#stream=Alex');
+await row('Alex');
+await until('playing again', async () => (await panel())?.note === '' && (await sessions()) === 1 && (await moving()), 20000);
+check('the row plays a stream that ended and came back', [(await panel())?.note, await moving()], ['', true]);
+// Ending while it plays behind a chat: a toast, and the bar goes.
+await ev(`location.hash = '#chan=general'`);
+await until('the chat', () => ev(`!document.getElementById('main-chat').hidden`));
+feed.kill();
+await until('waiting, on the bar', async () => (await bar())?.[0] === 'Waiting…', 20000);
+check('behind a chat, the bar says it is waiting', await bar(), ['Waiting…', 'Alex’s stream']);
+await until('the bar gone', async () => (await bar()) === null, 30000);
+check('ended behind a chat: a toast, no bar, the panel put away', [await ev(`document.getElementById('toast').textContent`), await bar(), await ev(`document.getElementById('main-live').hidden`)], ['Alex stopped streaming.', null, true]);
 
 // Your own stream, and a phone: the strip names other people's streams.
 publish('paulcam', 0);

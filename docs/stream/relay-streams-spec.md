@@ -92,7 +92,8 @@ OBS ──RTMP (H.264 + AAC)──► relay: channel "live" ──► the game's
 
 - **LIVE** appears while anyone shares a screen or streams. A relay stream's row has its own
   icon (a broadcast icon, not the screen) and the streamer's name; yours reads "You're
-  streaming". Someone doing both has two rows. Right-click: Watch; Message.
+  streaming". Someone doing both has two rows. Right-click: Watch; Stop Watching (on the one
+  you are watching); Message.
 - **Address:** `#stream=<name>` (screen shares stay `#live=<name>`).
 - **Watching** uses the same panel as a screen share: head with the name and viewer count,
   the picture letterboxed, **Full screen** (double-click too), **Stop watching**. Added for
@@ -103,14 +104,36 @@ OBS ──RTMP (H.264 + AAC)──► relay: channel "live" ──► the game's
 - **Connecting:** an `RTCPeerConnection` that only receives (one video, one audio), offer to
   `POST /api/relay/{name}/watch`, answer applied, then `jitterBufferTarget = relayDelay` on
   both receivers. No LiveKit client is loaded.
-- **States:** "Connecting…", "Waiting for the picture…", "<name> stopped streaming." (with
-  Back), "Couldn't connect: …", "<name> isn't streaming right now.", and when the relay ends the
-  connection before any picture, or none comes within 10 seconds (what a stream with B-frames
-  does): "<name>'s stream can't be shown in the hub: it needs the OBS setting bframes=0."
-- Leaving the panel closes the connection and deletes the session. Phones watch from the
-  strip at the top of the chat, as with screen shares.
+- **States:** "Connecting…", "Waiting for the picture…", "Reconnecting…", "<name>'s stream
+  stopped. Waiting for it to come back…", "<name> stopped streaming." (with Back), "Couldn't
+  connect: …", "<name> isn't streaming right now.", and when the relay ends the connection
+  before any picture, or none comes within 10 seconds (what a stream with B-frames does):
+  "<name>'s stream can't be shown in the hub: it needs the OBS setting bframes=0."
+- **It plays behind everything** (Paul, 2026-10-13). Opening a folder, a file or a chat
+  leaves the stream playing: the sound goes on, and so does the browser's own pop-out player
+  (Firefox's Picture-in-Picture). The panel is moved out of sight, not hidden, because a
+  browser may stop a video it does not draw. A bar at the bottom of the sidebar says
+  "Watching" and whose stream, with mute and **Stop**; its words lead back to the picture. One
+  stream or screen at a time: opening another replaces it. It ends on Stop watching (the
+  panel's head, the bar, the row's menu), when the stream ends, or when the page closes; that
+  closes the connection and deletes the session. From the panel, Stop watching also goes back
+  to where you were; from anywhere else you stay there.
+- **A dropped connection reconnects by itself.** Once a picture has come, a connection that
+  fails, closes, or stays "disconnected" for 6 seconds is replaced: the last frame stays under
+  "Reconnecting…", and the page tries again after 1, 2 and 4 seconds, then every 5, for as
+  long as the stream is listed. A connection that shows nothing for 10 seconds is retried the
+  same way. Before any picture has come, a failure is final (the B-frames case above).
+- **A stream that leaves the list gets a minute to come back** (the streamer's own
+  connection blinking): the page waits, and plays it again by itself when it is listed again.
+  After 60 seconds it counts as stopped. Behind another panel, an ending is a toast.
+- **Full screen** is the picture's box, with a bar over its bottom edge: mute, the volume
+  slider and **Exit full screen**. The bar shows when the mouse moves and goes, with the
+  pointer, after three still seconds. Esc and a double-click leave too.
+- Clicking the row of a stream whose panel says it ended or failed tries again.
+- Phones watch from the strip at the top of the chat, as with screen shares.
 
-Words: "Streaming", "You're streaming", "Watch", "Stop watching", "Turn sound on". No
+Words: "Streaming", "You're streaming", "Watch", "Stop watching" ("Stop Watching" in the
+menu), "Watching", "Reconnecting…", "Exit full screen", "Turn sound on". No
 "relay", "channel" or "WHEP" in the page; "OBS" only in the message about B-frames.
 
 ## The streamer's side
@@ -152,8 +175,12 @@ message above. The hub cannot tell beforehand (the relay does not report it).
   delete only ends your own session; the relay unreachable; no `relay.json`.
 - **Browser (`test/browser/relay.mjs`):** a local MediaMTX (fetched like the local LiveKit)
   fed a generated picture and tone by ffmpeg: the row appears with its icon, `#stream=` plays
-  picture and sound, the viewer count, volume and mute kept, a browser refusing sound, a stream
-  with B-frames, the row going when the feed stops, your own stream, and a phone.
+  picture and sound, the viewer count, volume and mute kept, playing on behind a chat with
+  the bar, Stop Watching on the row, the full-screen bar, a session the relay ends
+  reconnecting by itself, a browser refusing sound, a stream with B-frames, the feed stopping
+  and coming back, the feed stopping for good (the page's minute is cut to 12 seconds), the
+  row retrying an ended stream, your own stream, and a phone. Not covered by a test: the
+  browser's pop-out player, which a page cannot see or open.
 
 ## Limits and costs
 

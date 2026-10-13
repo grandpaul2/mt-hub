@@ -110,6 +110,17 @@ check('Alex’s panel: count, no note', await panel(alex.ev), { title: 'Paul’s
 check('Alex’s row is the active one', await alex.ev(`document.querySelector('#live-list .row.live').classList.contains('active')`), true);
 await alex.send('Page.captureScreenshot').then((s) => writeFileSync(join(import.meta.dirname, 'out', 'stream-watching.png'), Buffer.from(s.data, 'base64'))).catch(() => {});
 
+// Alex opens a chat: the screen keeps coming behind it, he still counts, and a bar leads back.
+await alex.ev(`location.hash = '#chan=general'`);
+await until('Alex in the chat', () => alex.ev(`!document.getElementById('main-chat').hidden`));
+const at = await alex.ev(`document.querySelector('#main-live video').currentTime`);
+await settle(800);
+check('behind a chat: the picture keeps coming, a bar says so', [(await alex.ev(`document.querySelector('#main-live video').currentTime`)) > at, await alex.ev(`[...document.querySelectorAll('#watch-bar .share-where span')].map((s) => s.textContent)`), await alex.ev(`document.querySelectorAll('#watch-bar > button').length`)], [true, ['Watching', 'Paul’s screen'], 2]);
+check('Alex still counts', await shareBar(ev), '1 watching');
+await alex.ev(`document.querySelector('#watch-bar .share-where').click()`);
+await until('Alex back at the picture', async () => (await panel(alex.ev)) !== null);
+check('the bar leads back', [await alex.ev(`location.hash`), await picture(alex.ev), await alex.ev(`document.getElementById('watch-bar').hidden`)], ['#live=Paul', true, true]);
+
 // Paul watches his own stream (each viewer is its own connection).
 await ev(`document.querySelector('#live-list .row.live').click()`);
 await until('Paul sees his own picture', () => picture(ev), 20000);
@@ -131,7 +142,7 @@ check('Paul right-clicks his own', await menu(ev), ['Watch', '-', 'Stop Sharing'
 await ev(`document.getElementById('menu').hidden = true`);
 await alex.ev(`(() => { const r = document.querySelector('#live-list .row.live'); const b = r.getBoundingClientRect(); r.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: b.left + 20, clientY: b.top + 5 })); })()`);
 await settle(200);
-check('Alex right-clicks Paul’s', await menu(alex.ev), ['Watch', '-', 'Message']);
+check('Alex right-clicks Paul’s, which he is watching', await menu(alex.ev), ['Watch', 'Stop Watching', '-', 'Message']);
 await alex.ev(`document.getElementById('menu').hidden = true`);
 const sid1 = (await (await api('GET', '/api/streams', undefined, 'Alex')).json()).streams[0].id;
 check('a member can’t stop someone else’s', (await api('POST', `/api/streams/${sid1}/stop`, {}, 'Alex')).status, 403);
