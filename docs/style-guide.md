@@ -347,6 +347,9 @@ dialog, click-twice in Admin, and Shift+click. The rule:
 - **One way:** a themed dialog whose title is the question ("Delete #builds?"), with a body
   saying what's lost and what stays, and a red confirm button named for the action ("Delete",
   not "OK").
+- **"Delete this message?" shows the message** (Discord): drawn as the chat draws it (name,
+  time, text, its pictures and file cards) in a bordered box on `--bg` under the title, with
+  nothing in it to click. Taller than 200 px, the box scrolls.
 - **Two allowed shortcuts:**
   - **Shift+click** on a message's trash icon skips the question (Discord).
   - **Admin row actions** (Reset Password, Ban, Delete) keep click-twice-within-3-s, now

@@ -772,6 +772,12 @@ img.emoji { width: 1.3em; height: 1.3em; margin: 0 .05em; vertical-align: -.3em;
 .pins-btn svg, .files-btn svg { width: 16px; height: 16px; }
 #main-chat-title { flex: 1; }
 body.chat-hidden #chat .pins-btn, body.chat-hidden #chat .files-btn { display: none; }
+/* The message in "Delete this message?": as the chat draws it, in a box that scrolls when it's long. */
+.del-preview { margin: 8px 0 14px; padding: 6px 0; max-height: 200px; overflow-y: auto; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; }
+.del-preview .msg { --gutter: 48px; --edge: 10px; }
+.del-preview .msg > .msg-head .when { text-align: left; }
+.del-preview .msg:hover { background: none; }
+.del-preview .msg.mentions-me { background: none; box-shadow: none; }
 /* Forward dialog. */
 .fwd-preview { margin-bottom: 10px; padding: 8px 10px; background: var(--bg); border-radius: 4px; color: var(--chat-text); font-size: 13px; max-height: 80px; overflow: hidden; }
 .fwd-list { display: flex; flex-direction: column; gap: 2px; max-height: 240px; overflow-y: auto; margin-bottom: 10px; }

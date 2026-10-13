@@ -200,6 +200,32 @@ await ev(`${msgEl(refMsg.id)}.querySelector('.ref-card').click()`);
 await settle(600);
 check('card opens the post', await ev(`decodeURIComponent(location.hash)`), '#schem=Build 1');
 
+// The delete question shows the message as the chat draws it: name, time, text and picture,
+// with nothing to click; a long one is capped and scrolls.
+const pic = await (await paul('POST', '/api/channels/general/messages', { text: 'look at this #[map art/MA-001 Logo.png]' })).json();
+const long = await (await paul('POST', '/api/channels/general/messages', { text: Array.from({ length: 40 }, (_, i) => `line ${i}`).join('\n') })).json();
+await send('Page.navigate', { url: `${HUB}/?r=7#chan=general` });
+await settle(2000);
+await answerDialogs(null);
+const P = `document.querySelector('#dialog.ask .del-preview')`;
+await tool(pic.id, 'trash');
+await settle(600);
+check('delete question shows the message', await ev(`(() => { const p = ${P}; return [document.querySelector('#dialog h2').textContent, p.querySelector('.msg-head .who').textContent,
+  !!p.querySelector('.msg-head .when').textContent, p.querySelector('.msg-body').textContent.trim(), !!p.querySelector('.refs img'), !!p.querySelector('.msg-tools'), p.querySelector('.msg').inert]; })()`),
+  ['Delete this message?', 'Paul', true, 'look at this', true, false, true]);
+await shot('delete-preview');
+await ev(`document.querySelector('#dialog .actions button:first-child').click()`);
+await settle(300);
+check('Cancel keeps it', (await msgs('general')).some((m) => m.id === pic.id), true);
+await tool(long.id, 'trash');
+await settle(600);
+check('a long message is capped and scrolls', await ev(`(() => { const p = ${P}; return [p.clientHeight <= 200, p.scrollHeight > p.clientHeight, getComputedStyle(p).overflowY]; })()`), [true, true, 'auto']);
+await ev(`document.querySelector('#dialog .actions button:last-child').click()`);
+await settle(600);
+check('Delete deletes it', (await msgs('general')).some((m) => m.id === long.id), false);
+await api('DELETE', `/api/channels/general/messages/${pic.id}`);
+await settle(300);
+
 // Shift+click delete: no question.
 await send('Page.navigate', { url: `${HUB}/?r=5#chan=general` });
 await settle(2000);

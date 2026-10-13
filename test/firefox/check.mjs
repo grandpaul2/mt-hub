@@ -160,7 +160,7 @@ await sleep(800);
 const VIEWS = [['tree and chat', 'gyp'], ['file', 'boards/Playground juggling glyphs query.md'], ['folder', 'folder=screenshots'], ['schematics folder', 'folder=schematics'], ['new file tile', 'folder=boards'],
   ['schematics', 'schems'], ['picture', 'screenshots/2026-09-01 15.00.01 Peggy.png'], ['viewer', 'screenshots/2026-09-01 15.00.01 Peggy.png'],
   ['chat (main panel)', 'chan=general'], ['search', 'gyp'], ['mention popup', 'chan=general'], ['command popup', 'chan=general'], ['server status', 'chan=general'], ['emoji picker', 'chan=general'],
-  ['new line and jump', 'chan=piggy-jig'], ['save to files', 'chan=general'], ['chat files', 'chan=general'], ['private chat', 'chan=jig-staff'], ['server link', 'chan=text-link'], ['delete question', 'gyp'],
+  ['new line and jump', 'chan=piggy-jig'], ['save to files', 'chan=general'], ['chat files', 'chan=general'], ['private chat', 'chan=jig-staff'], ['server link', 'chan=text-link'], ['delete question', 'gyp'], ['delete message question', 'chan=general'],
   ['minecraft name', 'gyp'], ['message edit', 'chan=general'], ['file tray', 'chan=general'], ['sending and failed', 'chan=general'], ['sound settings', 'gyp'], ['voice settings', 'gyp'], ['admin', 'gyp']];
 mkdirSync(OUT, { recursive: true });
 const T = {}; let t0 = Date.now();
@@ -212,6 +212,12 @@ for (const [name, hash] of VIEWS) {
     await js(`(() => { document.querySelector('#channels .row').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 100, clientY: 300 }));
       [...document.querySelectorAll('#menu button')].find((b) => b.firstChild.textContent === 'Delete').click(); })()`);
     await shown(name, 'the question', `!document.getElementById('overlay').hidden && !!document.querySelector('#dialog h2')`);
+    await idle(800);
+  }
+  if (name === 'delete message question') {
+    // A message with a picture: the question shows it as the chat draws it.
+    await js(`[...document.querySelectorAll('#main-chat .msg')].find((m) => m.querySelector('.refs img') && m.querySelector('[data-tool="trash"]')).querySelector('[data-tool="trash"]').click()`);
+    await shown(name, 'the message in the question', `!!document.querySelector('#dialog.ask .del-preview .msg-head .who')`);
     await idle(800);
   }
   if (name === 'minecraft name') {
