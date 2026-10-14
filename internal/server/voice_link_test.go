@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -149,5 +150,49 @@ func TestVoiceLink(t *testing.T) {
 	s.voiceCheckOnce()
 	if link() != nil {
 		t.Error("#voice-link still there after link_voice went")
+	}
+}
+
+// #voice-link's token carries the account's Minecraft name for the bridge; an account without
+// one, and every other voice chat, carry nothing.
+func TestVoiceLinkTokenMinecraftName(t *testing.T) {
+	dir := t.TempDir()
+	us, _ := auth.Open(dir)
+	for _, n := range []string{"Alex", "Steve"} {
+		us.SetPassword(n, n+"-password")
+	}
+	if err := us.SetMC("Alex", "AlexInGame"); err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(filepath.Join(dir, "voice.json"), []byte(`{"url":"wss://lk.example","api":"http://127.0.0.1:1","key":"k","secret":"s3cret","link_voice":true}`), 0o600)
+	s := &Server{users: us, voice: loadVoice(dir), bus: newBroker()}
+	attributes := func(room, name string) map[string]string {
+		w := httptest.NewRecorder()
+		s.voiceToken(w, room, name)
+		var out struct{ Token string }
+		json.NewDecoder(w.Body).Decode(&out)
+		parts := strings.Split(out.Token, ".")
+		if len(parts) != 3 {
+			t.Fatalf("no token: %s", w.Body.String())
+		}
+		body, _ := base64.RawURLEncoding.DecodeString(parts[1])
+		var claims struct {
+			Sub        string
+			Attributes map[string]string
+		}
+		json.Unmarshal(body, &claims)
+		if claims.Sub != name {
+			t.Fatalf("the token is for %q, not %q", claims.Sub, name)
+		}
+		return claims.Attributes
+	}
+	if a := attributes(LinkVoiceID, "Alex"); a["mc"] != "AlexInGame" || len(a) != 1 {
+		t.Errorf("Alex's #voice-link token: %v", a)
+	}
+	if a := attributes(LinkVoiceID, "Steve"); a != nil {
+		t.Errorf("Steve has no Minecraft name, his token carries %v", a)
+	}
+	if a := attributes("some-other-chat", "Alex"); a != nil {
+		t.Errorf("another voice chat's token carries %v", a)
 	}
 }

@@ -335,13 +335,14 @@ func (b *Bridge) sendRoster() {
 	type member struct {
 		UUID string `json:"uuid"`
 		Name string `json:"name"`
+		MC   string `json:"mc,omitempty"` // the account's Minecraft name, from the hub's token: the game shows them as that player
 	}
 	members := []member{}
 	b.mu.Lock()
 	if b.listener != nil {
 		for _, p := range b.listener.GetRemoteParticipants() {
 			if !Ours(p.Identity()) {
-				members = append(members, member{uuidText(nameUUID("hub:" + p.Identity())), p.Identity()})
+				members = append(members, member{uuidText(nameUUID("hub:" + p.Identity())), p.Identity(), p.Attributes()["mc"]})
 			}
 		}
 	}
