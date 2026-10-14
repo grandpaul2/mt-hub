@@ -1,0 +1,233 @@
+// The lock in #voice-link, end to end (docs/voice/svc/lock-spec.md): a local LiveKit, the real
+// relay and bridge, and a stand-in game server speaking the relay's protocol, as in
+// voice-link.mjs. Paul (Minecraft name PaulMC) on the page: the lock on his own row only; locked,
+// his page hangs up when his player appears in game and joins again by itself when it goes,
+// on the microphone it held, asking for no new one; no Join while his player is in game; the
+// game server's report means no take-over; a page loaded with the player gone does not join;
+// a page that has lost the microphone says so; two tabs, one joins; Leave and unlocking let
+// the microphone go. Chromium's fake microphone, not a real one, and Chromium, not Firefox
+// (Firefox's rule that makes the page hold the microphone was tested on Paul's own Firefox:
+// the spec's Step 0).
+import { execFileSync, spawn } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
+import { createServer } from 'node:net';
+import { join } from 'node:path';
+import { api, check, COOKIE, DATA, done, HUB, send, settle, shot, ws } from './lib.mjs';
+import { ensureLivekit } from './support/livekit.mjs';
+
+const root = join(import.meta.dirname, '..', '..');
+const LK = ensureLivekit();
+const freePort = () => new Promise((r) => { const s = createServer().listen(0, '127.0.0.1', () => { const { port } = s.address(); s.close(() => r(port)); }); });
+const [port, tcp, relayPort] = [await freePort(), await freePort(), await freePort()];
+const udp = 52900 + Math.floor(Math.random() * 300);
+const SECRET = 'test-secret-that-is-long-enough-0123456789';
+const TOKENS = { game: 'game-token-0123456789abcdef0123456789abcdef', hub: 'hub-token-0123456789abcdef0123456789abcdef0' };
+writeFileSync(join(DATA, 'livekit.yaml'), `port: ${port}
+bind_addresses: ["127.0.0.1"]
+rtc:
+  tcp_port: ${tcp}
+  port_range_start: ${udp}
+  port_range_end: ${udp + 100}
+  use_external_ip: false
+  node_ip: 127.0.0.1
+keys:
+  mthub: ${SECRET}
+webhook:
+  api_key: mthub
+  urls: ["${HUB}/api/voice/webhook"]
+`);
+writeFileSync(join(DATA, 'voicelink.json'), JSON.stringify({ tokens: { [TOKENS.game]: 'survival', [TOKENS.hub]: 'hub' } }));
+writeFileSync(join(DATA, 'voicebridge.json'), JSON.stringify({ relay: `ws://127.0.0.1:${relayPort}/voicelink`, token: TOKENS.hub, livekit: `ws://127.0.0.1:${port}`, key: 'mthub', secret: SECRET, room: 'voice-link' }));
+for (const p of ['voicelink', 'voicebridge']) execFileSync('go', ['build', '-o', join(DATA, p), `./cmd/${p}`], { cwd: root, stdio: 'inherit' });
+const kids = [];
+process.on('exit', () => kids.forEach((k) => k.kill('SIGKILL')));
+const run = (cmd, args) => { const p = spawn(cmd, args, { stdio: 'ignore' }); kids.push(p); return p; };
+run(LK, ['--config', join(DATA, 'livekit.yaml')]);
+run(join(DATA, 'voicelink'), ['-addr', `127.0.0.1:${relayPort}`, '-config', join(DATA, 'voicelink.json')]);
+for (let i = 0; i < 50; i++) {
+  await settle(100);
+  if (await fetch(`http://127.0.0.1:${port}/`).then(() => true, () => false)) break;
+}
+writeFileSync(join(DATA, 'voice.json'), JSON.stringify({ url: `ws://127.0.0.1:${port}`, api: `http://127.0.0.1:${port}`, key: 'mthub', secret: SECRET, link_voice: true }));
+run(join(DATA, 'voicebridge'), ['-config', join(DATA, 'voicebridge.json')]);
+// The game server's own hub token, for its report.
+const serverToken = execFileSync(process.env.MTHUB_BIN, ['token', '-data', DATA, 'add', '-server', 'survival'], { encoding: 'utf8' }).trim().split('\n')[0].trim();
+
+const until = async (what, fn, ms = 15000) => {
+  for (const end = Date.now() + ms; Date.now() < end; await new Promise((r) => setTimeout(r, 150))) if (await fn()) return true;
+  console.log(`(timed out waiting for ${what})`);
+  return false;
+};
+const ev = async (expression, s = send) => (await s('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true, userGesture: true }))?.result?.value;
+
+// The stand-in game server: the hub's roster as it arrives (names, and who is locked), and its
+// own roster, PaulMC's player in the group or not.
+const PAUL_UUID = '4f1c2a7e-9b3d-4e8a-a1b2-c3d4e5f60718';
+const game = { hub: null, locked: null, ws: new WebSocket(`ws://127.0.0.1:${relayPort}/voicelink`, { headers: { Authorization: `Bearer ${TOKENS.game}` } }) };
+game.ws.binaryType = 'arraybuffer';
+await new Promise((ok, no) => { game.ws.onopen = ok; game.ws.onerror = () => no(new Error('the stand-in game server could not reach the relay')); });
+game.ws.onmessage = (e) => {
+  const b = new Uint8Array(e.data);
+  if (b[0] !== 2) return;
+  const from = new TextDecoder().decode(b.subarray(2, 2 + b[1]));
+  if (from !== 'hub') return;
+  const m = JSON.parse(new TextDecoder().decode(b.subarray(2 + b[1]))).members;
+  game.hub = m.map((x) => x.name);
+  game.locked = m.filter((x) => x.lock).map((x) => x.name);
+};
+const inGame = (yes) => game.ws.send(new TextEncoder().encode('\x02' + JSON.stringify({ members: yes ? [{ uuid: PAUL_UUID, name: 'PaulMC' }] : [] })));
+
+// Paul's Minecraft name (an admin sets it; Paul is one). Every page counts its microphone
+// requests and keeps the tracks it got; one may be made to wait, as Firefox makes a page you
+// aren't looking at wait.
+check('Paul gets a Minecraft name', (await api('POST', '/api/mc', { mc: 'PaulMC' }, 'Paul')).status, 200);
+const GUM = `(() => {
+  const g = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+  window.__gum = { n: 0, tracks: [] };
+  navigator.mediaDevices.getUserMedia = async (c) => {
+    window.__gum.n++;
+    if (sessionStorage.getItem('gum-wait') === '1') await new Promise((r) => (window.__gumGo = r));
+    const s = await g(c);
+    window.__gum.tracks.push(...s.getAudioTracks());
+    return s;
+  };
+})()`;
+await send('Page.addScriptToEvaluateOnNewDocument', { source: GUM });
+await send('Page.navigate', { url: HUB });
+await until('the page', () => ev(`!!document.getElementById('channels').children.length`));
+await until('the bridge in #voice-link', async () => !(await ev(`!!document.querySelector('#voice-list .voice-note')`)), 20000);
+
+const rows = (s) => ev(`[...document.querySelectorAll('#voice-list > *')].filter((r) => !r.classList.contains('voice-note')).map((r) => (r.classList.contains('link') ? '#' : '  ') + r.querySelector('.name').textContent + (r.querySelector('.tag.via') ? ' [' + r.querySelector('.tag.via').textContent + ']' : '') + (r.classList.contains('here') ? '*' : '') + (r.querySelector('.voice-lock') ? ' ' + (r.querySelector('.voice-lock.lost') ? '(lock lost)' : r.querySelector('.voice-lock.on') ? '(locked)' : '(lock)') : ''))`, s);
+const inVoice = (s) => ev(`!document.getElementById('voice-bar').hidden`, s);
+const gum = (s) => ev(`({ n: window.__gum.n, tracks: window.__gum.tracks.map((t) => t.readyState === 'ended' ? 'ended' : t.readyState + (t.enabled ? '' : '/off')) })`, s);
+const lockTitle = () => ev(`document.querySelector('#voice-list .voice-lock')?.title`);
+const clickLock = () => ev(`document.querySelector('#voice-list .voice-lock').click()`);
+const apiLock = async (who) => (await (await api('GET', '/api/voice', undefined, who)).json()).chats.find((c) => c.link).lock ?? false;
+
+// Not in voice-link: no row of his, no lock anywhere.
+check('not in voice-link: no lock', await rows(), ['#voice-link']);
+
+// Paul joins: the lock on his row, open; his player isn't anywhere yet.
+await ev(`document.querySelector('#voice-list .row.voice.link').click()`);
+await until('Paul in the voice chat', () => inVoice(), 20000);
+await until('Paul listed', async () => (await rows()).includes('  Paul* (lock)'));
+check('in voice-link: the lock on his own row, open', [await rows(), await lockTitle()], [['#voice-link*', '  Paul* (lock)'], 'Stay in voice-link when you leave the game']);
+const joinedWith = await gum();
+check('joining asked for the microphone once', joinedWith, { n: 1, tracks: ['live'] });
+
+// He locks: closed; only he is told; the game servers' roster says so.
+await clickLock();
+await until('locked', async () => (await rows()).includes('  Paul* (locked)'));
+check('locked: closed, with its hint', [await rows(), await lockTitle()], [['#voice-link*', '  Paul* (locked)'], 'Staying in voice-link when you leave the game. Click to stop']);
+check('GET /api/voice says so to Paul and to nobody else', [await apiLock('Paul'), await apiLock('Alex')], [true, false]);
+await until('the roster locked', async () => game.locked?.includes('Paul'));
+check('the game servers are told Paul is locked', [game.hub, game.locked], [['Paul'], ['Paul']]);
+check('locking in the voice chat asked for no new microphone', await gum(), joinedWith);
+await shot('locked');
+
+// Hub to game: his player appears in the group in game. The page hangs up without leaving:
+// still locked, the microphone held but quiet, the lock now on his player's row, no Join.
+const t1 = Date.now();
+inGame(true);
+await until('the page stepped back', async () => !(await inVoice()), 20000);
+const stepBackMs = Date.now() - t1;
+await until('Paul gone from the room', async () => !(await rows()).some((r) => r.startsWith('  Paul ') || r.startsWith('  Paul*')), 15000);
+check('his player in game: the page hung up, his player listed with his lock', await rows(), ['#voice-link', '  PaulMC [SMP] (locked)']);
+check('still locked', await apiLock('Paul'), true);
+check('the microphone held, quiet, and no new one asked for', await gum(), { n: 1, tracks: ['live/off'] });
+await ev(`document.querySelector('#voice-list .row.voice.link').click(); document.querySelector('#voice-list .row.voice.in-link').click()`);
+await settle(1500);
+check('no Join while his player is in game (clicking the rows does nothing)', await inVoice(), false);
+await ev(`(() => { const r = document.querySelector('#voice-list .row.voice.link'); const b = r.getBoundingClientRect(); r.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: b.left + 20, clientY: b.top + 5 })); })()`);
+await settle(200);
+check('and no menu with Join', await ev(`document.getElementById('menu').hidden || ![...document.getElementById('menu').children].some((c) => c.textContent === 'Join')`), true);
+await ev(`document.getElementById('menu').hidden = true`);
+await shot('in-game');
+
+// Game to hub: his player goes. The page joins by itself, on the held microphone.
+const t2 = Date.now();
+inGame(false);
+await until('the page took over', () => inVoice(), 20000);
+const takeOverMs = Date.now() - t2;
+await until('Paul back in the room', async () => (await rows()).includes('  Paul* (locked)'), 15000);
+check('his player gone: the page joined by itself, still locked', await rows(), ['#voice-link*', '  Paul* (locked)']);
+check('on the held microphone, asking for no new one', await gum(), { n: 1, tracks: ['live'] });
+console.log(`  (hand-over in the test: stepped back ${stepBackMs} ms after the game's roster, took over ${takeOverMs} ms after)`);
+
+// The game server's report (he left the group on purpose): the lock goes off before his player
+// leaves the roster, so the page does not take over.
+inGame(true);
+await until('stepped back again', async () => !(await inVoice()), 20000);
+const r = await fetch(`${HUB}/api/voice-link/left`, { method: 'POST', headers: { Authorization: `Bearer ${serverToken}` }, body: JSON.stringify({ player: 'paulmc' }) });
+check('the server reports the leave', r.status, 204);
+await until('the lock off on the page', async () => (await rows()).includes('  PaulMC [SMP] (lock)'));
+const t3 = Date.now();
+inGame(false);
+if (!(await until('his player gone', async () => !(await rows()).some((x) => x.startsWith('  PaulMC')), 15000))) {
+  console.log('  (the hub still lists: ' + JSON.stringify((await (await api('GET', '/api/voice', undefined, 'Paul')).json()).chats.find((c) => c.link).people) + ')');
+}
+console.log(`  (his player left the list ${Date.now() - t3} ms after the game's roster)`);
+await settle(2000);
+check('after the report: no take-over, and the held microphone let go', [await inVoice(), await rows(), (await gum()).tracks], [false, ['#voice-link'], ['ended']]);
+
+// A page loaded while locked, his player already gone (it never saw it leave): it doesn't join.
+// Its first microphone request waits (as Firefox makes a page in the background wait): the lock
+// says the page can't take over; once answered, it can.
+await ev(`document.querySelector('#voice-list .row.voice.link').click()`);
+await until('Paul in again', () => inVoice(), 20000);
+await until('his row', async () => (await rows()).includes('  Paul* (lock)'));
+await clickLock();
+await until('locked again', async () => apiLock('Paul'));
+await ev(`sessionStorage.setItem('gum-wait', '1')`);
+await send('Page.reload');
+await until('the page again', () => ev(`!!document.getElementById('channels')?.children.length`));
+await until('the page asking', async () => (await gum()).n === 1, 10000);
+await settle(3000);
+check('a page loaded with the player gone does not join', await inVoice(), false);
+check('its microphone not yet given: the lock says it can’t take over', [await rows(), await lockTitle()], [['#voice-link'], undefined]);
+// (Paul's row is gone: LiveKit dropped the old page. Bring the player in to see the lock.)
+inGame(true);
+await until('his player listed', async () => (await rows()).some((x) => x.startsWith('  PaulMC')), 15000);
+check('the lock on his player shows it can’t take over', [await rows(), await lockTitle()], [['#voice-link', '  PaulMC [SMP] (lock lost)'], 'Click here to stay in voice-link when you leave the game']);
+await shot('lost');
+await ev(`sessionStorage.removeItem('gum-wait'); window.__gumGo()`);
+await until('the microphone held', async () => (await rows()).includes('  PaulMC [SMP] (locked)'));
+check('answered: locked, holding it', [await rows(), (await gum()).tracks], [['#voice-link', '  PaulMC [SMP] (locked)'], ['live/off']]);
+
+// Two tabs, both holding the microphone: his player goes, one tab joins.
+const cdp = new URL(ws.url).host;
+const bws = new WebSocket((await (await fetch(`http://${cdp}/json/version`)).json()).webSocketDebuggerUrl);
+await new Promise((r) => bws.addEventListener('open', r));
+let sid = 0;
+const pending = new Map();
+bws.addEventListener('message', (e) => { const m = JSON.parse(e.data); if (pending.has(m.id)) { pending.get(m.id)(m.result); pending.delete(m.id); } });
+process.on('exit', () => bws.close());
+const raw = (method, params = {}, sessionId) => new Promise((ok) => { const id = ++sid; pending.set(id, ok); bws.send(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) })); });
+const { targetId } = await raw('Target.createTarget', { url: 'about:blank' });
+const { sessionId } = await raw('Target.attachToTarget', { targetId, flatten: true });
+const tab2 = (m, p) => raw(m, p, sessionId);
+await tab2('Page.addScriptToEvaluateOnNewDocument', { source: GUM });
+await tab2('Page.navigate', { url: HUB });
+await until('the second tab', () => ev(`!!document.getElementById('channels')?.children.length`, tab2));
+await until('the second tab holds the microphone', async () => (await rows(tab2)).includes('  PaulMC [SMP] (locked)'), 15000);
+inGame(false);
+await until('a tab joined', async () => (await inVoice()) || (await inVoice(tab2)), 20000);
+await settle(4000);
+check('two tabs: one joined', [await inVoice(), await inVoice(tab2)].filter(Boolean).length, 1);
+await raw('Target.closeTarget', { targetId });
+await until('the remaining page in voice-link', async () => { if (!(await inVoice())) await ev(`document.querySelector('#voice-list .row.voice.link').click()`); return inVoice(); }, 20000);
+
+// Unlocking in the voice chat keeps the microphone in use; Leave then lets it go.
+await until('his row', async () => (await rows()).includes('  Paul* (locked)'));
+await clickLock();
+await until('unlocked', async () => (await rows()).includes('  Paul* (lock)'));
+check('unlocked: GET /api/voice and the roster agree', [await apiLock('Paul'), await until('the roster unlocked', async () => game.locked && !game.locked.includes('Paul'))], [false, true]);
+check('the microphone still in use by the voice chat', (await gum()).tracks.at(-1), 'live');
+await clickLock();
+await until('locked', async () => apiLock('Paul'));
+await ev(`[...document.querySelectorAll('#voice-bar button')].at(-1).click()`);
+await until('Paul out', async () => !(await inVoice()));
+await settle(1000);
+check('Leave takes the lock off and lets the microphone go', [await apiLock('Paul'), (await gum()).tracks.filter((t) => t !== 'ended')], [false, []]);
+
+await done();
