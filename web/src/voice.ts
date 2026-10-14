@@ -388,6 +388,8 @@ async function connect(id: string, url: string, token: string) {
     const track = new LocalAudioTrack(chain.out, undefined, true);
     await room.localParticipant.publishTrack(track, { source: Track.Source.Microphone, dtx: true, red: true, forceStereo: false, audioPreset: { maxBitrate: 32000 } });
     cur = { id, room, chain, track };
+    joinedAt = Date.now();
+    setTimeout(renderBar, BLOCKED_AFTER + 100);
     barNote = '';
     if (muted) await track.mute();
     // A page that hasn't had a click since it loaded (a take-over after a reload) may not play
@@ -628,6 +630,8 @@ function markSpeaking() {
 // ---- the bar at the bottom of the sidebar ------------------------------------------------
 
 const bar = h('div', { id: 'voice-bar', hidden: true });
+let joinedAt = 0;
+const BLOCKED_AFTER = 1000; // ms
 
 function renderBar() {
   bar.hidden = !cur && !barNote;
@@ -645,8 +649,10 @@ function renderBar() {
   }
   const c = info.chats.find((x) => x.id === cur!.id);
   // Chromium: no click on this page since it loaded (a take-over after a reload), so it plays
-  // nothing and sends silence until one. A click anywhere fixes it (unblock, below).
-  const blocked = cur.chain.ctx.state !== 'running' || !cur.room.canPlaybackAudio;
+  // nothing and sends silence until one. A click anywhere fixes it (unblock, below). (Only
+  // once it is still so a moment after joining: a new context says "suspended" for a moment
+  // before it starts, Firefox's on every join.)
+  const blocked = (cur.chain.ctx.state !== 'running' || !cur.room.canPlaybackAudio) && Date.now() - joinedAt >= BLOCKED_AFTER;
   const top = c?.link ? 'voice-link' : c?.people[0]?.name ?? user.name;
   const btn = (title: string, icon: string, on: () => void, cls = '') => {
     const b = h('button', { class: 'tool ' + cls, title, innerHTML: icon });
