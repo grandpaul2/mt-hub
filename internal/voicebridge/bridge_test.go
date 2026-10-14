@@ -156,6 +156,7 @@ type game struct {
 	at    map[string][]time.Time
 	hub   []string          // the hub's roster as last told, names
 	hubMC map[string]string // ...and their Minecraft names, by name
+	hubLk []string          // ...and who of them is locked
 	told  int               // how many rosters the hub has sent
 }
 
@@ -191,12 +192,21 @@ func joinGame(t *testing.T, url string) *game {
 				g.audio[id] = append(g.audio[id], f)
 				g.at[id] = append(g.at[id], time.Now())
 			case b[0] == msgRoster && from == "hub":
-				var r struct{ Members []struct{ Name, MC string } }
+				var r struct {
+					Members []struct {
+						Name, MC string
+						Lock     bool
+					}
+				}
 				json.Unmarshal(body, &r)
 				g.hub = nil
 				g.hubMC = map[string]string{}
+				g.hubLk = nil
 				for _, m := range r.Members {
 					g.hub = append(g.hub, m.Name)
+					if m.Lock {
+						g.hubLk = append(g.hubLk, m.Name)
+					}
 					if m.MC != "" {
 						g.hubMC[m.Name] = m.MC
 					}
@@ -240,6 +250,12 @@ func (g *game) from(member string) (frames [][]byte, at []time.Time) {
 }
 
 // hubMinecraftNames is the last hub roster's Minecraft names, by account.
+func (g *game) hubLocked() []string {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return slices.Clone(g.hubLk)
+}
+
 func (g *game) hubMinecraftNames() map[string]string {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -275,6 +291,13 @@ func joinMember(t *testing.T, room, name string, talks bool) *member {
 // joinMemberAs joins with the Minecraft name the hub's token would carry ("" for none).
 func joinMemberAs(t *testing.T, room, name, mc string, talks bool) *member {
 	t.Helper()
+	return joinMemberWith(t, room, name, map[string]string{"mc": mc}, talks)
+}
+
+// joinMemberWith joins with these participant attributes (as the hub's token gives them;
+// empty values are left out).
+func joinMemberWith(t *testing.T, room, name string, attrs map[string]string, talks bool) *member {
+	t.Helper()
 	m := &member{got: map[string][]heard{}, ts: 1 << 31}
 	cb := &lksdk.RoomCallback{ParticipantCallback: lksdk.ParticipantCallback{
 		OnTrackSubscribed: func(track *webrtc.TrackRemote, _ *lksdk.RemoteTrackPublication, rp *lksdk.RemoteParticipant) {
@@ -302,8 +325,13 @@ func joinMemberAs(t *testing.T, room, name, mc string, talks bool) *member {
 	}}
 	var err error
 	info := lksdk.ConnectInfo{APIKey: lkKey, APISecret: lkSecret, RoomName: room, ParticipantIdentity: name, ParticipantName: name}
-	if mc != "" {
-		info.ParticipantAttributes = map[string]string{"mc": mc}
+	for k, v := range attrs {
+		if v != "" {
+			if info.ParticipantAttributes == nil {
+				info.ParticipantAttributes = map[string]string{}
+			}
+			info.ParticipantAttributes[k] = v
+		}
 	}
 	m.room, err = lksdk.ConnectToRoom(lkURL, info, cb)
 	if err != nil {
@@ -529,6 +557,23 @@ func TestRosters(t *testing.T) {
 		t.Errorf("the roster's Minecraft names: %v", mc)
 	}
 	sam.room.Disconnect()
+
+	// A locked member (the hub's token says "lock"): the roster says so. The hub clears it
+	// while they are in the room (UpdateParticipant): the roster is sent again without it.
+	kim := joinMemberWith(t, room, "kim", map[string]string{"mc": "KimInGame", "lock": "1"}, false)
+	eventually(t, "kim locked in the hub's roster", 10*time.Second, func() bool { return slices.Equal(g.hubLocked(), []string{"kim"}) })
+	rs := lksdk.NewRoomServiceClient(lkURL, lkKey, lkSecret)
+	if _, err := rs.UpdateParticipant(context.Background(), &livekit.UpdateParticipantRequest{Room: room, Identity: "kim", Attributes: map[string]string{"lock": ""}}); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "kim's lock gone from the roster", 10*time.Second, func() bool {
+		names, _ := g.hubRoster()
+		return len(g.hubLocked()) == 0 && slices.Contains(names, "kim")
+	})
+	if mc := g.hubMinecraftNames(); mc["kim"] != "KimInGame" {
+		t.Errorf("kim's Minecraft name after the lock went: %v", mc)
+	}
+	kim.room.Disconnect()
 
 	paul.room.Disconnect()
 	eventually(t, "Paul gone from the hub's roster", 10*time.Second, func() bool { names, _ := g.hubRoster(); return len(names) == 0 })

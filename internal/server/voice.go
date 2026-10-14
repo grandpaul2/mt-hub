@@ -81,6 +81,7 @@ type voiceChat struct {
 	Started time.Time     `json:"started"`
 	Link    bool          `json:"link,omitempty"`   // #voice-link
 	Linked  bool          `json:"linked,omitempty"` // and the bridge is in it: the game servers hear it
+	Lock    bool          `json:"lock,omitempty"`   // #voice-link, in GET /api/voice only: the person asking is locked (voice_lock.go)
 }
 
 // voicePersonFor is the list entry for a LiveKit identity: an account, or a player in game.
@@ -130,10 +131,16 @@ type voice struct {
 	chats    map[string]*voiceChat
 	seenMu   sync.Mutex
 	seen     map[string]time.Time // webhook ids lately (replayed)
+	// The locked accounts (voice_lock.go), kept in voice-locks.json; each with when it was
+	// first seen in neither place (zero while it is somewhere). Under mu.
+	locksFile string
+	locks     map[string]time.Time
 }
 
 func loadVoice(dir string) *voice {
-	v := &voice{confFile: filepath.Join(dir, "voice.json"), file: filepath.Join(dir, "voice-chats.json"), chats: map[string]*voiceChat{}}
+	v := &voice{confFile: filepath.Join(dir, "voice.json"), file: filepath.Join(dir, "voice-chats.json"), chats: map[string]*voiceChat{},
+		locksFile: filepath.Join(dir, "voice-locks.json")}
+	v.loadLocks()
 	if b, err := os.ReadFile(v.file); err == nil {
 		var list []*voiceChat
 		if json.Unmarshal(b, &list) == nil {
@@ -198,6 +205,7 @@ func (s *Server) voiceRoutes() {
 	s.mux.HandleFunc("POST /api/voice/{id}/disconnect", s.voiceModerate("disconnect"))
 	s.mux.HandleFunc("POST /api/voice/{id}/mute", s.voiceModerate("mute"))
 	s.mux.HandleFunc("POST /api/voice/webhook", s.voiceWebhook) // no login: LiveKit signs it
+	s.voiceLockRoutes()
 	go s.voiceCheck()
 }
 
@@ -214,6 +222,11 @@ func (s *Server) voiceList(w http.ResponseWriter, r *http.Request) {
 	out := []*voiceChat{}
 	for _, vc := range s.voice.chats {
 		if vc.sees(me) {
+			if vc.Link && s.voice.locked(me) { // your own lock, and nobody else's
+				c := *vc
+				c.Lock = true
+				vc = &c
+			}
 			out = append(out, vc)
 		}
 	}
@@ -269,6 +282,7 @@ func (s *Server) voiceStart(w http.ResponseWriter, r *http.Request) {
 	s.voice.chats[vc.ID] = vc
 	s.voice.save()
 	s.voice.mu.Unlock()
+	s.unlock(me, "started another voice chat")
 	s.voiceToken(w, vc.ID, me)
 }
 
@@ -284,12 +298,20 @@ func (s *Server) voiceJoin(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "That voice chat has ended."})
 		return
 	}
+	if id != LinkVoiceID {
+		s.unlock(me, "joined another voice chat")
+	}
 	s.voiceToken(w, id, me)
 }
 
 // voiceLeave takes someone off the list at once, rather than waiting for LiveKit's webhook
 // (which also comes, and finds them gone already).
+// Leaving #voice-link takes your lock off (leaving on purpose; a page stepping back for the
+// game doesn't call this).
 func (s *Server) voiceLeave(w http.ResponseWriter, r *http.Request) {
+	if r.PathValue("id") == LinkVoiceID {
+		s.unlock(who(r).Name, "left in the hub")
+	}
 	s.voicePart(r.PathValue("id"), who(r).Name, false, time.Time{})
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -499,9 +521,16 @@ func (s *Server) voiceToken(w http.ResponseWriter, id, name string) {
 	}
 	// In #voice-link, the account's Minecraft name (an admin sets it) goes with them: the bridge
 	// passes it to the game servers, which show them in game as that player, with that head.
+	// And their lock, by which a server puts that player in the group when they arrive.
 	if id == LinkVoiceID {
 		if u, ok := s.users.Get(name); ok && u.MC != "" {
-			claims["attributes"] = map[string]string{"mc": u.MC}
+			attrs := map[string]string{"mc": u.MC}
+			s.voice.mu.Lock()
+			if s.voice.locked(name) {
+				attrs["lock"] = "1"
+			}
+			s.voice.mu.Unlock()
+			claims["attributes"] = attrs
 		}
 	}
 	token := conf.sign(claims)
