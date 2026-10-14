@@ -14,6 +14,7 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { crc32, deflateSync } from 'node:zlib';
+import { createHash, createHmac } from 'node:crypto';
 
 const root = join(import.meta.dirname, '..', '..');
 const BIN = join(root, 'bin', 'mthub');
@@ -37,6 +38,8 @@ function png(w, h, [r, g, b]) {
 // The hub, seeded with text that has tails (g, p, y, j) in every kind of place.
 const data = join(tmp, 'data');
 for (const [n, admin] of [['Paul', 'true'], ['Peggy', 'false']]) execFileSync(BIN, ['passwd', '-data', data, `-admin=${admin}`, n], { input: `${n}-password\n` });
+// #voice-link, with no LiveKit behind it: the lock is drawn from what the hub lists (S84).
+writeFileSync(join(data, 'voice.json'), JSON.stringify({ url: 'ws://127.0.0.1:1', api: 'http://127.0.0.1:1', key: 'k', secret: 'check-secret-0123456789', link_voice: true }));
 const port = await freePort(), HUB = `http://127.0.0.1:${port}`;
 hub = spawn(BIN, ['-addr', `127.0.0.1:${port}`, '-data', data, '-min-free', '0'], { stdio: 'ignore' }); // /tmp is small
 await sleep(800);
@@ -89,6 +92,20 @@ await linkSay(survival, 'Peggy_jig', 'jiggy gyp query');
 await linkSay(creative, 'gypsy_jay', 'piggy jig');
 await fetch(`${HUB}/api/channels/text-link/messages`, { method: 'POST', headers: { cookie: peggy }, body: JSON.stringify({ text: 'gyp typed on the hub' }) });
 
+// #voice-link: the bridge in it and Paul's player in the group in game (as LiveKit's signed
+// webhooks would say), and Paul's Minecraft name, so his player's row has his lock.
+const webhook = async (id, identity) => {
+  const body = JSON.stringify({ id, event: 'participant_joined', room: { name: 'voice-link' }, participant: { identity, joinedAt: '1' } });
+  const enc = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const msg = enc({ alg: 'HS256', typ: 'JWT' }) + '.' + enc({ iss: 'k', exp: Math.floor(Date.now() / 1000) + 60, sha256: createHash('sha256').update(body).digest('base64') });
+  const r = await fetch(`${HUB}/api/voice/webhook`, { method: 'POST', headers: { authorization: `Bearer ${msg}.${createHmac('sha256', 'check-secret-0123456789').update(msg).digest('base64url')}` }, body });
+  if (!r.ok) throw new Error(`seeding #voice-link: ${r.status}`);
+};
+if (!(await fetch(`${HUB}/api/mc`, { method: 'POST', headers: { cookie: paul }, body: JSON.stringify({ mc: 'Gypsy_Paul' }) })).ok) throw new Error('seeding the Minecraft name');
+await webhook('w1', 'link:listener');
+await webhook('w2', 'link:survival:Gypsy_Paul');
+const setLock = async (on) => { const r = await fetch(`${HUB}/api/voice/voice-link/lock`, { method: 'POST', headers: { cookie: paul }, body: JSON.stringify({ on }) }); if (!r.ok) throw new Error(`the lock: ${r.status}`); };
+
 // Firefox: no extensions (their welcome tabs would cover the page), one tab, in front.
 const prof = join(tmp, 'profile');
 mkdirSync(prof);
@@ -97,8 +114,9 @@ writeFileSync(join(prof, 'user.js'), [...gfx.map((k) => `user_pref("${k}", true)
   'user_pref("extensions.installDistroAddons", false);', 'user_pref("extensions.enabledScopes", 1);', 'user_pref("extensions.autoDisableScopes", 15);',
   'user_pref("startup.homepage_welcome_url", "");', 'user_pref("browser.startup.homepage_override.mstone", "ignore");',
   'user_pref("browser.shell.checkDefaultBrowser", false);',
-  // Voice settings asks for the microphone (to list devices); its prompt would cover the page.
-  'user_pref("media.navigator.permission.disabled", true);', 'user_pref("datareporting.policy.firstRunURL", "");'].join('\n'));
+  // Voice settings asks for the microphone (to list devices), and a locked page holds one: no
+  // prompt over the page, and Firefox's own fake microphone, never this PC's.
+  'user_pref("media.navigator.permission.disabled", true);', 'user_pref("media.navigator.streams.fake", true);', 'user_pref("datareporting.policy.firstRunURL", "");'].join('\n'));
 const bidi = await freePort();
 ff = spawn('firefox', ['--no-remote', '--profile', prof, `--remote-debugging-port=${bidi}`, '--class=MTHubCheck', '--width=1280', '--height=800'], { stdio: 'ignore', env: X });
 let ws;
@@ -161,7 +179,7 @@ const VIEWS = [['tree and chat', 'gyp'], ['file', 'boards/Playground juggling gl
   ['schematics', 'schems'], ['picture', 'screenshots/2026-09-01 15.00.01 Peggy.png'], ['viewer', 'screenshots/2026-09-01 15.00.01 Peggy.png'],
   ['chat (main panel)', 'chan=general'], ['search', 'gyp'], ['mention popup', 'chan=general'], ['command popup', 'chan=general'], ['server status', 'chan=general'], ['emoji picker', 'chan=general'],
   ['new line and jump', 'chan=piggy-jig'], ['save to files', 'chan=general'], ['chat files', 'chan=general'], ['private chat', 'chan=jig-staff'], ['server link', 'chan=text-link'], ['delete question', 'gyp'], ['delete message question', 'chan=general'], ['rows selected', 'gyp'], ['rows cut', 'gyp'], ['trash', 'gyp'], ['tiles picked and the box', 'folder=screenshots'],
-  ['minecraft name', 'gyp'], ['message edit', 'chan=general'], ['file tray', 'chan=general'], ['sending and failed', 'chan=general'], ['sound settings', 'gyp'], ['voice settings', 'gyp'], ['admin', 'gyp']];
+  ['minecraft name', 'gyp'], ['message edit', 'chan=general'], ['file tray', 'chan=general'], ['sending and failed', 'chan=general'], ['sound settings', 'gyp'], ['voice settings', 'gyp'], ['voice-link lock', 'gyp'], ['voice-link locked', 'gyp'], ['admin', 'gyp']];
 mkdirSync(OUT, { recursive: true });
 const T = {}; let t0 = Date.now();
 const lap = (k) => { const n = Date.now(); T[k] = (T[k] ?? 0) + n - t0; t0 = n; };
@@ -169,10 +187,13 @@ console.log(`TIMING startup ${Math.round(process.uptime() * 1000)} ms`);
 for (const [name, hash] of VIEWS) {
   t0 = Date.now();
   if (name === 'new line and jump') await js(`localStorage.setItem('mt-read', JSON.stringify({ 'piggy-jig': '${readTo}' }))`);
+  if (name === 'voice-link lock' || name === 'voice-link locked') await setLock(name === 'voice-link locked');
   await cmd('browsingContext.navigate', { context: ctx, url: `${HUB}/?r=${Math.random()}#${encodeURI(hash)}`, wait: 'complete' });
   lap('load');
   await idle(1800);
   lap('wait after load');
+  if (name === 'voice-link lock') await shown(name, 'the open lock on his player', `!!document.querySelector('#voice-list .voice-lock:not(.on)')`);
+  if (name === 'voice-link locked') await shown(name, 'the closed lock, holding the microphone', `!!document.querySelector('#voice-list .voice-lock.on:not(.lost)')`);
   if (name === 'viewer') {
     await js(`document.querySelector('img[title="Click for full size"]').click()`);
     await shown(name, 'the viewer', `document.getElementById('viewer')?.hidden === false`);
