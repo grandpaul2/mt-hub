@@ -21,6 +21,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -391,6 +392,13 @@ func speech(seed int64, n int) [][]byte {
 
 func setup(t *testing.T) (*relay, *game, string) {
 	t.Helper()
+	r, g, room, _ := setupWith(t, nil)
+	return r, g, room
+}
+
+// setupWith is setup with something done to the bridge before it starts.
+func setupWith(t *testing.T, prep func(*Bridge)) (*relay, *game, string, *Bridge) {
+	t.Helper()
 	if lkURL == "" {
 		t.Skip("NOT TESTED: fetched/livekit-server is missing (make browser-test fetches it)")
 	}
@@ -401,9 +409,12 @@ func setup(t *testing.T) (*relay, *game, string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	b := New(Config{Relay: r.url(), Token: tokHub, LiveKit: lkURL, Key: lkKey, Secret: lkSecret, Room: room}, t.Logf)
+	if prep != nil {
+		prep(b)
+	}
 	go func() { b.Run(ctx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
-	return r, joinGame(t, r.url()), room
+	return r, joinGame(t, r.url()), room, b
 }
 
 func same(a, b [][]byte) string {
@@ -594,4 +605,65 @@ func TestRelayComesBack(t *testing.T) {
 	eventually(t, "the hub's roster after the relay came back", 15*time.Second, func() bool { names, _ := g.hubRoster(); return slices.Equal(names, []string{"Paul"}) })
 	g.roster(true)
 	eventually(t, "Steve back in the room", 10*time.Second, func() bool { return slices.Equal(paul.sees(), []string{steveIdent}) })
+}
+
+// Two rosters at once: the older one, slow on its way out, doesn't go after the newer one (the
+// game would think Paul still there). Forced: with Paul in the room, a roster is sent again
+// and held on its way out while Paul leaves.
+func TestOneRosterAtATime(t *testing.T) {
+	var hold, waiting atomic.Bool
+	held, newer := make(chan struct{}), make(chan struct{})
+	_, g, room, b := setupWith(t, func(b *Bridge) {
+		b.beforeSend = func(roster string) {
+			switch {
+			case strings.Contains(roster, `"Paul"`) && hold.CompareAndSwap(true, false):
+				close(held)
+				select { // until the newer roster is on its way (it can't be, one at a time), or 3 s
+				case <-newer:
+					time.Sleep(300 * time.Millisecond)
+				case <-time.After(3 * time.Second):
+				}
+			case !strings.Contains(roster, `"Paul"`) && waiting.CompareAndSwap(true, false):
+				close(newer)
+			}
+		}
+	})
+	paul := joinMember(t, room, "Paul", false)
+	eventually(t, "Paul in the hub's roster", 10*time.Second, func() bool { names, _ := g.hubRoster(); return slices.Equal(names, []string{"Paul"}) })
+	hold.Store(true)
+	b.mu.Lock()
+	b.lastSent = "" // (so the same roster goes again)
+	b.mu.Unlock()
+	go b.sendRoster()
+	<-held
+	waiting.Store(true)
+	paul.room.Disconnect()
+	time.Sleep(5 * time.Second)
+	if names, _ := g.hubRoster(); len(names) != 0 {
+		t.Fatalf("after Paul left, the game's last roster is %v", names)
+	}
+}
+
+// The relay going down takes the listener out of the room (the hub then shows #voice-link
+// not connected to the game servers), before the players; it comes back with the relay.
+func TestListenerFollowsRelay(t *testing.T) {
+	r, g, room := setup(t)
+	rs := lksdk.NewRoomServiceClient(lkURL, lkKey, lkSecret)
+	listening := func() bool {
+		res, err := rs.ListParticipants(context.Background(), &livekit.ListParticipantsRequest{Room: room})
+		if err != nil {
+			return false
+		}
+		return slices.ContainsFunc(res.Participants, func(p *livekit.ParticipantInfo) bool { return p.Identity == ListenerIdentity })
+	}
+	paul := joinMember(t, room, "Paul", false)
+	g.roster(true)
+	eventually(t, "Steve in the room", 10*time.Second, func() bool { return slices.Equal(paul.sees(), []string{steveIdent}) })
+	if !listening() {
+		t.Fatal("the listener is not in the room")
+	}
+	r.stop()
+	eventually(t, "the listener out with the relay", 10*time.Second, func() bool { return !listening() })
+	r.start(t)
+	eventually(t, "the listener back with the relay", 10*time.Second, listening)
 }

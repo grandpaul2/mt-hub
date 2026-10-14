@@ -103,10 +103,14 @@ type Bridge struct {
 
 	mu       sync.Mutex
 	relay    *websocket.Conn // nil while not connected
+	relayNow chan struct{}   // closed (and replaced) whenever relay changes
 	listener *lksdk.Room     // nil while not in the room
 	wanted   map[string]want // by player uuid (hex): who the game servers say is in Link
 	players  map[string]*player
-	lastSent string // the hub roster last sent to the relay
+	lastSent string     // the hub roster last sent to the relay
+	sending  sync.Mutex // one roster built and sent at a time, so an older one never goes last
+
+	beforeSend func(roster string) // tests: called between building a roster and sending it
 }
 
 type want struct {
@@ -129,11 +133,38 @@ func New(conf Config, logf func(format string, a ...any)) *Bridge {
 	if logf == nil {
 		logf = func(string, ...any) {}
 	}
-	return &Bridge{conf: conf, logf: logf, wanted: map[string]want{}, players: map[string]*player{}}
+	return &Bridge{conf: conf, logf: logf, wanted: map[string]want{}, players: map[string]*player{}, relayNow: make(chan struct{})}
 }
 
-// Run keeps the bridge connected to the relay and the room until ctx ends. Either side being
-// down leaves the other working by itself; both are retried.
+// setRelay records the relay connection (nil: none) and wakes whoever waits on it. Called
+// with mu held.
+func (b *Bridge) setRelay(ws *websocket.Conn) {
+	b.relay = ws
+	close(b.relayNow)
+	b.relayNow = make(chan struct{})
+}
+
+// waitRelay waits until the relay is connected (up) or not (!up); false if ctx ended first.
+func (b *Bridge) waitRelay(ctx context.Context, up bool) bool {
+	for {
+		b.mu.Lock()
+		now, ch := b.relay != nil, b.relayNow
+		b.mu.Unlock()
+		if now == up {
+			return true
+		}
+		select {
+		case <-ctx.Done():
+			return false
+		case <-ch:
+		}
+	}
+}
+
+// Run keeps the bridge connected to the relay and the room until ctx ends, both retried. The
+// listener is in the room only while the relay is connected: without it the game servers hear
+// nothing, and the hub shows #voice-link as not connected to them (its pages then don't take
+// a player who vanished for one who left the game).
 func (b *Bridge) Run(ctx context.Context) {
 	var wg sync.WaitGroup
 	for _, f := range []func(context.Context){b.runRelay, b.runListener, b.runPlayers} {
@@ -208,12 +239,25 @@ func (b *Bridge) relayOnce(ctx context.Context) error {
 	ws.SetReadLimit(64 << 10)
 	b.logf("relay: connected to %s", b.conf.Relay)
 	b.mu.Lock()
-	b.relay, b.lastSent = ws, ""
+	b.setRelay(ws)
+	b.lastSent = ""
 	b.mu.Unlock()
 	defer func() {
-		// Without the relay nobody in game is in the room.
+		// Without the relay nobody in game is in the room. The listener leaves first (so the
+		// hub hears the room is unlinked before the players go), then the players.
 		b.mu.Lock()
-		b.relay = nil
+		b.setRelay(nil)
+		b.mu.Unlock()
+		for end := time.Now().Add(2 * time.Second); time.Now().Before(end); time.Sleep(20 * time.Millisecond) {
+			b.mu.Lock()
+			out := b.listener == nil
+			b.mu.Unlock()
+			if out {
+				break
+			}
+		}
+		time.Sleep(200 * time.Millisecond)
+		b.mu.Lock()
 		b.wanted = map[string]want{}
 		b.mu.Unlock()
 	}()
@@ -302,18 +346,20 @@ func (b *Bridge) serversNow(servers []string) {
 	}
 }
 
-func (b *Bridge) relaySend(msg []byte) {
+func (b *Bridge) relaySend(msg []byte) error {
 	b.mu.Lock()
 	ws := b.relay
 	b.mu.Unlock()
 	if ws == nil {
-		return
+		return errors.New("no relay")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := ws.Write(ctx, websocket.MessageBinary, msg); err != nil {
+	err := ws.Write(ctx, websocket.MessageBinary, msg)
+	if err != nil {
 		ws.CloseNow() // the read loop ends and the relay is dialled again
 	}
+	return err
 }
 
 // nameUUID is a stable uuid for a name: a hub member as a speaker on the game side.
@@ -338,6 +384,8 @@ func (b *Bridge) sendRoster() {
 		MC   string `json:"mc,omitempty"`   // the account's Minecraft name, from the hub's token: the game shows them as that player
 		Lock bool   `json:"lock,omitempty"` // they are locked in voice-link: a server they join puts them in the group
 	}
+	b.sending.Lock()
+	defer b.sending.Unlock()
 	members := []member{}
 	b.mu.Lock()
 	if b.listener != nil {
@@ -353,9 +401,15 @@ func (b *Bridge) sendRoster() {
 		b.mu.Unlock()
 		return
 	}
-	b.lastSent = string(j)
 	b.mu.Unlock()
-	b.relaySend(append([]byte{msgRoster}, j...))
+	if b.beforeSend != nil {
+		b.beforeSend(string(j))
+	}
+	if b.relaySend(append([]byte{msgRoster}, j...)) == nil {
+		b.mu.Lock()
+		b.lastSent = string(j)
+		b.mu.Unlock()
+	}
 }
 
 // ---- the room: the listener --------------------------------------------------------------
@@ -369,12 +423,35 @@ func (b *Bridge) token(identity, name string, hidden, publish bool) (string, err
 	return auth.NewAccessToken(b.conf.Key, b.conf.Secret).SetIdentity(identity).SetName(name).SetVideoGrant(g).SetValidFor(time.Hour).ToJWT()
 }
 
+// runListener keeps the listener in the room while the relay is connected: it joins when the
+// relay connects (at once, with no wait from an earlier failure) and leaves when it drops.
 func (b *Bridge) runListener(ctx context.Context) {
-	retry(ctx, b.listenOnce, func(err error, wait time.Duration) {
+	wait := time.Second
+	for b.waitRelay(ctx, true) {
+		began := time.Now()
+		err := b.listenOnce(ctx)
+		if ctx.Err() != nil {
+			return
+		}
+		if err == nil { // the relay dropped
+			wait = time.Second
+			continue
+		}
+		if time.Since(began) > 30*time.Second {
+			wait = time.Second
+		}
 		b.logf("room: %v; again in %s", err, wait)
-	})
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(wait):
+		}
+		wait = min(wait*2, 30*time.Second)
+	}
 }
 
+// listenOnce is the listener in the room until LiveKit drops it (an error) or the relay does
+// (nil).
 func (b *Bridge) listenOnce(ctx context.Context) error {
 	gone := make(chan struct{})
 	var once sync.Once
@@ -406,17 +483,32 @@ func (b *Bridge) listenOnce(ctx context.Context) error {
 	b.listener = room
 	b.mu.Unlock()
 	b.sendRoster()
+	down := make(chan struct{})
+	dctx, dcancel := context.WithCancel(ctx)
+	defer dcancel()
+	go func() {
+		if b.waitRelay(dctx, false) {
+			close(down)
+		}
+	}()
+	relayGone := false
 	select {
 	case <-ctx.Done():
 	case <-gone:
+	case <-down:
+		relayGone = true
 	}
+	room.Disconnect()
 	b.mu.Lock()
 	b.listener = nil
 	b.mu.Unlock()
-	room.Disconnect()
 	b.sendRoster()
 	if ctx.Err() != nil {
 		return ctx.Err()
+	}
+	if relayGone {
+		b.logf("room: left %q while the relay is down", b.conf.Room)
+		return nil
 	}
 	return errors.New("disconnected")
 }
@@ -565,11 +657,11 @@ func (b *Bridge) runPlayers(ctx context.Context) {
 				delete(b.players, id)
 			}
 		}
-		var join []string
+		join := map[string]*player{}
 		for id := range b.wanted {
 			if b.players[id] == nil && time.Now().After(retryAt[id]) {
-				join = append(join, id)
-				b.players[id] = &player{want: b.wanted[id]}
+				join[id] = &player{want: b.wanted[id]}
+				b.players[id] = join[id]
 			}
 		}
 		b.mu.Unlock()
@@ -579,17 +671,17 @@ func (b *Bridge) runPlayers(ctx context.Context) {
 				b.logf("room: %s (%s) left", p.name, p.server)
 			}
 		}
-		for _, id := range join {
+		for id, p := range join {
 			go func() {
 				if err := b.joinPlayer(id); err != nil {
+					// (Only this attempt's: the player may have switched servers meanwhile.)
 					b.mu.Lock()
-					p := b.players[id]
-					delete(b.players, id)
+					if b.players[id] == p {
+						delete(b.players, id)
+					}
 					retryAt[id] = time.Now().Add(5 * time.Second)
 					b.mu.Unlock()
-					if p != nil {
-						b.logf("room: %s (%s) could not join: %v", p.name, p.server, err)
-					}
+					b.logf("room: %s (%s) could not join: %v", p.name, p.server, err)
 				}
 			}()
 		}
