@@ -27,6 +27,7 @@ Contributors and their agents start with [`../AGENTS.md`](../AGENTS.md).
 | [`stream/relay-streams-spec.md`](stream/relay-streams-spec.md) | current spec | Relay streams (sent with OBS, also shown on screens in the game) watched in the hub. |
 | [`voice/svc/link-spec.md`](voice/svc/link-spec.md) | current spec | Voice Link: a Simple Voice Chat room shared between game servers. |
 | [`voice/svc/hub-link-spec.md`](voice/svc/hub-link-spec.md) | current spec | #voice-link: the hub's voice chat joined to Voice Link, packets passed on untouched. |
+| [`voice/svc/lock-spec.md`](voice/svc/lock-spec.md) | current spec | The lock: staying in voice-link between the hub and the game; why the page holds your microphone. |
 
 ## Research records
 

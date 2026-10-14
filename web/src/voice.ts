@@ -31,7 +31,8 @@ const HOLD_BACK = 0.15; // seconds; see docs/voice/README.md on the delay budget
 // then the bridge's identity for them, which is also who their sound comes from.)
 type Person = { name: string; since: string; show?: string; via?: string };
 // (link: #voice-link, always there; linked: the bridge to the game servers is in it.)
-type VoiceChat = { id: string; private?: boolean; starter: string; invited?: string[]; people: Person[]; link?: boolean; linked?: boolean };
+// (lock: #voice-link only, and only yours: you are locked in, see "the lock" below.)
+type VoiceChat = { id: string; private?: boolean; starter: string; invited?: string[]; people: Person[]; link?: boolean; linked?: boolean; lock?: boolean };
 type Settings = { mic: string; level: number; speaker: string; outVol: number; filter: 'dfn3' | 'rnnoise' | 'off'; sensitivity: number; echo: boolean; gain: boolean; sfx: boolean; sfxVol: number };
 
 let info: { enabled: boolean; url: string; max: number; full: boolean; chats: VoiceChat[] } = { enabled: false, url: '', max: 3, full: false, chats: [] };
@@ -72,6 +73,7 @@ async function loadVoice() {
   info = await r.json();
   // The server ended the voice chat we're in (it never noticed us, or we were removed).
   if (cur && !info.chats.some((c) => c.id === cur!.id) && !joining) void leave(false);
+  lockStep();
   renderList();
   renderBar();
 }
@@ -125,14 +127,19 @@ function voiceRows(): HTMLElement[] {
 // with their server's tag. They hear each other.
 function linkRows(c: VoiceChat): HTMLElement[] {
   const here = cur?.id === c.id;
+  // Locked and your player in game: the hub can't take you out of the room, or into it.
+  const mine = myPlayer(c);
+  const away = !!c.lock && !!mine;
+  const enter = away ? () => {} : () => void join(c.id);
   const menu = (e: MouseEvent, more: MenuItem[] = []) => {
     e.preventDefault();
-    showMenu(e, [here ? ['Leave', () => void leave(true)] : ['Join', () => void join(c.id)], ...more]);
+    const items: MenuItem[] = away ? more.filter((m, i) => m || i) : [here ? ['Leave', () => void leave(true)] : ['Join', () => void join(c.id)], ...more];
+    if (items.length) showMenu(e, items);
   };
   const head = h('div', { class: 'row channel voice link' + (here ? ' here' : ''), title: here ? 'You’re in this voice chat' : 'Join: the hub and the voice-link group in game hear each other' },
     h('span', { class: 'hash', innerHTML: CHAT_ICON.link }), h('span', { class: 'name' }, 'voice-link'));
   head.dataset.voice = c.id;
-  head.onclick = () => void join(c.id);
+  head.onclick = enter;
   head.oncontextmenu = (e) => menu(e);
   const rows = [head];
   if (!c.linked) rows.push(h('div', { class: 'voice-note' }, 'Not connected to the game servers'));
@@ -147,7 +154,9 @@ function linkRows(c: VoiceChat): HTMLElement[] {
     ...(p.via ? [h('span', { class: 'tag via' }, p.via)] : []));
     row.dataset.voice = c.id;
     row.dataset.who = p.name;
-    row.onclick = () => void join(c.id);
+    row.onclick = enter;
+    // Your own row (you here, or your player in game) has your lock, and nobody else's does.
+    if (user.mc && (p.name === user.name || p === mine)) row.append(lockButton(c));
     // A player is not a hub account here: their volume for you, nothing else.
     row.oncontextmenu = (e) => menu(e, p.name === user.name ? [] : !p.via ? personItems(c.id, p.name, here)
       : here ? [null, volumeItem(p.name), [pref(p.name).muted ? 'Unmute' : 'Mute', () => setPref(p.name, { muted: !pref(p.name).muted })]] : []);
@@ -302,7 +311,7 @@ async function connect(id: string, url: string, token: string) {
   const lk = loadBundle<typeof LK>('livekit');
   let chain: Chain;
   try {
-    chain = await buildChain();
+    chain = await buildChain(false, id === linkChat()?.id);
   } catch (e) {
     joining = '';
     renderList();
@@ -351,6 +360,7 @@ async function connect(id: string, url: string, token: string) {
   });
   room.on(RoomEvent.Disconnected, (reason?: LK.DisconnectReason) => {
     if (cur?.room !== room) return;
+    if (pageGoing) return void leave(false, true); // a page closed or reloaded hasn't left: the lock stays
     if (reason === DisconnectReason.PARTICIPANT_REMOVED) toast('An admin disconnected you from the voice chat.', 6000);
     else toastError('Voice chat disconnected.');
     void leave(true);
@@ -388,6 +398,118 @@ async function leave(tell: boolean, quiet = false) {
   if (tell) await req('POST', `/api/voice/${c.id}/leave`);
   renderList();
   renderBar();
+}
+
+// ---- the lock ------------------------------------------------------------------------------
+// docs/voice/svc/lock-spec.md. Locked in #voice-link, you stay in voice-link between the hub and
+// the game: when your player (your Minecraft name) appears in the group in game, this page
+// hangs up without telling the hub; when it goes again, this page joins by itself. The hub
+// keeps the lock; the game servers put a locked player in the group when they arrive.
+//
+// Firefox opens no new microphone for a page you aren't looking at (you're in the game), but
+// one the page already holds comes back: so while you are locked the page holds it, disabled
+// when it isn't in use, from the click on the lock (or as soon as a reloaded page may).
+
+let held: MediaStreamTrack | null = null;
+let pageGoing = false;
+// (LiveKit hangs up on both, beforeunload first; ours were added before its own, so run first.)
+// (If the page stays after all, a cancelled beforeunload, the flag clears itself.)
+for (const e of ['beforeunload', 'pagehide']) window.addEventListener(e, () => { pageGoing = true; setTimeout(() => (pageGoing = false), 1000); });
+let asking = false;
+let sawMeInGame = false; // this page has seen your player in game (and so may take over when it goes)
+
+const linkChat = () => info.chats.find((c) => c.link);
+const myPlayer = (c: VoiceChat) => (user.mc ? c.people.find((p) => p.via && p.show?.toLowerCase() === user.mc!.toLowerCase()) : undefined);
+
+// lockStep acts on each new list: hold or let go of the microphone, step back when your player
+// appears in game, take over when it goes.
+function lockStep() {
+  const c = linkChat();
+  if (held?.readyState === 'ended') held = null; // (unplugged)
+  if (!c?.lock && held) {
+    if (cur?.id !== c?.id) held.stop();
+    held = null; // (in use: the voice chat's chain has it now, and ends it when it ends)
+  }
+  if (!c) return;
+  if (c.lock && !held && !asking && cur?.id !== c.id) void holdMic(false);
+  if (myPlayer(c)) {
+    sawMeInGame = true;
+    if (c.lock && cur?.id === c.id) void leave(false, true); // the chain's stop keeps the held microphone
+  } else if (sawMeInGame) {
+    sawMeInGame = false;
+    if (c.lock && held && !cur && !joining) void takeOver(c.id);
+  }
+}
+
+// takeOver joins #voice-link on the held microphone, in one tab only: two hub tabs both see the
+// player go, and the account can be in the room once.
+async function takeOver(id: string) {
+  const go = async () => {
+    if (cur || joining || held?.readyState !== 'live') return;
+    const r = await req('GET', '/api/voice');
+    const now = r.ok ? ((await r.json()) as typeof info).chats.find((c) => c.id === id) : undefined;
+    if (!now?.lock || now.people.some((p) => p.name === user.name)) return; // the other tab did, or the lock went
+    await join(id);
+  };
+  if (navigator.locks) await navigator.locks.request('mthub-voice-take-over', { ifAvailable: true }, async (l) => (l ? go() : undefined));
+  else await go();
+}
+
+// holdMic asks for the microphone to hold, disabled. From a click (the lock), or by itself on a
+// page loaded while you are locked: answered at once with a remembered Allow if the page is in
+// front, else when you look at it.
+async function holdMic(fromClick: boolean): Promise<boolean> {
+  if (asking) return false;
+  asking = true;
+  try {
+    const t = (await navigator.mediaDevices.getUserMedia(micConstraints())).getAudioTracks()[0];
+    if (held && held !== t && cur?.chain.mic !== held) held.stop();
+    t.enabled = false;
+    held = t;
+    return true;
+  } catch (e) {
+    if (fromClick) toastError(`Couldn’t use your microphone: ${(e as Error).message}`);
+    return false;
+  } finally {
+    asking = false;
+    renderList();
+  }
+}
+
+function lockButton(c: VoiceChat): HTMLElement {
+  const lost = !!c.lock && !held && cur?.id !== c.id;
+  const title = !c.lock ? 'Stay in voice-link when you leave the game'
+    : lost ? 'Click here to stay in voice-link when you leave the game'
+      : 'Staying in voice-link when you leave the game. Click to stop';
+  const b = h('button', { type: 'button', class: 'voice-lock' + (c.lock ? ' on' : '') + (lost ? ' lost' : ''), title, innerHTML: c.lock ? CHAT_ICON.lock : CHAT_ICON.lockOpen });
+  b.setAttribute('aria-label', title);
+  b.onclick = (e) => {
+    e.stopPropagation();
+    void clickLock(c, lost);
+  };
+  return b;
+}
+
+async function clickLock(c: VoiceChat, lost: boolean) {
+  if (lost) {
+    await holdMic(true);
+    return;
+  }
+  const on = !c.lock;
+  let asked = false;
+  if (on && cur?.id === c.id) held = cur.chain.mic;
+  else if (on && !held) {
+    if (!(await holdMic(true))) return;
+    asked = true;
+  }
+  const r = await req('POST', `/api/voice/${c.id}/lock`, JSON.stringify({ on }));
+  if (!r.ok) {
+    if (asked) held?.stop();
+    if (on) held = null;
+    toastError((await r.json().catch(() => ({}))).error ?? 'Couldn’t change the lock.');
+    return renderList();
+  }
+  await loadVoice();
 }
 
 // markSpeaking lights up the names of whoever is talking, without redrawing the list.
@@ -511,7 +633,7 @@ export const voiceSounds = {
 
 // ---- the microphone chain -------------------------------------------------------------
 
-type Chain = { out: MediaStreamTrack; level: GainNode; meter: (fn: ((peak: number) => void) | null) => void; stop: () => void };
+type Chain = { mic: MediaStreamTrack; out: MediaStreamTrack; level: GainNode; meter: (fn: ((peak: number) => void) | null) => void; stop: () => void };
 
 // The filters' files load once, on first use.
 let filesLoaded: Promise<{ rnnoise: ArrayBuffer; dfn: DeepFilterNet3Core }> | null = null;
@@ -551,14 +673,29 @@ class VoiceTap extends AudioWorkletProcessor {
 registerProcessor('voice-tap', VoiceTap);
 `;
 
-async function buildChain(): Promise<Chain> {
+const micConstraints = () => ({
+  audio: { ...(settings.mic ? { deviceId: { exact: settings.mic } } : {}), channelCount: 1, echoCancellation: settings.echo, noiseSuppression: false, autoGainControl: settings.gain },
+});
+
+// buildChain is the microphone's way out: level, noise filter, speech gate. It runs on the
+// held microphone when there is one (the lock), unless fresh (a new device chosen); one asked
+// for #voice-link while you are locked becomes the held one. Stopping it lets a held
+// microphone go quiet (disabled) instead of ending it.
+async function buildChain(fresh = false, forLink = false): Promise<Chain> {
   const files = await loadFiles();
-  const mic = await navigator.mediaDevices.getUserMedia({
-    audio: { ...(settings.mic ? { deviceId: { exact: settings.mic } } : {}), channelCount: 1, echoCancellation: settings.echo, noiseSuppression: false, autoGainControl: settings.gain },
-  });
+  let track: MediaStreamTrack;
+  if (!fresh && held?.readyState === 'live') {
+    track = held;
+    track.enabled = true;
+  } else {
+    track = (await navigator.mediaDevices.getUserMedia(micConstraints())).getAudioTracks()[0];
+    if ((forLink || held) && linkChat()?.lock) held = track;
+  }
+  const mic = new MediaStream([track]);
   const ctx = new AudioContext({ sampleRate: RATE, latencyHint: 'interactive' });
   const stopAll = () => {
-    for (const t of mic.getTracks()) t.stop();
+    if (track === held) track.enabled = false;
+    else track.stop();
     worker?.terminate();
     void ctx.close();
   };
@@ -608,6 +745,7 @@ async function buildChain(): Promise<Chain> {
     const w = worker;
     gateWorker = w;
     return {
+      mic: track,
       out: out.stream.getAudioTracks()[0],
       level,
       meter: (fn) => (onLevel = fn),
@@ -737,7 +875,7 @@ export async function openSettings() {
     }
     if (!cur) return;
     try {
-      const chain = await buildChain();
+      const chain = await buildChain(true);
       await cur.track.replaceTrack(chain.out, true);
       cur.chain.stop();
       cur.chain = chain;

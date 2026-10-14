@@ -818,7 +818,13 @@ at home in apps like this:
   a folder box and list (the tree's selected folder by default; typing narrows it or names a
   new folder). The buttons are Cancel and **Save** (blue).
 - **Private chats and DMs:**
-  - **Lock:** a lock stroke icon after the `#` of private chats.
+  - **Lock:** a lock stroke icon after the `#` of private chats (and after a private voice
+    chat's first row). The same icon has a second meaning in one place: **the lock in
+    #voice-link**, at the right end of your own row only (docs/voice/svc/lock-spec.md): open
+    and dim (`--muted`, 55%) when off, closed (`--chat-muted`) when on, red (`--danger`) when the
+    page has lost your microphone. Its hints: "Stay in voice-link when you leave the game",
+    "Staying in voice-link when you leave the game. Click to stop", "Click here to stay in
+    voice-link when you leave the game".
   - **DMs sit in TEXT** (no separate DIRECT MESSAGES section), after the chats,
     shown as "@" and the people. Each section's "+" does its own job: TEXT's is a menu (New
     Chat, New Private Chat… (admins), New Direct Message…), VOICE's is a menu (New Voice
