@@ -36,8 +36,8 @@ and the page can start audio and play sound then (tested in Firefox 157 with the
 background tab and another application focused).
 
 So while you are locked the page holds your microphone, disabled while it isn't in use: from
-the click on the lock, or as soon as a page loaded while you are locked is in front and
-focused (a page in the background asks for nothing; one that was refused asks again only on a
+the click on the lock, or as soon as a page loaded while you are locked is in view (a page
+in the background asks for nothing; one that was refused asks again only on a
 click on the red lock or when you look at it again). Only #voice-link uses the held
 microphone; another voice chat, and the Mic test, get one of their own. Firefox's
 microphone indicator should show it as not in use (gray) while you are in game; that is from
@@ -96,5 +96,4 @@ and the question for game servers only; a replaced session; checks failing; a ch
 Minecraft name; the old lock file), `internal/voicebridge` `TestRosters` (the roster's `lock`,
 sent again on a change), `TestOneRosterAtATime`, `TestListenerFollowsRelay`,
 `test/browser/voice-lock.mjs` (end to end with a local LiveKit, relay and bridge and a stand-in
-game server; Chromium's fake microphone; Chromium's autoplay rule forced by a stub, and focus
-emulated), and the lock views in `test/firefox/check.mjs`.
+game server; Chromium's fake microphone; Chromium's autoplay rule forced by a stub), and the lock views in `test/firefox/check.mjs`.

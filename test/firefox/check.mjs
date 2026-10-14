@@ -191,11 +191,15 @@ for (const [name, hash] of VIEWS) {
   if (name === 'new line and jump') await js(`localStorage.setItem('mt-read', JSON.stringify({ 'piggy-jig': '${readTo}' }))`);
   if (name === 'voice-link lock' || name === 'voice-link locked') await setLock(name === 'voice-link locked');
   if (name === 'voice-link no microphone') await js(`localStorage.setItem('check-gum-fail', '1')`);
+  // A locked page takes the microphone by itself only in a focused window (as Firefox gives it
+  // only then): focus it again, in case a click elsewhere took it during the check.
+  if (name.startsWith('voice-link')) execFileSync('i3-msg', ['[class="MTHubCheck"] focus'], { env: X, stdio: 'ignore' });
   await cmd('browsingContext.navigate', { context: ctx, url: `${HUB}/?r=${Math.random()}#${encodeURI(hash)}`, wait: 'complete' });
   lap('load');
   await idle(1800);
   lap('wait after load');
   if (name === 'voice-link lock') await shown(name, 'the open lock on his player', `!!document.querySelector('#voice-list .voice-lock:not(.on)')`);
+  if (name.startsWith('voice-link') && !(await js('document.hasFocus()'))) console.log(`(${name}: the page's window isn't focused)`);
   if (name === 'voice-link locked') await shown(name, 'the closed lock, holding the microphone', `!!document.querySelector('#voice-list .voice-lock.on:not(.lost)')`);
   if (name === 'voice-link no microphone') { // locked, the microphone refused, his player leaves the game: the take-over can't run
     await shown(name, 'the red lock', `!!document.querySelector('#voice-list .voice-lock.lost')`);

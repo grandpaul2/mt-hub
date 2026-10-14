@@ -463,8 +463,10 @@ function pageStays() {
   else toastError('You were disconnected from the voice chat.');
 }
 // A page you look at again may ask for the microphone again (after a refusal, or one it never
-// asked for because it was in the background).
-const looking = () => document.visibilityState === 'visible' && document.hasFocus();
+// asked for because it was in the background). Visible is enough: Firefox itself holds a
+// request from a tab in a window without focus until you look at it, and document.hasFocus()
+// is false whenever the browser's own toolbar has the keyboard (its reload button, say).
+const looking = () => document.visibilityState === 'visible';
 const lookedAgain = () => {
   if (!looking()) return;
   holdFailed = false;
@@ -490,7 +492,7 @@ function lockStep() {
     renderBar();
   }
   if (!c) return;
-  // By itself only on a page you are looking at (Firefox would hold the request till then anyway),
+  // By itself only on a page in view (Firefox would hold the request till you look anyway),
   // not after a refusal, and not while joining.
   if (c.lock && !held && !asking && !holdFailed && !joining && cur?.id !== c.id && looking()) void holdMic(false);
   // Not connected to the game servers: players vanish because the bridge or relay went, not

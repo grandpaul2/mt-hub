@@ -117,9 +117,6 @@ const CTX = `(() => {
     for (const c of seen) c.dispatchEvent(new Event('statechange'));
   }, true);
 })()`;
-// Headless pages count as no window's focus: the page counts as the focused one (as a hub tab
-// in front would), as in message-sound.mjs.
-await send('Emulation.setFocusEmulationEnabled', { enabled: true });
 await send('Page.addScriptToEvaluateOnNewDocument', { source: GUM });
 await send('Page.addScriptToEvaluateOnNewDocument', { source: CTX });
 await send('Page.navigate', { url: HUB });
@@ -272,7 +269,6 @@ const raw = (method, params = {}, sessionId) => new Promise((ok) => { const id =
 const { targetId } = await raw('Target.createTarget', { url: 'about:blank' });
 const { sessionId } = await raw('Target.attachToTarget', { targetId, flatten: true });
 const tab2 = (m, p) => raw(m, p, sessionId);
-await tab2('Emulation.setFocusEmulationEnabled', { enabled: true });
 await tab2('Page.addScriptToEvaluateOnNewDocument', { source: GUM });
 await tab2('Page.navigate', { url: HUB });
 await until('the second tab', () => ev(`!!document.getElementById('channels')?.children.length`, tab2));
@@ -342,7 +338,6 @@ await until('the background tab', () => ev(`!!document.getElementById('channels'
 await wait(2000);
 check('a tab in the background: hidden, and no microphone asked for', [await ev(`document.visibilityState`, tab3), await ev(`window.__gum?.n ?? 'no counter'`, tab3)], ['hidden', 0]);
 await raw('Target.activateTarget', { targetId: bg.targetId });
-await tab3('Emulation.setFocusEmulationEnabled', { enabled: true });
 await until('the background tab holding it once looked at', async () => (await gum(tab3))?.tracks.length === 1, 10000);
 check('looked at: it asks, and holds it', (await gum(tab3)).tracks, ['live/off']);
 await raw('Target.closeTarget', { targetId: bg.targetId });
