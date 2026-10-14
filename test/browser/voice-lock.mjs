@@ -109,8 +109,17 @@ const CTX = `(() => {
   const resume = AudioContext.prototype.resume;
   const seen = new Set();
   const blocked = () => sessionStorage.getItem('ctx-block') === '1';
-  Object.defineProperty(BaseAudioContext.prototype, 'state', { get() { return blocked() ? 'suspended' : state.call(this); } });
-  AudioContext.prototype.resume = function () { seen.add(this); return blocked() ? new Promise(() => {}) : resume.call(this); };
+  // 'ctx-slow': a new context says suspended for its first 300 ms, as Firefox's does on every join.
+  const slow = new WeakMap();
+  Object.defineProperty(BaseAudioContext.prototype, 'state', { get() { return blocked() || (slow.get(this) ?? 0) > performance.now() ? 'suspended' : state.call(this); } });
+  AudioContext.prototype.resume = function () {
+    seen.add(this);
+    if (sessionStorage.getItem('ctx-slow') === '1' && !slow.has(this)) {
+      slow.set(this, performance.now() + 300);
+      setTimeout(() => this.dispatchEvent(new Event('statechange')), 320);
+    }
+    return blocked() ? new Promise(() => {}) : resume.call(this);
+  };
   for (const e of ['pointerdown', 'keydown']) window.addEventListener(e, (ev) => {
     if (!ev.isTrusted || !blocked()) return;
     sessionStorage.removeItem('ctx-block');
@@ -133,9 +142,14 @@ const apiLock = async (who) => (await (await api('GET', '/api/voice', undefined,
 // Not in voice-link: no row of his, no lock anywhere.
 check('not in voice-link: no lock', await rows(), ['#voice-link']);
 
-// Paul joins: the lock on his row, open; his player isn't anywhere yet.
+// Paul joins: the lock on his row, open; his player isn't anywhere yet. (His browser's sound
+// takes 300 ms to start, as Firefox's does: the bar never asks for a click for that.)
+await ev(`sessionStorage.setItem('ctx-slow', '1'); window.__bar = []; new MutationObserver(() => window.__bar.push(document.getElementById('voice-bar').textContent)).observe(document.getElementById('voice-bar'), { childList: true, subtree: true, characterData: true })`);
 await ev(`document.querySelector('#voice-list .row.voice.link').click()`);
 await until('Paul in the voice chat', () => inVoice(), 20000);
+await wait(1500);
+check('sound starting a moment late: the bar never asked for a click', await ev(`[window.__bar.some((t) => t.includes('Click to turn on')), document.querySelector('#voice-bar .voice-ok')?.textContent]`), [false, 'Voice connected']);
+await ev(`sessionStorage.removeItem('ctx-slow')`);
 await until('Paul listed', async () => (await rows()).includes('  Paul* (lock)'));
 check('in voice-link: the lock on his own row, open', [await rows(), await lockTitle()], [['#voice-link*', '  Paul* (lock)'], 'Stay in voice-link when you leave the game']);
 const joinedWith = await gum();
