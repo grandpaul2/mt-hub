@@ -71,6 +71,10 @@ type voicePerson struct {
 	Show  string    `json:"show,omitempty"` // a player in game: their Minecraft name (in GET /api/voice, the hub name it's linked to, if any)
 	Via   string    `json:"via,omitempty"`  // and their server's tag (SMP, CMP), as in #text-link
 	Game  string    `json:"game,omitempty"` // in GET /api/voice: their Minecraft name, when show is a hub name
+	// LiveKit's id for this session: a second tab replaces the first under the same identity,
+	// and the first one's leave must not take the second off. Never sent or saved (after a
+	// restart a leave goes by name, as when LiveKit gives no id).
+	sid string
 }
 
 type voiceChat struct {
@@ -160,10 +164,12 @@ type voice struct {
 	chats    map[string]*voiceChat
 	seenMu   sync.Mutex
 	seen     map[string]time.Time // webhook ids lately (replayed)
-	// The locked accounts (voice_lock.go), kept in voice-locks.json; each with when it was
-	// first seen in neither place (zero while it is somewhere). Under mu.
+	// The locked accounts (voice_lock.go), kept in voice-locks.json. Under mu.
 	locksFile string
-	locks     map[string]time.Time
+	locks     map[string]voiceLockEntry
+	// checked: the last check with LiveKit (voiceCheckOnce) answered for every voice chat, so
+	// the lists say who is where. Under mu.
+	checked bool
 }
 
 func loadVoice(dir string) *voice {
@@ -339,7 +345,7 @@ func (s *Server) voiceLeave(w http.ResponseWriter, r *http.Request) {
 	if r.PathValue("id") == LinkVoiceID {
 		s.unlock(who(r).Name, "left in the hub")
 	}
-	s.voicePart(r.PathValue("id"), who(r).Name, false, time.Time{})
+	s.voicePart(r.PathValue("id"), who(r).Name, false, time.Time{}, "")
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -382,7 +388,10 @@ func (s *Server) voiceModerate(action string) http.HandlerFunc {
 		var err error
 		if action == "disconnect" {
 			if _, err = conf.twirp("RemoveParticipant", id, map[string]string{"room": id, "identity": req.Name}); err == nil {
-				s.voicePart(id, req.Name, false, time.Time{})
+				if id == LinkVoiceID {
+					s.unlock(req.Name, "disconnected by "+me.Name)
+				}
+				s.voicePart(id, req.Name, false, time.Time{}, "")
 			}
 		} else {
 			err = conf.muteMic(id, req.Name)
@@ -463,8 +472,10 @@ func (s *Server) voiceInvite(w http.ResponseWriter, r *http.Request) {
 }
 
 // voicePart puts someone in a voice chat (in) or takes them out. Being in one voice chat
-// takes you out of any other. A voice chat nobody is left in ends.
-func (s *Server) voicePart(id, name string, in bool, since time.Time) {
+// takes you out of any other. A voice chat nobody is left in ends. sid is LiveKit's id for
+// the session, when known: joining again (another tab) replaces it, and a leave for another
+// session than the one listed changes nothing.
+func (s *Server) voicePart(id, name string, in bool, since time.Time, sid string) {
 	conf := s.voice.config()
 	s.voice.mu.Lock()
 	changed := s.voice.linkVoice(conf)
@@ -495,11 +506,18 @@ func (s *Server) voicePart(id, name string, in bool, since time.Time) {
 	}
 	for cid, vc := range s.voice.chats {
 		if cid == id && in {
-			if !vc.has(name) {
-				vc.People = append(vc.People, voicePerson{Name: name, Since: since})
+			if i := slices.IndexFunc(vc.People, func(p voicePerson) bool { return p.Name == name }); i >= 0 {
+				if sid != "" {
+					vc.People[i].sid = sid
+				}
+			} else {
+				vc.People = append(vc.People, voicePerson{Name: name, Since: since, sid: sid})
 				changed = true
 			}
 			continue
+		}
+		if cid == id && !in && sid != "" && slices.ContainsFunc(vc.People, func(p voicePerson) bool { return p.Name == name && p.sid != "" && p.sid != sid }) {
+			continue // (the leave of a session another one replaced)
 		}
 		if (cid == id || in) && vc.has(name) {
 			vc.People = slices.DeleteFunc(vc.People, func(p voicePerson) bool { return p.Name == name })
@@ -584,6 +602,7 @@ func (s *Server) voiceWebhook(w http.ResponseWriter, r *http.Request) {
 			Name string `json:"name"`
 		} `json:"room"`
 		Participant struct {
+			Sid      string          `json:"sid"`
 			Identity string          `json:"identity"`
 			JoinedAt json.RawMessage `json:"joinedAt"`
 		} `json:"participant"`
@@ -608,9 +627,9 @@ func (s *Server) voiceWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 	switch ev.Event {
 	case "participant_joined":
-		s.voicePart(ev.Room.Name, ev.Participant.Identity, true, unixTime(ev.Participant.JoinedAt))
+		s.voicePart(ev.Room.Name, ev.Participant.Identity, true, unixTime(ev.Participant.JoinedAt), ev.Participant.Sid)
 	case "participant_left":
-		s.voicePart(ev.Room.Name, ev.Participant.Identity, false, time.Time{})
+		s.voicePart(ev.Room.Name, ev.Participant.Identity, false, time.Time{}, ev.Participant.Sid)
 	case "room_finished":
 		// LiveKit closed the room (everyone gone): the voice chat is over. (#voice-link is
 		// only empty.)
@@ -669,13 +688,13 @@ func unixTime(raw json.RawMessage) time.Time {
 	return time.Unix(n, 0).UTC()
 }
 
-// voiceCheck compares the voice chats with who LiveKit says is connected, every 20 seconds:
-// a webhook can go missing (the tunnel down, the hub restarting), and a voice chat someone
-// started but never connected to goes after a minute.
+// voiceCheck compares the voice chats with who LiveKit says is connected, at start and every
+// 20 seconds: a webhook can go missing (the tunnel down, the hub restarting), and a voice chat
+// someone started but never connected to goes after a minute.
 func (s *Server) voiceCheck() {
 	for {
-		time.Sleep(20 * time.Second)
 		s.voiceCheckOnce()
+		time.Sleep(20 * time.Second)
 	}
 }
 
@@ -693,10 +712,17 @@ func (s *Server) voiceCheckOnce() {
 		ids = append(ids, id)
 	}
 	s.voice.mu.Unlock()
+	ok := true
+	defer func() {
+		s.voice.mu.Lock()
+		s.voice.checked = ok
+		s.voice.mu.Unlock()
+	}()
 	for _, id := range ids {
 		people, err := conf.participants(id)
 		if err != nil {
 			log.Printf("voice: asking LiveKit about %s: %v", id, err)
+			ok = false
 			continue
 		}
 		// Banned or deleted (however it was done: the Admin page, ssh, users.json): out.
@@ -736,6 +762,11 @@ func (s *Server) voiceSync(id string, live []voicePerson) {
 	kept := slices.DeleteFunc(slices.Clone(vc.People), func(p voicePerson) bool {
 		return !slices.ContainsFunc(live, func(l voicePerson) bool { return l.Name == p.Name })
 	})
+	for i, p := range kept {
+		if j := slices.IndexFunc(live, func(l voicePerson) bool { return l.Name == p.Name }); live[j].sid != "" {
+			kept[i].sid = live[j].sid
+		}
+	}
 	for _, l := range live {
 		if !slices.ContainsFunc(kept, func(p voicePerson) bool { return p.Name == l.Name }) {
 			kept = append(kept, l)
@@ -787,14 +818,19 @@ func (c *voiceConf) twirp(method, room string, req any) ([]byte, error) {
 	return b, nil
 }
 
-// participants asks LiveKit who is in a room (an empty list if the room doesn't exist).
+// participants asks LiveKit who is in a room. (LiveKit answers a room that doesn't exist with
+// an empty list, so a 404 here is a wrong address or a proxy: an error, not an empty room.)
 func (c *voiceConf) participants(id string) ([]voicePerson, error) {
 	b, err := c.twirp("ListParticipants", id, map[string]string{"room": id})
-	if err != nil || b == nil {
+	if err != nil {
 		return nil, err
+	}
+	if b == nil {
+		return nil, errors.New("404 for ListParticipants")
 	}
 	var out struct {
 		Participants []struct {
+			Sid      string          `json:"sid"`
 			Identity string          `json:"identity"`
 			JoinedAt json.RawMessage `json:"joinedAt"`
 			JoinedA2 json.RawMessage `json:"joined_at"`
@@ -809,7 +845,9 @@ func (c *voiceConf) participants(id string) ([]voicePerson, error) {
 		if at == nil {
 			at = p.JoinedA2
 		}
-		people = append(people, voicePersonFor(p.Identity, unixTime(at)))
+		person := voicePersonFor(p.Identity, unixTime(at))
+		person.sid = p.Sid
+		people = append(people, person)
 	}
 	slices.SortStableFunc(people, func(a, b voicePerson) int { return a.Since.Compare(b.Since) })
 	return people, nil

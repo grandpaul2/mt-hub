@@ -80,7 +80,7 @@ func TestVoiceLink(t *testing.T) {
 	if link() != nil {
 		t.Fatal("#voice-link exists without link_voice")
 	}
-	s.voicePart(LinkVoiceID, "link:survival:Steve", true, time.Now())
+	s.voicePart(LinkVoiceID, "link:survival:Steve", true, time.Now(), "")
 	if link() != nil {
 		t.Fatal("a bridge identity made #voice-link exist")
 	}
@@ -104,15 +104,15 @@ func TestVoiceLink(t *testing.T) {
 
 	// The listener joins: linked, and not a person. A player joins: a person with their
 	// Minecraft name and server tag. A member joins: a person.
-	s.voicePart(LinkVoiceID, "link:listener", true, time.Now())
-	s.voicePart(LinkVoiceID, "link:survival:Steve", true, time.Now())
-	s.voicePart(LinkVoiceID, "link:creative:gypsy_jay", true, time.Now())
-	s.voicePart(LinkVoiceID, "Alex", true, time.Now())
+	s.voicePart(LinkVoiceID, "link:listener", true, time.Now(), "")
+	s.voicePart(LinkVoiceID, "link:survival:Steve", true, time.Now(), "")
+	s.voicePart(LinkVoiceID, "link:creative:gypsy_jay", true, time.Now(), "")
+	s.voicePart(LinkVoiceID, "Alex", true, time.Now(), "")
 	if got, want := people(), "Steve/SMP/link:survival:Steve,gypsy_jay/CMP/link:creative:gypsy_jay,Alex"; got != want || !link().Linked {
 		t.Errorf("people %q linked %v, want %q linked", got, link().Linked, want)
 	}
 	// A player's identity in another voice chat is nobody's.
-	s.voicePart("a", "link:survival:Steve", true, time.Now())
+	s.voicePart("a", "link:survival:Steve", true, time.Now(), "")
 	s.voice.mu.Lock()
 	inA := s.voice.chats["a"].People
 	s.voice.mu.Unlock()
@@ -133,9 +133,9 @@ func TestVoiceLink(t *testing.T) {
 
 	// Everyone leaves, the bridge too: still there, empty, not linked.
 	live = `[]`
-	s.voicePart(LinkVoiceID, "Alex", false, time.Time{})
-	s.voicePart(LinkVoiceID, "link:survival:Steve", false, time.Time{})
-	s.voicePart(LinkVoiceID, "link:listener", false, time.Time{})
+	s.voicePart(LinkVoiceID, "Alex", false, time.Time{}, "")
+	s.voicePart(LinkVoiceID, "link:survival:Steve", false, time.Time{}, "")
+	s.voicePart(LinkVoiceID, "link:listener", false, time.Time{}, "")
 	s.voiceCheckOnce()
 	if vc := link(); vc == nil || vc.Linked || len(vc.People) != 0 {
 		t.Fatalf("#voice-link after everyone left: %+v", vc)

@@ -140,9 +140,16 @@ func (s *Server) addUser(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusConflict, map[string]string{"error": auth.ErrMCTaken.Error()})
 			return
 		}
+		users, _ := s.users.Users()
+		for n := range users {
+			if strings.EqualFold(n, mc) && !strings.EqualFold(n, name) {
+				writeJSON(w, http.StatusConflict, map[string]string{"error": auth.ErrMCIsName.Error()})
+				return
+			}
+		}
 	}
 	pw, err := s.users.Add(name, req.Admin)
-	if errors.Is(err, auth.ErrExists) || errors.Is(err, auth.ErrRetired) {
+	if errors.Is(err, auth.ErrExists) || errors.Is(err, auth.ErrRetired) || errors.Is(err, auth.ErrMCIsName) {
 		writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
 		return
 	}
@@ -192,7 +199,7 @@ func (s *Server) changeUser(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.MC != nil {
 		err := s.users.SetMC(name, *req.MC)
-		if errors.Is(err, auth.ErrMCTaken) {
+		if errors.Is(err, auth.ErrMCTaken) || errors.Is(err, auth.ErrMCIsName) {
 			writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
 			return
 		}
@@ -228,6 +235,7 @@ func (s *Server) changeUser(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.MC != nil && strings.TrimSpace(*req.MC) != u.MC {
 		s.logAction(r, map[bool]string{true: "unlink-mc", false: "set-mc"}[strings.TrimSpace(*req.MC) == ""], name)
+		s.mcChanged(name)
 	}
 	s.bus.publish("users", struct{}{})
 	writeJSON(w, http.StatusOK, map[string]string{})
@@ -300,5 +308,6 @@ func (s *Server) setMC(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
+	s.mcChanged(who(r).Name)
 	writeJSON(w, http.StatusOK, map[string]string{"mc": strings.TrimSpace(req.MC)})
 }
