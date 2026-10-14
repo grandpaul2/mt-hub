@@ -491,12 +491,20 @@ func (s *Server) voiceToken(w http.ResponseWriter, id, name string) {
 		return
 	}
 	now := time.Now()
-	token := conf.sign(map[string]any{
+	claims := map[string]any{
 		"iss": conf.Key, "sub": name, "name": name,
 		"nbf": now.Add(-time.Minute).Unix(), "exp": now.Add(time.Hour).Unix(), // for joining; LiveKit renews it while connected
 		"video": map[string]any{"room": id, "roomJoin": true, "canPublish": true, "canPublishSources": []string{"microphone"},
 			"canSubscribe": true, "canPublishData": false},
-	})
+	}
+	// In #voice-link, the account's Minecraft name (an admin sets it) goes with them: the bridge
+	// passes it to the game servers, which show them in game as that player, with that head.
+	if id == LinkVoiceID {
+		if u, ok := s.users.Get(name); ok && u.MC != "" {
+			claims["attributes"] = map[string]string{"mc": u.MC}
+		}
+	}
+	token := conf.sign(claims)
 	writeJSON(w, http.StatusOK, map[string]string{"id": id, "url": conf.URL, "token": token})
 }
 

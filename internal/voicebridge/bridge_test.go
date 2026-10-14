@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"math/rand"
 	"net"
 	"net/http"
@@ -153,8 +154,9 @@ type game struct {
 	mu    sync.Mutex
 	audio map[string][][]byte // by speaker uuid (hex): frames as they came, nil for "stopped"
 	at    map[string][]time.Time
-	hub   []string // the hub's roster as last told, names
-	told  int      // how many rosters the hub has sent
+	hub   []string          // the hub's roster as last told, names
+	hubMC map[string]string // ...and their Minecraft names, by name
+	told  int               // how many rosters the hub has sent
 }
 
 func joinGame(t *testing.T, url string) *game {
@@ -189,11 +191,15 @@ func joinGame(t *testing.T, url string) *game {
 				g.audio[id] = append(g.audio[id], f)
 				g.at[id] = append(g.at[id], time.Now())
 			case b[0] == msgRoster && from == "hub":
-				var r struct{ Members []struct{ Name string } }
+				var r struct{ Members []struct{ Name, MC string } }
 				json.Unmarshal(body, &r)
 				g.hub = nil
+				g.hubMC = map[string]string{}
 				for _, m := range r.Members {
 					g.hub = append(g.hub, m.Name)
+					if m.MC != "" {
+						g.hubMC[m.Name] = m.MC
+					}
 				}
 				g.told++
 			}
@@ -233,6 +239,13 @@ func (g *game) from(member string) (frames [][]byte, at []time.Time) {
 	return slices.Clone(g.audio[k]), slices.Clone(g.at[k])
 }
 
+// hubMinecraftNames is the last hub roster's Minecraft names, by account.
+func (g *game) hubMinecraftNames() map[string]string {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return maps.Clone(g.hubMC)
+}
+
 func (g *game) hubRoster() (names []string, told int) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -255,6 +268,12 @@ type member struct {
 }
 
 func joinMember(t *testing.T, room, name string, talks bool) *member {
+	t.Helper()
+	return joinMemberAs(t, room, name, "", talks)
+}
+
+// joinMemberAs joins with the Minecraft name the hub's token would carry ("" for none).
+func joinMemberAs(t *testing.T, room, name, mc string, talks bool) *member {
 	t.Helper()
 	m := &member{got: map[string][]heard{}, ts: 1 << 31}
 	cb := &lksdk.RoomCallback{ParticipantCallback: lksdk.ParticipantCallback{
@@ -282,7 +301,11 @@ func joinMember(t *testing.T, room, name string, talks bool) *member {
 		},
 	}}
 	var err error
-	m.room, err = lksdk.ConnectToRoom(lkURL, lksdk.ConnectInfo{APIKey: lkKey, APISecret: lkSecret, RoomName: room, ParticipantIdentity: name, ParticipantName: name}, cb)
+	info := lksdk.ConnectInfo{APIKey: lkKey, APISecret: lkSecret, RoomName: room, ParticipantIdentity: name, ParticipantName: name}
+	if mc != "" {
+		info.ParticipantAttributes = map[string]string{"mc": mc}
+	}
+	m.room, err = lksdk.ConnectToRoom(lkURL, info, cb)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -498,6 +521,14 @@ func TestRosters(t *testing.T) {
 	}
 	g.roster(false)
 	eventually(t, "Steve gone from the room", 10*time.Second, func() bool { return len(paul.sees()) == 0 })
+
+	// A member whose account has a Minecraft name: it goes to the game with them; Paul has none.
+	sam := joinMemberAs(t, room, "sam", "SamInGame", false)
+	eventually(t, "sam in the hub's roster", 10*time.Second, func() bool { names, _ := g.hubRoster(); return slices.Equal(names, []string{"Paul", "sam"}) })
+	if mc := g.hubMinecraftNames(); !maps.Equal(mc, map[string]string{"sam": "SamInGame"}) {
+		t.Errorf("the roster's Minecraft names: %v", mc)
+	}
+	sam.room.Disconnect()
 
 	paul.room.Disconnect()
 	eventually(t, "Paul gone from the hub's roster", 10*time.Second, func() bool { names, _ := g.hubRoster(); return len(names) == 0 })

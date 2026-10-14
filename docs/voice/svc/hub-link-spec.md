@@ -50,6 +50,10 @@ The lab below checked that byte for byte.
   lines they get for the other server: the list when they join ("Paul, Alex on Hub; nobody on
   Creative"), and "Paul joined on Hub" / "Paul left on Hub".
 - Hub voices play like the other server's, under "Hub (Link)" in SVC's Adjust volumes.
+  **From MT Utils 2.4.0:** every member elsewhere, the hub's included, is a member of the group in game with their own
+  slider and talking mark, and the per-server sliders are gone. A hub member whose account has
+  a Minecraft name (an admin sets it) is shown as that player, with that head; one without
+  keeps their account name and the default head.
 - The group is named **voice-link** (was Link). The group id is unchanged, so nothing else
   moves.
 
@@ -130,7 +134,9 @@ secret (as in the hub's `voice.json`); the room (`voice-link`).
 **Rosters**
 
 - To the relay: the hub members in the room, `{uuid, name}`, on every join and leave and on
-  each reconnect. That is what makes the game's chat lines.
+  each reconnect. That is what makes the game's chat lines. A member whose account has a
+  Minecraft name also has `"mc"`: the hub's token for #voice-link carries it as the LiveKit
+  attribute `mc`, and the bridge copies it. A game server older than 2.4.0 ignores it.
 - From the relay: each server's players, which become the participants above.
 
 **Reconnecting:** to the relay with backoff as the game servers do (and treating 60 s without
