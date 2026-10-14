@@ -156,7 +156,13 @@ func (s *Server) serverStatus(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			if v.Up && n > 0 {
-				v.Players, v.Bots, v.MemMax = g.players, g.bots, g.max
+				// On the hub, hub names: a player linked to an account is shown under it.
+				v.Players = make([]string, len(g.players))
+				for i, p := range g.players {
+					v.Players[i] = s.hubName(p)
+				}
+				sort.Slice(v.Players, func(i, j int) bool { return strings.ToLower(v.Players[i]) < strings.ToLower(v.Players[j]) })
+				v.Bots, v.MemMax = g.bots, g.max
 				v.MSPT, v.MemUsed = round1(mspt/float64(n)), int64(used/float64(n))
 			}
 		}

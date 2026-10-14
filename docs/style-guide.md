@@ -727,6 +727,12 @@ separate dialogs.
 
 ## 11. Words
 
+- **Names:** on the hub, hub names; in the game, game names. Wherever the hub shows a person
+  it shows their hub account name: a player in game whose Minecraft name is linked to an
+  account (an admin sets it) appears under that account's name (in #voice-link's list with
+  their server's tag, in #text-link, in the status card, on screenshots); a player linked to
+  no account has only their Minecraft name, so that is shown. The game shows game names: a
+  hub member with a linked name appears in game as that player.
 - **Voice:**
   - Plain, short and friendly. Second person for you ("your changes"); a name, or "Someone",
     for others.
@@ -821,8 +827,8 @@ at home in apps like this:
   - **Lock:** a lock stroke icon after the `#` of private chats (and after a private voice
     chat's first row). The same icon has a second meaning in one place: **the lock in
     #voice-link**, at the right end of your own row only (docs/voice/svc/lock-spec.md): open
-    and dim (`--muted`, 55%) when off, closed (`--chat-muted`) when on, red (`--danger`) when the
-    page has lost your microphone. Its hints: "Stay in voice-link when you leave the game",
+    and dim (`--muted`, 55%) when off, closed in light blurple (`--mention-text`) on a
+    `--mention-tint` chip when on, red (`--danger`) when the page has lost your microphone. Its hints: "Stay in voice-link when you leave the game",
     "Staying in voice-link when you leave the game. Click to stop", "Click here to stay in
     voice-link when you leave the game".
   - **DMs sit in TEXT** (no separate DIRECT MESSAGES section), after the chats,

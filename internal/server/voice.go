@@ -68,8 +68,9 @@ const (
 type voicePerson struct {
 	Name  string    `json:"name"` // their account; for a player in game, the bridge's identity for them
 	Since time.Time `json:"since"`
-	Show  string    `json:"show,omitempty"` // a player in game: their Minecraft name
+	Show  string    `json:"show,omitempty"` // a player in game: their Minecraft name (in GET /api/voice, the hub name it's linked to, if any)
 	Via   string    `json:"via,omitempty"`  // and their server's tag (SMP, CMP), as in #text-link
+	Game  string    `json:"game,omitempty"` // in GET /api/voice: their Minecraft name, when show is a hub name
 }
 
 type voiceChat struct {
@@ -82,6 +83,34 @@ type voiceChat struct {
 	Link    bool          `json:"link,omitempty"`   // #voice-link
 	Linked  bool          `json:"linked,omitempty"` // and the bridge is in it: the game servers hear it
 	Lock    bool          `json:"lock,omitempty"`   // #voice-link, in GET /api/voice only: the person asking is locked (voice_lock.go)
+}
+
+// linkView is #voice-link as one person sees it: your own lock, and nobody else's; and on the
+// hub, hub names (docs/style-guide.md, Names): a player whose Minecraft name is linked to an
+// account is shown under the account's name, with the Minecraft name beside it in game.
+// Called with mu held.
+func (s *Server) linkView(vc *voiceChat, me string) *voiceChat {
+	c := *vc
+	c.Lock = s.voice.locked(me)
+	c.People = make([]voicePerson, len(vc.People))
+	for i, p := range vc.People {
+		if p.Via != "" {
+			if name := s.hubName(p.Show); name != p.Show {
+				p.Game, p.Show = p.Show, name
+			}
+		}
+		c.People[i] = p
+	}
+	return &c
+}
+
+// hubName is the hub account a Minecraft name is linked to (whatever its case), or the
+// Minecraft name itself when none is.
+func (s *Server) hubName(mc string) string {
+	if name, ok := s.users.ByMC(mc); ok {
+		return name
+	}
+	return mc
 }
 
 // voicePersonFor is the list entry for a LiveKit identity: an account, or a player in game.
@@ -222,10 +251,8 @@ func (s *Server) voiceList(w http.ResponseWriter, r *http.Request) {
 	out := []*voiceChat{}
 	for _, vc := range s.voice.chats {
 		if vc.sees(me) {
-			if vc.Link && s.voice.locked(me) { // your own lock, and nobody else's
-				c := *vc
-				c.Lock = true
-				vc = &c
+			if vc.Link {
+				vc = s.linkView(vc, me)
 			}
 			out = append(out, vc)
 		}

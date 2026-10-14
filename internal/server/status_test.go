@@ -109,6 +109,14 @@ func TestServerStatus(t *testing.T) {
 	if sv = read()[0]; strings.Join(sv.Players, ",") != "alex,Steve" || sv.Bots != 2 {
 		t.Errorf("players: %+v", sv)
 	}
+	// On the hub, hub names: a player whose Minecraft name is linked to an account (whatever
+	// its case) is listed under the account's name, sorted with the rest.
+	us.SetPassword("Zed", "Zed-password")
+	us.SetMC("Zed", "ALEX")
+	if sv = read()[0]; strings.Join(sv.Players, ",") != "Steve,Zed" {
+		t.Errorf("players with alex linked to Zed: %v", sv.Players)
+	}
+	us.SetMC("Zed", "")
 
 	// Creative stops reporting: offline after 30 s, its numbers gone, last seen kept.
 	now = now.Add(25 * time.Second)

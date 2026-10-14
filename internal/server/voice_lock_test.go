@@ -136,6 +136,38 @@ func TestVoiceLock(t *testing.T) {
 		t.Error("the lock was not kept across a restart")
 	}
 
+	// On the hub, hub names: Steve's player (linked, in another case) is listed as Steve with
+	// the game name beside it; a player linked to nobody keeps the Minecraft name.
+	s.voicePart(LinkVoiceID, "link:creative:Nobody_linked", true, time.Now())
+	{
+		s.voicePart(LinkVoiceID, "link:survival:stevemc", true, time.Now())
+		r := httptest.NewRequest("GET", "/api/voice", nil)
+		r = r.WithContext(context.WithValue(r.Context(), userKey{}, account{Name: "Alex"}))
+		w := httptest.NewRecorder()
+		s.voiceList(w, r)
+		var out struct{ Chats []voiceChat }
+		json.NewDecoder(w.Body).Decode(&out)
+		var got []string
+		for _, c := range out.Chats {
+			for _, p := range c.People {
+				if p.Via != "" {
+					got = append(got, p.Show+"/"+p.Game)
+				}
+			}
+		}
+		if strings.Join(got, ",") != "Nobody_linked/,Steve/stevemc" {
+			t.Errorf("players in #voice-link's list: %v", got)
+		}
+		s.voicePart(LinkVoiceID, "link:survival:stevemc", false, time.Time{})
+		s.voice.mu.Lock()
+		show := s.voice.chats[LinkVoiceID].People[len(s.voice.chats[LinkVoiceID].People)-1].Show
+		s.voice.mu.Unlock()
+		if show != "Nobody_linked" {
+			t.Errorf("the hub's own list was changed: %q", show)
+		}
+	}
+	s.voicePart(LinkVoiceID, "link:creative:Nobody_linked", false, time.Time{})
+
 	// Steve's player in game (his Minecraft name in another case): he may lock from there;
 	// he isn't in the hub's room, so LiveKit isn't told.
 	s.voicePart(LinkVoiceID, "Steve", false, time.Time{})
