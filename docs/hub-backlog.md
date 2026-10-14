@@ -15,6 +15,17 @@ Any of these is fair game, and so is something not listed.
   once as that filter starts (about 280 ms) and the voice then runs about 260 ms behind for the
   session: 5 of 5 measured runs with the filter, none without it, none in Chromium. The sound
   is not harmed. Found 2026-10-13 (`voice/README.md`, the automatic gain finding).
+- **voice-link hardening left out of the 2026-10-14 fixes** (found by a review, judged too
+  unlikely to be worth it now): repairing participants' `mc` attribute in the 20 s check; the
+  bridge capping a game server's roster and accepting a player's audio only from that player's
+  server; the bridge backing off when LiveKit drops a player right after joining, avoiding a flap
+  for two players with one name, and holding roster changes during a LiveKit reconnect; the
+  sweep re-checking before it unlocks; saves syncing the file and reporting write errors; the
+  voice list written after the voice lock is released; the 20 s check not dropping someone who
+  joined while it ran; the relay refusing a server name with ":"; the page re-checking the
+  player is still gone before a take-over; a 30 s resend of the game servers' rosters. On the
+  game-server side (MT Utils): a new speaker's targets race, the relay socket assigned on open,
+  a separate thread for the leave report.
 
 ### From the stocktake
 
