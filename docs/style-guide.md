@@ -468,6 +468,12 @@ separate dialogs.
 - **#voice-link** (VOICE's first row, where set up): a link icon and its name; under it,
   a step further in, everyone in it, a player in game with their server's tag as in `#text-link`; a
   muted 12 px line "Not connected to the game servers" under the name while that is so.
+- **The voice bar's first line** is green "Voice connected". In Chromium, a page with no click
+  since it loaded (a take-over of #voice-link after a reload) can't play or send sound: the line
+  is then a light blurple (`--mention-text`) "Click to turn on sound and your mic", until one
+  click anywhere on the page. Not a toast (one can be missed while you're in game) and not red
+  (nothing failed). A take-over that couldn't run shows the bar alone with a red line
+  ("Couldn't rejoin voice-link: microphone unavailable"); a click on it clears it.
 - **LIVE:** one row per person sharing, a screen icon and their name (a satellite dish for
   a stream sent with OBS), styled like the voice chat rows; your own reads brighter.
   **A tag** is a short line (40 characters) saying what the stream is, set by its person from

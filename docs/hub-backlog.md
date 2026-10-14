@@ -25,7 +25,9 @@ Any of these is fair game, and so is something not listed.
   joined while it ran; the relay refusing a server name with ":"; the page re-checking the
   player is still gone before a take-over; a 30 s resend of the game servers' rosters. On the
   game-server side (MT Utils): a new speaker's targets race, the relay socket assigned on open,
-  a separate thread for the leave report.
+  a separate thread for the leave report. On the page: a failed Voice Settings rebuild leaving
+  its half-built chain running, and the moment between publishing and muting when a muted
+  joiner's microphone is live.
 
 ### From the stocktake
 

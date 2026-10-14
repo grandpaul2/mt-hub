@@ -1524,6 +1524,10 @@ h3.md-h { font-size: 15px; }
 #voice-bar { margin-bottom: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); }
 #voice-bar .voice-where { display: flex; flex-direction: column; gap: 2px; margin-bottom: 6px; font-size: 13px; }
 #voice-bar .voice-ok { color: var(--ok); font-weight: 600; }
+/* Sound blocked until a click (Chromium, a take-over after a reload): light blurple, not an error. */
+#voice-bar .voice-blocked { color: var(--mention-text); font-weight: 600; }
+/* A take-over that couldn't run, shown with no call. */
+#voice-bar .voice-bad { color: var(--danger); font-weight: 600; cursor: pointer; }
 #voice-bar .voice-where .muted { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #voice-bar .voice-buttons { display: flex; gap: 4px; }
 #voice-bar .voice-buttons button { flex: 1; display: inline-flex; justify-content: center; padding: 4px 0; }

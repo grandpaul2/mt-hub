@@ -73,6 +73,7 @@ instead of a login) are marked.
 | POST | `/api/voice/<id>/leave` | takes you off the list at once (and in #voice-link, your lock off) |
 | POST | `/api/voice/voice-link/lock` | `{on}`: your lock in #voice-link; locking needs a Minecraft name and being in voice-link (409 otherwise) |
 | POST | `/api/voice-link/left` | `{player}`: a game server (its token only) says that player left the group in game on purpose; their account's lock goes off |
+| POST | `/api/voice-link/locked` | `{players}` (at most 100 Minecraft names) → `{locked}`: a game server (its token only) asks which of its players are locked and in #voice-link now (in the hub or in the group in game); the names as asked ([`voice/svc/lock-spec.md`](voice/svc/lock-spec.md)) |
 | POST | `/api/voice/<id>/invite` | adds people to a private voice chat; only its starter may |
 | POST | `/api/voice/<id>/mute` and `/disconnect` | `{name}`: an admin acting on someone they outrank; recorded in the admin log |
 | POST | `/api/voice/webhook` | LiveKit's webhook, signed with the shared secret; the one call besides login that needs no session |

@@ -68,10 +68,14 @@ function toSpeaker(...targets: (object | null | undefined)[]) {
 
 // ---- the list ---------------------------------------------------------------------------
 
+let listSeq = 0;
 async function loadVoice() {
+  const mine = ++listSeq;
   const r = await req('GET', '/api/voice');
   if (!r.ok) return;
-  info = await r.json();
+  const next = await r.json();
+  if (mine !== listSeq) return; // a newer answer came first, or is coming
+  info = next;
   // The server ended the voice chat we're in (it never noticed us, or we were removed).
   if (cur && !info.chats.some((c) => c.id === cur!.id) && !joining) void leave(false);
   lockStep();
@@ -361,17 +365,35 @@ async function connect(id: string, url: string, token: string) {
   });
   room.on(RoomEvent.Disconnected, (reason?: LK.DisconnectReason) => {
     if (cur?.room !== room) return;
-    if (pageGoing) return void leave(false, true); // a page closed or reloaded hasn't left: the lock stays
+    // A page closed or reloaded hasn't left: the lock stays. (LiveKit's hang-up for it can come
+    // after the page is known to be staying, a cancelled close: then it rejoins, see pageStays.)
+    if (pageGoing || Date.now() - goingAt < 15000) {
+      droppedGoing = id;
+      void leave(false, true);
+      if (!pageGoing) pageStays();
+      return;
+    }
+    if (reason === DisconnectReason.DUPLICATE_IDENTITY) { // you joined from another tab or device: not Leave
+      toast('You joined this voice chat somewhere else.', 6000);
+      return void leave(false);
+    }
     if (reason === DisconnectReason.PARTICIPANT_REMOVED) toast('An admin disconnected you from the voice chat.', 6000);
     else toastError('Voice chat disconnected.');
     void leave(true);
   });
+  // Sound blocked (Chromium, no click on the page since it loaded): the bar says so.
+  room.on(RoomEvent.AudioPlaybackStatusChanged, () => renderBar());
   try {
     await room.connect(url, token);
     const track = new LocalAudioTrack(chain.out, undefined, true);
     await room.localParticipant.publishTrack(track, { source: Track.Source.Microphone, dtx: true, red: true, forceStereo: false, audioPreset: { maxBitrate: 32000 } });
     cur = { id, room, chain, track };
+    barNote = '';
     if (muted) await track.mute();
+    // A page that hasn't had a click since it loaded (a take-over after a reload) may not play
+    // or record in Chromium: try, without waiting (unanswered, resume() can stay pending).
+    void chain.ctx.resume().catch(() => {});
+    void room.startAudio().catch(() => {});
   } catch (e) {
     chain.stop();
     room.disconnect();
@@ -412,10 +434,45 @@ async function leave(tell: boolean, quiet = false) {
 // when it isn't in use, from the click on the lock (or as soon as a reloaded page may).
 
 let held: MediaStreamTrack | null = null;
+let heldInUse = false; // #voice-link's chain (in the call, or joining) is using the held microphone
+let holdFailed = false; // the last request for it was refused: asked again only on a click or a look
 let pageGoing = false;
+let droppedGoing = ''; // the voice chat LiveKit hung up on while the page seemed to be going
 // (LiveKit hangs up on both, beforeunload first; ours were added before its own, so run first.)
-// (If the page stays after all, a cancelled beforeunload, the flag clears itself.)
-for (const e of ['beforeunload', 'pagehide']) window.addEventListener(e, () => { pageGoing = true; setTimeout(() => (pageGoing = false), 1000); });
+// If the page stays after all (a cancelled beforeunload: unsaved work), the first input or
+// focus after it, or 10 s, says so: see pageStays.
+let goingTimer = 0;
+let goingAt = 0;
+for (const e of ['beforeunload', 'pagehide']) window.addEventListener(e, () => {
+  pageGoing = true;
+  goingAt = Date.now();
+  clearTimeout(goingTimer);
+  goingTimer = window.setTimeout(pageStays, 10000);
+});
+for (const e of ['pointerdown', 'keydown']) document.addEventListener(e, () => pageGoing && pageStays(), true);
+window.addEventListener('focus', () => pageGoing && pageStays());
+function pageStays() {
+  clearTimeout(goingTimer);
+  pageGoing = false;
+  const id = droppedGoing;
+  if (!id) return;
+  droppedGoing = '';
+  if (!id || cur || joining) return;
+  const c = linkChat();
+  if (c?.lock && c.id === id && held?.readyState === 'live') void takeOver(id);
+  else toastError('You were disconnected from the voice chat.');
+}
+// A page you look at again may ask for the microphone again (after a refusal, or one it never
+// asked for because it was in the background).
+const looking = () => document.visibilityState === 'visible' && document.hasFocus();
+const lookedAgain = () => {
+  if (!looking()) return;
+  holdFailed = false;
+  lockStep();
+  renderList();
+};
+document.addEventListener('visibilitychange', lookedAgain);
+window.addEventListener('focus', lookedAgain);
 let asking = false;
 let sawMeInGame = false; // this page has seen your player in game (and so may take over when it goes)
 
@@ -426,27 +483,69 @@ const myPlayer = (c: VoiceChat) => (user.mc ? c.people.find((p) => p.via && (p.g
 // appears in game, take over when it goes.
 function lockStep() {
   const c = linkChat();
-  if (held?.readyState === 'ended') held = null; // (unplugged)
-  if (!c?.lock && held) {
-    if (cur?.id !== c?.id) held.stop();
-    held = null; // (in use: the voice chat's chain has it now, and ends it when it ends)
+  if (held?.readyState === 'ended') dropHeld(); // (unplugged)
+  if (!c?.lock && held) dropHeld(); // (in use: #voice-link's chain has it, and ends it when it ends)
+  if (!c?.lock && barNote) {
+    barNote = '';
+    renderBar();
   }
   if (!c) return;
-  if (c.lock && !held && !asking && cur?.id !== c.id) void holdMic(false);
+  // By itself only on a page you are looking at (Firefox would hold the request till then anyway),
+  // not after a refusal, and not while joining.
+  if (c.lock && !held && !asking && !holdFailed && !joining && cur?.id !== c.id && looking()) void holdMic(false);
+  // Not connected to the game servers: players vanish because the bridge or relay went, not
+  // because you left the game. Forget having seen yours; no step back, no take-over.
+  if (!c.linked) {
+    sawMeInGame = false;
+    return;
+  }
   if (myPlayer(c)) {
     sawMeInGame = true;
     if (c.lock && cur?.id === c.id) void leave(false, true); // the chain's stop keeps the held microphone
   } else if (sawMeInGame) {
     sawMeInGame = false;
-    if (c.lock && held && !cur && !joining) void takeOver(c.id);
+    if (c.lock && !cur && !joining) {
+      if (heldLive()) void takeOver(c.id);
+      else cantRejoin();
+    }
   }
+}
+
+// dropHeld lets the held microphone go: stopped, unless #voice-link's chain is using it (it
+// stops it when it ends, now that it isn't held).
+function dropHeld() {
+  if (held && !heldInUse) held.stop();
+  held = null;
+  heldInUse = false;
+}
+
+// setHeld keeps a microphone for the lock; it going quiet or ending shows on the lock (red).
+function setHeld(t: MediaStreamTrack, inUse: boolean) {
+  held = t;
+  heldInUse = inUse;
+  holdFailed = false;
+  t.addEventListener('mute', () => renderList());
+  t.addEventListener('unmute', () => renderList());
+  t.addEventListener('ended', () => {
+    if (held === t && !heldInUse) held = null;
+    renderList();
+  });
+}
+const heldLive = () => held?.readyState === 'live' && !held.muted;
+
+// cantRejoin: the take-over couldn't run, the microphone gone (refused, unplugged).
+let barNote = '';
+function cantRejoin() {
+  barNote = 'Couldn’t rejoin voice-link: microphone unavailable';
+  renderBar();
 }
 
 // takeOver joins #voice-link on the held microphone, in one tab only: two hub tabs both see the
 // player go, and the account can be in the room once.
 async function takeOver(id: string) {
   const go = async () => {
-    if (cur || joining || held?.readyState !== 'live') return;
+    if (cur || joining) return;
+    if (!heldLive()) return cantRejoin();
     const r = await req('GET', '/api/voice');
     const now = r.ok ? ((await r.json()) as typeof info).chats.find((c) => c.id === id) : undefined;
     if (!now?.lock || now.people.some((p) => p.name === user.name)) return; // the other tab did, or the lock went
@@ -464,11 +563,12 @@ async function holdMic(fromClick: boolean): Promise<boolean> {
   asking = true;
   try {
     const t = (await navigator.mediaDevices.getUserMedia(micConstraints())).getAudioTracks()[0];
-    if (held && held !== t && cur?.chain.mic !== held) held.stop();
+    if (held && held !== t && !heldInUse) held.stop();
     t.enabled = false;
-    held = t;
+    setHeld(t, false);
     return true;
   } catch (e) {
+    holdFailed = true;
     if (fromClick) toastError(`Couldn’t use your microphone: ${(e as Error).message}`);
     return false;
   } finally {
@@ -478,7 +578,7 @@ async function holdMic(fromClick: boolean): Promise<boolean> {
 }
 
 function lockButton(c: VoiceChat): HTMLElement {
-  const lost = !!c.lock && !held && cur?.id !== c.id;
+  const lost = !!c.lock && !heldLive() && cur?.id !== c.id && joining !== c.id;
   const title = !c.lock ? 'Stay in voice-link when you leave the game'
     : lost ? 'Click here to stay in voice-link when you leave the game'
       : 'Staying in voice-link when you leave the game. Click to stop';
@@ -498,7 +598,7 @@ async function clickLock(c: VoiceChat, lost: boolean) {
   }
   const on = !c.lock;
   let asked = false;
-  if (on && cur?.id === c.id) held = cur.chain.mic;
+  if (on && cur?.id === c.id) setHeld(cur.chain.mic, true);
   else if (on && !held) {
     if (!(await holdMic(true))) return;
     asked = true;
@@ -506,7 +606,10 @@ async function clickLock(c: VoiceChat, lost: boolean) {
   const r = await req('POST', `/api/voice/${c.id}/lock`, JSON.stringify({ on }));
   if (!r.ok) {
     if (asked) held?.stop();
-    if (on) held = null;
+    if (on) {
+      held = null;
+      heldInUse = false;
+    }
     toastError((await r.json().catch(() => ({}))).error ?? 'Couldn’t change the lock.');
     return renderList();
   }
@@ -525,9 +628,23 @@ function markSpeaking() {
 const bar = h('div', { id: 'voice-bar', hidden: true });
 
 function renderBar() {
-  bar.hidden = !cur;
-  if (!cur) return;
+  bar.hidden = !cur && !barNote;
+  if (!cur) {
+    // Not in a call, with something to say (a take-over that couldn't run): a click clears it.
+    if (barNote) {
+      const note = h('div', { class: 'voice-where', title: 'Click to dismiss' }, h('span', { class: 'voice-bad' }, barNote));
+      note.onclick = () => {
+        barNote = '';
+        renderBar();
+      };
+      bar.replaceChildren(note);
+    }
+    return;
+  }
   const c = info.chats.find((x) => x.id === cur!.id);
+  // Chromium: no click on this page since it loaded (a take-over after a reload), so it plays
+  // nothing and sends silence until one. A click anywhere fixes it (unblock, below).
+  const blocked = cur.chain.ctx.state !== 'running' || !cur.room.canPlaybackAudio;
   const top = c?.link ? 'voice-link' : c?.people[0]?.name ?? user.name;
   const btn = (title: string, icon: string, on: () => void, cls = '') => {
     const b = h('button', { class: 'tool ' + cls, title, innerHTML: icon });
@@ -535,13 +652,25 @@ function renderBar() {
     return b;
   };
   bar.replaceChildren(
-    h('div', { class: 'voice-where' }, h('span', { class: 'voice-ok' }, 'Voice connected'), h('span', { class: 'muted' }, top + (c?.private ? ' (private)' : ''))),
+    h('div', { class: 'voice-where' }, blocked ? h('span', { class: 'voice-blocked' }, 'Click to turn on sound and your mic') : h('span', { class: 'voice-ok' }, 'Voice connected'),
+      h('span', { class: 'muted' }, top + (c?.private ? ' (private)' : ''))),
     h('div', { class: 'voice-buttons' },
       btn(muted ? 'Unmute' : 'Mute', muted ? ICON.micOff : ICON.mic, () => void setMuted(!muted), muted ? 'off' : ''),
       btn(deafened ? 'Undeafen' : 'Deafen', deafened ? ICON.headphonesOff : ICON.headphones, () => void setDeafened(!deafened), deafened ? 'off' : ''),
       btn('Voice settings', ICON.settings, openSettings),
       btn('Leave the voice chat', ICON.hangUp, () => void leave(true), 'danger')));
 }
+
+// unblock: the first click or key on a page whose sound was blocked starts it (a click is what
+// Chromium waits for), the microphone's chain included.
+function unblock() {
+  if (!cur || (cur.chain.ctx.state === 'running' && cur.room.canPlaybackAudio)) return;
+  void cur.chain.ctx.resume().catch(() => {});
+  void cur.room.startAudio().catch(() => {});
+  void sfxCtx?.resume().catch(() => {});
+  void boostCtx?.resume().catch(() => {});
+}
+for (const e of ['pointerdown', 'keydown']) document.addEventListener(e, unblock, true);
 
 let mutedBeforeDeafen = false;
 async function setMuted(m: boolean, quiet = false) {
@@ -634,7 +763,7 @@ export const voiceSounds = {
 
 // ---- the microphone chain -------------------------------------------------------------
 
-type Chain = { mic: MediaStreamTrack; out: MediaStreamTrack; level: GainNode; meter: (fn: ((peak: number) => void) | null) => void; stop: () => void };
+type Chain = { mic: MediaStreamTrack; out: MediaStreamTrack; ctx: AudioContext; level: GainNode; meter: (fn: ((peak: number) => void) | null) => void; stop: () => void };
 
 // The filters' files load once, on first use.
 let filesLoaded: Promise<{ rnnoise: ArrayBuffer; dfn: DeepFilterNet3Core }> | null = null;
@@ -678,25 +807,33 @@ const micConstraints = () => ({
   audio: { ...(settings.mic ? { deviceId: { exact: settings.mic } } : {}), channelCount: 1, echoCancellation: settings.echo, noiseSuppression: false, autoGainControl: settings.gain },
 });
 
-// buildChain is the microphone's way out: level, noise filter, speech gate. It runs on the
-// held microphone when there is one (the lock), unless fresh (a new device chosen); one asked
-// for #voice-link while you are locked becomes the held one. Stopping it lets a held
-// microphone go quiet (disabled) instead of ending it.
+// buildChain is the microphone's way out: level, noise filter, speech gate. For #voice-link
+// (forLink) it runs on the held microphone when there is one (the lock), unless fresh (new
+// settings), and one it asks for while you are locked becomes the held one. Any other voice
+// chat, and the Mic test, get a microphone of their own. Stopping it lets a held microphone
+// go quiet (disabled) instead of ending it.
 async function buildChain(fresh = false, forLink = false): Promise<Chain> {
   const files = await loadFiles();
   let track: MediaStreamTrack;
-  if (!fresh && held?.readyState === 'live') {
+  if (forLink && !fresh && held?.readyState === 'live') {
     track = held;
     track.enabled = true;
+    heldInUse = true;
   } else {
     track = (await navigator.mediaDevices.getUserMedia(micConstraints())).getAudioTracks()[0];
-    if ((forLink || held) && linkChat()?.lock) held = track;
+    if (forLink && linkChat()?.lock) {
+      if (held && !heldInUse) held.stop();
+      setHeld(track, true);
+    }
   }
   const mic = new MediaStream([track]);
   const ctx = new AudioContext({ sampleRate: RATE, latencyHint: 'interactive' });
+  ctx.onstatechange = () => renderBar();
   const stopAll = () => {
-    if (track === held) track.enabled = false;
-    else track.stop();
+    if (track === held) {
+      track.enabled = false;
+      heldInUse = false;
+    } else track.stop();
     worker?.terminate();
     void ctx.close();
   };
@@ -748,6 +885,7 @@ async function buildChain(fresh = false, forLink = false): Promise<Chain> {
     return {
       mic: track,
       out: out.stream.getAudioTracks()[0],
+      ctx,
       level,
       meter: (fn) => (onLevel = fn),
       stop: () => {
@@ -869,6 +1007,9 @@ export async function openSettings() {
   // A new microphone, filter, echo or automatic level setting needs the chain built again.
   const rebuild = async () => {
     saveSettings();
+    // Stepped back for the game, locked: hold a microphone on the new settings (the dialog is
+    // in front, so Firefox gives it).
+    if (!cur && held && !heldInUse && linkChat()?.lock) void holdMic(true);
     if (test?.own) {
       stopTest();
       await startTest();
@@ -876,7 +1017,7 @@ export async function openSettings() {
     }
     if (!cur) return;
     try {
-      const chain = await buildChain(true);
+      const chain = await buildChain(true, cur.id === linkChat()?.id);
       await cur.track.replaceTrack(chain.out, true);
       cur.chain.stop();
       cur.chain = chain;
