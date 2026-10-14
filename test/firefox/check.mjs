@@ -261,7 +261,8 @@ for (const [name, hash] of VIEWS) {
       for (const r of [rows.find((r) => r.dataset.path === 'gyp'), rows.find((r) => !r.classList.contains('dir'))]) r.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
       document.getElementById('tree').dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true })); })()`);
     await shown(name, 'the Undo toast', `document.querySelector('#toast .toast-act')?.textContent === 'Undo'`);
-    await idle(6500);
+    // The toast stays 6 s: wait for it to go (idle() can return long before).
+    for (const end = Date.now() + 8000; Date.now() < end && !(await js(`document.getElementById('toast').hidden`)); ) await sleep(100);
     await js(`document.querySelector('#tree .row.trash-row').click()`);
     await shown(name, 'the Trash and its rows', `!document.getElementById('main-trash').hidden && document.querySelectorAll('#main-trash .trash-item').length >= 1 && document.getElementById('toast').hidden`);
     await idle(800);
