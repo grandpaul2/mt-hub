@@ -4,9 +4,8 @@ package server
 // in game, can lock themselves in. The hub keeps the lock per account, with the Minecraft
 // name it was made for; the game servers ask the hub which of their players are locked
 // (POST /api/voice-link/locked) and put a locked player in the group when they arrive; the
-// page takes over when the player leaves the game. Nobody else is told who is locked.
-// (Until both game servers ask, the lock also goes to them the old way: the token's and
-// LiveKit's participant attribute "lock", which the bridge puts in its roster.)
+// page takes over when the player leaves the game. Nobody else is told who is locked: the
+// lock is in no LiveKit attribute and in no roster.
 //
 // A lock goes off when its account leaves on purpose (Leave in the hub, another voice chat,
 // leaving the group in game, which the server reports, or an admin's Disconnect), loses or
@@ -142,15 +141,11 @@ func (s *Server) voiceLock(w http.ResponseWriter, r *http.Request) {
 	if !was {
 		log.Printf("voice-link: %s locked (in the hub %v, in game %v)", me, hub, game)
 	}
-	if hub {
-		s.lockAttribute(conf, me, true)
-	}
 	s.voiceChanged()
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// unlock takes an account's lock off, if it has one, and tells LiveKit (so the bridge's roster
-// says so) when the account is in the hub's voice chat.
+// unlock takes an account's lock off, if it has one.
 func (s *Server) unlock(name, why string) {
 	s.voice.mu.Lock()
 	if !s.voice.locked(name) {
@@ -159,25 +154,9 @@ func (s *Server) unlock(name, why string) {
 	}
 	delete(s.voice.locks, name)
 	s.voice.saveLocks()
-	hub, _ := s.whereIs(name)
 	s.voice.mu.Unlock()
 	log.Printf("voice-link: %s's lock off (%s)", name, why)
-	if conf := s.voice.config(); hub && conf != nil {
-		s.lockAttribute(conf, name, false)
-	}
 	s.voiceChanged()
-}
-
-// lockAttribute sets (or clears) the "lock" attribute of an account's participant in
-// #voice-link: the bridge sends its roster again when it changes.
-func (s *Server) lockAttribute(conf *voiceConf, name string, on bool) {
-	v := ""
-	if on {
-		v = "1" // (an empty value deletes the attribute)
-	}
-	if _, err := conf.twirp("UpdateParticipant", LinkVoiceID, map[string]any{"room": LinkVoiceID, "identity": name, "attributes": map[string]string{"lock": v}}); err != nil {
-		log.Printf("voice-link: telling LiveKit %s's lock is %v: %v", name, on, err)
-	}
 }
 
 // voiceLinkLeft: a game server says a player left the group in game on purpose (still

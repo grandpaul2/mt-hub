@@ -381,8 +381,7 @@ func (b *Bridge) sendRoster() {
 	type member struct {
 		UUID string `json:"uuid"`
 		Name string `json:"name"`
-		MC   string `json:"mc,omitempty"`   // the account's Minecraft name, from the hub's token: the game shows them as that player
-		Lock bool   `json:"lock,omitempty"` // they are locked in voice-link: a server they join puts them in the group
+		MC   string `json:"mc,omitempty"` // the account's Minecraft name, from the hub's token: the game shows them as that player
 	}
 	b.sending.Lock()
 	defer b.sending.Unlock()
@@ -391,7 +390,7 @@ func (b *Bridge) sendRoster() {
 	if b.listener != nil {
 		for _, p := range b.listener.GetRemoteParticipants() {
 			if !Ours(p.Identity()) {
-				members = append(members, member{uuidText(nameUUID("hub:" + p.Identity())), p.Identity(), p.Attributes()["mc"], p.Attributes()["lock"] == "1"})
+				members = append(members, member{uuidText(nameUUID("hub:" + p.Identity())), p.Identity(), p.Attributes()["mc"]})
 			}
 		}
 	}
@@ -463,7 +462,7 @@ func (b *Bridge) listenOnce(ctx context.Context) error {
 					go b.toGame(track, rp.Identity())
 				}
 			},
-			// The hub sets "lock" while they are in the room: the roster says so at once. (On its
+			// The hub sets "mc" when an admin changes a Minecraft name: the roster says so at once. (On its
 			// own goroutine: the SDK calls this holding the lock GetRemoteParticipants needs.)
 			OnAttributesChanged: func(map[string]string, lksdk.Participant) { go b.sendRoster() },
 		},

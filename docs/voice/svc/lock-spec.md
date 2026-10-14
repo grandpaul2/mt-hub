@@ -58,11 +58,11 @@ until it has one.
   while their account (not banned) holds a lock for that Minecraft name and is in #voice-link
   right now, in the hub or in the group in game. MT Utils 2.5.2 asks about its players who are
   in voice chat and in no group, when one connects and every two seconds.
-- **Until both game servers run 2.5.2**, the lock also goes to them the old way: #voice-link's
-  token carries the participant attribute `lock` beside `mc` (the Minecraft name), a change
-  while you are in the room is sent to LiveKit (`UpdateParticipant`), and the bridge
-  (`internal/voicebridge`) puts `lock` in its roster. That goes after; `mc` stays, and an
-  admin's change of a Minecraft name reaches LiveKit at once.
+- **Nobody in the room can see a lock.** #voice-link's token carries only the participant
+  attribute `mc` (the Minecraft name; an admin's change of it reaches LiveKit at once), and
+  the bridge's roster carries `mc` and no lock. (Before 2026-10-14 the lock went to the game
+  servers as a `lock` attribute the bridge put in its roster; MT Utils 2.5.2 still reads a
+  roster `lock` if the hub answers its question with 404.)
 - **A game server** puts a player in the group when the hub says they are locked, their voice
   chat is connected and they are in no group (nobody is pulled out of another group). When a
   member leaves the group while still connected to voice chat, the server first tells the hub
@@ -93,7 +93,7 @@ until it has one.
 
 `internal/server/voice_lock_test.go` (who may lock; who is told; what takes it off; the report
 and the question for game servers only; a replaced session; checks failing; a changed
-Minecraft name; the old lock file), `internal/voicebridge` `TestRosters` (the roster's `lock`,
-sent again on a change), `TestOneRosterAtATime`, `TestListenerFollowsRelay`,
+Minecraft name; the old lock file), `internal/voicebridge` `TestRosters` (no `lock` in the roster;
+it is sent again when a Minecraft name changes), `TestOneRosterAtATime`, `TestListenerFollowsRelay`,
 `test/browser/voice-lock.mjs` (end to end with a local LiveKit, relay and bridge and a stand-in
 game server; Chromium's fake microphone; Chromium's autoplay rule forced by a stub), and the lock views in `test/firefox/check.mjs`.
