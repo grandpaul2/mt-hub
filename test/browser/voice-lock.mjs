@@ -63,8 +63,8 @@ const until = async (what, fn, ms = 15000) => {
 };
 const ev = async (expression, s = send) => (await s('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true, userGesture: true }))?.result?.value;
 
-// The stand-in game server: the hub's roster as it arrives (names, and who is locked: the old
-// way, until both game servers ask the hub), its own roster, PaulMC's player in the group or
+// The stand-in game server: the hub's roster as it arrives (names, and any member with a "lock",
+// which must be none: the lock is in no roster), its own roster, PaulMC's player in the group or
 // not, and asking the hub who of its players is locked, as MT Utils 2.5.2 does.
 const PAUL_UUID = '4f1c2a7e-9b3d-4e8a-a1b2-c3d4e5f60718';
 const game = { hub: null, locked: null, ws: new WebSocket(`ws://127.0.0.1:${relayPort}/voicelink`, { headers: { Authorization: `Bearer ${TOKENS.game}` } }) };
@@ -77,7 +77,7 @@ game.ws.onmessage = (e) => {
   if (from !== 'hub') return;
   const m = JSON.parse(new TextDecoder().decode(b.subarray(2 + b[1]))).members;
   game.hub = m.map((x) => x.name);
-  game.locked = m.filter((x) => x.lock).map((x) => x.name);
+  game.locked = m.filter((x) => 'lock' in x).map((x) => x.name);
 };
 const inGame = (yes) => game.ws.send(new TextEncoder().encode('\x02' + JSON.stringify({ members: yes ? [{ uuid: PAUL_UUID, name: 'PaulMC' }] : [] })));
 const askLocked = async () => (await (await fetch(`${HUB}/api/voice-link/locked`, { method: 'POST', headers: { Authorization: `Bearer ${serverToken}` }, body: JSON.stringify({ players: ['PaulMC'] }) })).json()).locked;
@@ -146,8 +146,8 @@ await clickLock();
 await until('locked', async () => (await rows()).includes('  Paul* (locked)'));
 check('locked: closed, with its hint', [await rows(), await lockTitle()], [['#voice-link*', '  Paul* (locked)'], 'Staying in voice-link when you leave the game. Click to stop']);
 check('GET /api/voice says so to Paul and to nobody else', [await apiLock('Paul'), await apiLock('Alex')], [true, false]);
-await until('the roster locked', async () => game.locked?.includes('Paul'));
-check('the game servers are told Paul is locked (asking the hub, and the old way)', [await askLocked(), game.hub, game.locked], [['PaulMC'], ['Paul'], ['Paul']]);
+await until('the hub\'s roster', async () => game.hub?.includes('Paul'));
+check('the game servers learn Paul is locked by asking the hub; the roster carries no lock', [await askLocked(), game.hub, game.locked], [['PaulMC'], ['Paul'], []]);
 check('locking in the voice chat asked for no new microphone', await gum(), joinedWith);
 await shot('locked');
 
@@ -293,7 +293,7 @@ await until('the remaining page in voice-link', async () => { if (!(await inVoic
 await until('his row', async () => (await rows()).includes('  Paul* (locked)'));
 await clickLock();
 await until('unlocked', async () => (await rows()).includes('  Paul* (lock)'));
-check('unlocked: GET /api/voice, the hub\'s answer and the roster agree', [await apiLock('Paul'), await askLocked(), await until('the roster unlocked', async () => game.locked && !game.locked.includes('Paul'))], [false, [], true]);
+check('unlocked: GET /api/voice and the hub\'s answer agree; the roster carries no lock', [await apiLock('Paul'), await askLocked(), game.locked], [false, [], []]);
 check('the microphone still in use by the voice chat', (await gum()).tracks.at(-1), 'live');
 await clickLock();
 await until('locked', async () => apiLock('Paul'));

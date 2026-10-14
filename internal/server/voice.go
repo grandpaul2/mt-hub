@@ -566,16 +566,10 @@ func (s *Server) voiceToken(w http.ResponseWriter, id, name string) {
 	}
 	// In #voice-link, the account's Minecraft name (an admin sets it) goes with them: the bridge
 	// passes it to the game servers, which show them in game as that player, with that head.
-	// And their lock, by which a server puts that player in the group when they arrive.
+	// (Not their lock: the game servers ask the hub for that, and nobody in the room sees it.)
 	if id == LinkVoiceID {
 		if u, ok := s.users.Get(name); ok && u.MC != "" {
-			attrs := map[string]string{"mc": u.MC}
-			s.voice.mu.Lock()
-			if s.voice.locked(name) {
-				attrs["lock"] = "1"
-			}
-			s.voice.mu.Unlock()
-			claims["attributes"] = attrs
+			claims["attributes"] = map[string]string{"mc": u.MC}
 		}
 	}
 	token := conf.sign(claims)

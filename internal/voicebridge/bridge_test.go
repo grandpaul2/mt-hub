@@ -569,21 +569,19 @@ func TestRosters(t *testing.T) {
 	}
 	sam.room.Disconnect()
 
-	// A locked member (the hub's token says "lock"): the roster says so. The hub clears it
-	// while they are in the room (UpdateParticipant): the roster is sent again without it.
+	// The roster carries no lock (the game servers ask the hub), even from a participant whose
+	// attributes have one (an old token). An admin changing a Minecraft name (the hub's
+	// UpdateParticipant): the roster is sent again with the new one.
 	kim := joinMemberWith(t, room, "kim", map[string]string{"mc": "KimInGame", "lock": "1"}, false)
-	eventually(t, "kim locked in the hub's roster", 10*time.Second, func() bool { return slices.Equal(g.hubLocked(), []string{"kim"}) })
+	eventually(t, "kim in the hub's roster", 10*time.Second, func() bool { names, _ := g.hubRoster(); return slices.Contains(names, "kim") })
+	if l := g.hubLocked(); len(l) != 0 {
+		t.Errorf("the roster says who is locked: %v", l)
+	}
 	rs := lksdk.NewRoomServiceClient(lkURL, lkKey, lkSecret)
-	if _, err := rs.UpdateParticipant(context.Background(), &livekit.UpdateParticipantRequest{Room: room, Identity: "kim", Attributes: map[string]string{"lock": ""}}); err != nil {
+	if _, err := rs.UpdateParticipant(context.Background(), &livekit.UpdateParticipantRequest{Room: room, Identity: "kim", Attributes: map[string]string{"mc": "KimRenamed"}}); err != nil {
 		t.Fatal(err)
 	}
-	eventually(t, "kim's lock gone from the roster", 10*time.Second, func() bool {
-		names, _ := g.hubRoster()
-		return len(g.hubLocked()) == 0 && slices.Contains(names, "kim")
-	})
-	if mc := g.hubMinecraftNames(); mc["kim"] != "KimInGame" {
-		t.Errorf("kim's Minecraft name after the lock went: %v", mc)
-	}
+	eventually(t, "kim's new Minecraft name in the roster", 10*time.Second, func() bool { return g.hubMinecraftNames()["kim"] == "KimRenamed" })
 	kim.room.Disconnect()
 
 	paul.room.Disconnect()

@@ -18,8 +18,8 @@ import (
 	"github.com/grandpaul2/mt-hub/internal/auth"
 )
 
-// The lock (voice_lock.go): who may lock; GET /api/voice tells only the person asking; the
-// token and LiveKit's attribute carry it to the bridge; Leave, another voice chat, the game
+// The lock (voice_lock.go): who may lock; GET /api/voice tells only the person asking; no
+// token and no LiveKit attribute carry it (the game servers ask the hub); Leave, another voice chat, the game
 // server's report, an unlinked name, a ban and 30 seconds in neither place each take it off,
 // and a page simply going away does not; it is kept across a restart.
 func TestVoiceLock(t *testing.T) {
@@ -31,7 +31,7 @@ func TestVoiceLock(t *testing.T) {
 	us.SetMC("Alex", "AlexMC")
 	us.SetMC("Steve", "SteveMC")
 	var mu sync.Mutex
-	updates := []string{} // "identity lock=value" for each UpdateParticipant
+	updates := []string{} // "identity key=value,..." for each UpdateParticipant
 	lk := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			Room, Identity string
@@ -41,7 +41,12 @@ func TestVoiceLock(t *testing.T) {
 		switch r.URL.Path {
 		case "/twirp/livekit.RoomService/UpdateParticipant":
 			mu.Lock()
-			updates = append(updates, req.Identity+" lock="+req.Attributes["lock"])
+			kv := []string{}
+			for k, v := range req.Attributes {
+				kv = append(kv, k+"="+v)
+			}
+			slices.Sort(kv)
+			updates = append(updates, req.Identity+" "+strings.Join(kv, ","))
 			mu.Unlock()
 			w.Write([]byte(`{}`))
 		case "/twirp/livekit.RoomService/ListParticipants":
@@ -106,13 +111,13 @@ func TestVoiceLock(t *testing.T) {
 		t.Errorf("a lock on another voice chat: %d", c)
 	}
 
-	// In the hub's voice chat: locked, and LiveKit is told (so the bridge's roster says so).
+	// In the hub's voice chat: locked; LiveKit is not told (nobody in the room learns it).
 	s.voicePart(LinkVoiceID, "Alex", true, time.Now(), "")
 	if c := lock("Alex", true); c != http.StatusNoContent || !locked("Alex") {
 		t.Fatalf("Alex in #voice-link could not lock: %d", c)
 	}
-	if got := took(); got != "Alex lock=1" {
-		t.Errorf("LiveKit told %q, want Alex lock=1", got)
+	if got := took(); got != "" {
+		t.Errorf("LiveKit told %q about a lock", got)
 	}
 	// Only Alex is told Alex is locked; the saved voice chats don't carry it.
 	s.voicePart(LinkVoiceID, "Steve", true, time.Now(), "")
@@ -122,7 +127,7 @@ func TestVoiceLock(t *testing.T) {
 	if b, _ := os.ReadFile(filepath.Join(dir, "voice-chats.json")); strings.Contains(string(b), "lock") {
 		t.Errorf("voice-chats.json carries a lock: %s", b)
 	}
-	// Alex's token carries the lock beside the Minecraft name.
+	// Alex's token carries his Minecraft name and not his lock.
 	{
 		w := httptest.NewRecorder()
 		s.voiceToken(w, LinkVoiceID, "Alex")
@@ -131,7 +136,7 @@ func TestVoiceLock(t *testing.T) {
 		body, _ := base64.RawURLEncoding.DecodeString(strings.Split(out.Token, ".")[1])
 		var claims struct{ Attributes map[string]string }
 		json.Unmarshal(body, &claims)
-		if claims.Attributes["mc"] != "AlexMC" || claims.Attributes["lock"] != "1" {
+		if _, lock := claims.Attributes["lock"]; claims.Attributes["mc"] != "AlexMC" || lock {
 			t.Errorf("Alex's token attributes: %v", claims.Attributes)
 		}
 	}
@@ -208,13 +213,13 @@ func TestVoiceLock(t *testing.T) {
 		t.Errorf("unlocking with no lock: %d", c)
 	}
 
-	// Leave in the hub takes it off (LiveKit told); so does joining another voice chat.
+	// Leave in the hub takes it off (LiveKit not told); so does joining another voice chat.
 	call(account{Name: "Alex"}, s.voiceLeave, LinkVoiceID, "")
 	if locked("Alex") {
 		t.Error("Leave did not take Alex's lock off")
 	}
-	if got := took(); got != "Alex lock=" {
-		t.Errorf("after Leave, LiveKit told %q, want Alex lock= (cleared)", got)
+	if got := took(); got != "" {
+		t.Errorf("after Leave, LiveKit told %q", got)
 	}
 	s.voicePart(LinkVoiceID, "Alex", true, time.Now(), "")
 	lock("Alex", true)
