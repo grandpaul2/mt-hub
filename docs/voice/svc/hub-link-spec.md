@@ -36,7 +36,10 @@ The lab below checked that byte for byte.
 - VOICE always has **voice-link**, first in the list, with a link icon. It cannot be ended
   and does not count toward the limit of 3 voice chats. Everyone can see and join it.
 - Under it: the hub members in it, then the players in the group in game, each with their
-  server's tag (SMP, CMP) as in `#text-link`. Names light up while they talk, hub members and
+  server's tag (SMP, CMP) as in `#text-link`. A player whose Minecraft name is linked to a
+  hub account is shown under the account's name, the Minecraft name in the hover (on the hub,
+  hub names: style guide, Names; `GET /api/voice` gives `show` the hub name and `game` the
+  Minecraft name). Names light up while they talk, hub members and
   players alike. The row shows players even while no hub member is in it, so the hub shows
   who is in the group.
 - A player's row has User Volume and nothing else (no Message, no Disconnect: they are not a

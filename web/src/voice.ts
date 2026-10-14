@@ -29,7 +29,8 @@ const HOLD_BACK = 0.15; // seconds; see docs/voice/README.md on the delay budget
 
 // (show and via: a player in game, in #voice-link: their Minecraft name and server tag; name is
 // then the bridge's identity for them, which is also who their sound comes from.)
-type Person = { name: string; since: string; show?: string; via?: string };
+// (game: their Minecraft name, when show is the hub name it's linked to: on the hub, hub names.)
+type Person = { name: string; since: string; show?: string; via?: string; game?: string };
 // (link: #voice-link, always there; linked: the bridge to the game servers is in it.)
 // (lock: #voice-link only, and only yours: you are locked in, see "the lock" below.)
 type VoiceChat = { id: string; private?: boolean; starter: string; invited?: string[]; people: Person[]; link?: boolean; linked?: boolean; lock?: boolean };
@@ -148,7 +149,7 @@ function linkRows(c: VoiceChat): HTMLElement[] {
   for (const p of people) {
     const row = h('div', {
       class: 'row channel voice voice-more person in-link' + (here ? ' here' : '') + (speaking.has(p.name) ? ' speaking' : ''),
-      title: p.via ? `${p.show} is in the voice-link group in game` : here ? 'You’re in this voice chat' : 'Join this voice chat',
+      title: p.via ? `${p.game ?? p.show} is in the voice-link group in game` : here ? 'You’re in this voice chat' : 'Join this voice chat',
     },
     h('span', { class: 'hash' }), h('span', { class: 'name' }, p.show ?? p.name),
     ...(p.via ? [h('span', { class: 'tag via' }, p.via)] : []));
@@ -419,7 +420,7 @@ let asking = false;
 let sawMeInGame = false; // this page has seen your player in game (and so may take over when it goes)
 
 const linkChat = () => info.chats.find((c) => c.link);
-const myPlayer = (c: VoiceChat) => (user.mc ? c.people.find((p) => p.via && p.show?.toLowerCase() === user.mc!.toLowerCase()) : undefined);
+const myPlayer = (c: VoiceChat) => (user.mc ? c.people.find((p) => p.via && (p.game ?? p.show)?.toLowerCase() === user.mc!.toLowerCase()) : undefined);
 
 // lockStep acts on each new list: hold or let go of the microphone, step back when your player
 // appears in game, take over when it goes.

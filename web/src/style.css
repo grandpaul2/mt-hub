@@ -1471,12 +1471,14 @@ h3.md-h { font-size: 15px; }
    VOICE, and under voice-link (the one voice chat with a name) a step further in. */
 .row.channel.voice.person .name { color: var(--mention-text); }
 .row.channel.voice.in-link { padding-left: 24px; }
-/* The lock on your own row in voice-link (docs/voice/svc/lock-spec.md): open and dim when off,
-   closed when on, red when the page has lost your microphone and can't take over. */
+/* The lock on your own row in voice-link (docs/voice/svc/lock-spec.md): open, grey and dim when
+   off; closed, light blurple on a blurple chip when on; red when the page has lost your
+   microphone and can't take over. */
 .voice-lock { display: inline-flex; margin-left: auto; padding: 3px; border: 0; border-radius: 4px; background: none; color: var(--muted); opacity: .55; cursor: pointer; }
 .voice-lock svg { width: 14px; height: 14px; }
 .voice-lock:hover { opacity: 1; background: var(--panel-2); }
-.voice-lock.on { color: var(--chat-muted); opacity: 1; }
+.voice-lock.on { color: var(--mention-text); background: var(--mention-tint); opacity: 1; }
+.voice-lock.on:hover { background: var(--mention-tint); filter: brightness(1.15); }
 .voice-lock.lost { color: var(--danger); }
 .row.channel.voice.speaking .name { color: var(--ok); }
 .row.channel.voice.speaking .hash svg { color: var(--ok); }
