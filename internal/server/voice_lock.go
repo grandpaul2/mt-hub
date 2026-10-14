@@ -1,14 +1,17 @@
 package server
 
 // The lock (docs/voice/svc/lock-spec.md): a member in #voice-link, in the hub or in the group
-// in game, can lock themselves in. The hub keeps the lock per account; the game servers learn
-// it from the bridge's roster (the token's and LiveKit's participant attribute "lock") and
-// put a locked player in the group when they arrive; the page takes over when the player
-// leaves the game. Nobody else is told who is locked.
+// in game, can lock themselves in. The hub keeps the lock per account, with the Minecraft
+// name it was made for; the game servers ask the hub which of their players are locked
+// (POST /api/voice-link/locked) and put a locked player in the group when they arrive; the
+// page takes over when the player leaves the game. Nobody else is told who is locked.
+// (Until both game servers ask, the lock also goes to them the old way: the token's and
+// LiveKit's participant attribute "lock", which the bridge puts in its roster.)
 //
 // A lock goes off when its account leaves on purpose (Leave in the hub, another voice chat,
-// or leaving the group in game, which the server reports), loses its Minecraft name, is
-// banned or deleted, or has been in neither place for lockNowhereFor.
+// leaving the group in game, which the server reports, or an admin's Disconnect), loses or
+// changes its Minecraft name, is banned or deleted, or has been in neither place for
+// lockNowhereFor. That clock stands still while the hub can't ask LiveKit who is where.
 
 import (
 	"encoding/json"
@@ -27,9 +30,17 @@ import (
 // the page.
 const lockNowhereFor = 30 * time.Second
 
+// A lock: the Minecraft name it was made for, and when its account was first seen in
+// neither place (zero while it is somewhere).
+type voiceLockEntry struct {
+	mc    string
+	since time.Time
+}
+
 func (s *Server) voiceLockRoutes() {
 	s.mux.HandleFunc("POST /api/voice/{id}/lock", s.voiceLock)
 	s.mux.HandleFunc("POST /api/voice-link/left", s.voiceLinkLeft)
+	s.mux.HandleFunc("POST /api/voice-link/locked", s.voiceLinkLocked)
 	go func() {
 		for {
 			time.Sleep(5 * time.Second)
@@ -38,24 +49,34 @@ func (s *Server) voiceLockRoutes() {
 	}()
 }
 
+// loadLocks reads voice-locks.json: {"account": "Minecraft name"}. (The first version was a
+// list of account names: each of those takes its account's Minecraft name at the next sweep.)
 func (v *voice) loadLocks() {
-	v.locks = map[string]time.Time{}
+	v.locks = map[string]voiceLockEntry{}
+	b, err := os.ReadFile(v.locksFile)
+	if err != nil {
+		return
+	}
 	var names []string
-	if b, err := os.ReadFile(v.locksFile); err == nil && json.Unmarshal(b, &names) == nil {
+	var mcs map[string]string
+	if json.Unmarshal(b, &names) == nil {
 		for _, n := range names {
-			v.locks[n] = time.Time{}
+			v.locks[n] = voiceLockEntry{}
+		}
+	} else if json.Unmarshal(b, &mcs) == nil {
+		for n, mc := range mcs {
+			v.locks[n] = voiceLockEntry{mc: mc}
 		}
 	}
 }
 
 // saveLocks writes the locked accounts out; called with mu held.
 func (v *voice) saveLocks() {
-	names := make([]string, 0, len(v.locks))
-	for n := range v.locks {
-		names = append(names, n)
+	mcs := make(map[string]string, len(v.locks))
+	for n, l := range v.locks {
+		mcs[n] = l.mc
 	}
-	slices.Sort(names)
-	b, _ := json.Marshal(names)
+	b, _ := json.Marshal(mcs)
 	tmp := v.locksFile + ".tmp"
 	if err := os.WriteFile(tmp, b, 0o600); err == nil {
 		os.Rename(tmp, v.locksFile)
@@ -101,7 +122,8 @@ func (s *Server) voiceLock(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	if u, ok := s.users.Get(me); !ok || u.MC == "" {
+	u, ok := s.users.Get(me)
+	if !ok || u.MC == "" {
 		writeJSON(w, http.StatusConflict, map[string]string{"error": "An admin has to set your Minecraft name first."})
 		return
 	}
@@ -114,7 +136,7 @@ func (s *Server) voiceLock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	was := s.voice.locked(me)
-	s.voice.locks[me] = time.Time{}
+	s.voice.locks[me] = voiceLockEntry{mc: u.MC}
 	s.voice.saveLocks()
 	s.voice.mu.Unlock()
 	if !was {
@@ -179,30 +201,106 @@ func (s *Server) voiceLinkLeft(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// voiceLockSweep takes off the locks that should go: accounts gone, banned or without a
-// Minecraft name, and accounts in neither place for lockNowhereFor (counted from the sweep
-// that first saw them nowhere, every 5 seconds).
+// voiceLinkLocked: a game server asks which of its players are locked: {"players": [...]}
+// (Minecraft names) → {"locked": [...]}, the names as asked. A player is locked while their
+// account (not banned) holds a lock made for that Minecraft name and is in #voice-link now,
+// in the hub or in the group in game; the 30 s a lock outlives being in neither place is for
+// the page, not for this. The server asks about its players who are in voice chat and in no
+// group, when one connects and every 2 seconds.
+func (s *Server) voiceLinkLocked(w http.ResponseWriter, r *http.Request) {
+	if who(r).Token != auth.KindServer {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "for game servers"})
+		return
+	}
+	var req struct {
+		Players []string `json:"players"`
+	}
+	if !readJSON(w, r, &req) {
+		return
+	}
+	if len(req.Players) > 100 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "at most 100 players"})
+		return
+	}
+	asked := map[string]string{} // lower case → as asked
+	for _, p := range req.Players {
+		if !auth.MCNameRE.MatchString(p) {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "not a Minecraft name: " + p})
+			return
+		}
+		asked[strings.ToLower(p)] = p
+	}
+	out := []string{}
+	s.voice.mu.Lock()
+	for name, l := range s.voice.locks {
+		u, ok := s.users.Get(name)
+		if !ok || u.Banned || u.MC == "" || (l.mc != "" && !strings.EqualFold(l.mc, u.MC)) {
+			continue
+		}
+		p, ok := asked[strings.ToLower(u.MC)]
+		if !ok {
+			continue
+		}
+		if hub, game := s.whereIs(name); hub || game {
+			out = append(out, p)
+		}
+	}
+	s.voice.mu.Unlock()
+	slices.Sort(out)
+	writeJSON(w, http.StatusOK, map[string][]string{"locked": out})
+}
+
+// mcChanged: an admin set or took away an account's Minecraft name. LiveKit is told at once
+// (the bridge shows them in game as that player), and a lock made for another name goes off.
+func (s *Server) mcChanged(name string) {
+	if s.voice == nil {
+		return
+	}
+	u, _ := s.users.Get(name)
+	s.voice.mu.Lock()
+	l, locked := s.voice.locks[name]
+	hub, _ := s.whereIs(name)
+	s.voice.mu.Unlock()
+	if conf := s.voice.config(); hub && conf != nil {
+		if _, err := conf.twirp("UpdateParticipant", LinkVoiceID, map[string]any{"room": LinkVoiceID, "identity": name, "attributes": map[string]string{"mc": u.MC}}); err != nil {
+			log.Printf("voice-link: telling LiveKit %s's Minecraft name: %v", name, err)
+		}
+	}
+	if locked && (u.MC == "" || (l.mc != "" && !strings.EqualFold(l.mc, u.MC))) {
+		s.unlock(name, "Minecraft name changed")
+	}
+}
+
+// voiceLockSweep takes off the locks that should go: accounts gone, banned, without a
+// Minecraft name or with another one than the lock's, and accounts in neither place for
+// lockNowhereFor (counted from the sweep that first saw them nowhere, every 5 seconds). While
+// the hub's last check with LiveKit failed, or none has been made since it started, who is
+// where isn't known: the count starts again once it is.
 func (s *Server) voiceLockSweep(now time.Time) {
 	var off []string
 	s.voice.mu.Lock()
-	for name, since := range s.voice.locks {
+	for name, l := range s.voice.locks {
 		u, ok := s.users.Get(name)
-		if !ok || u.Banned || u.MC == "" {
+		if l.mc == "" && ok {
+			l.mc = u.MC // (a lock from before locks kept their name)
+		}
+		if !ok || u.Banned || u.MC == "" || !strings.EqualFold(l.mc, u.MC) {
 			off = append(off, name)
 			continue
 		}
 		hub, game := s.whereIs(name)
 		switch {
-		case hub || game:
-			s.voice.locks[name] = time.Time{}
-		case since.IsZero():
-			s.voice.locks[name] = now
-		case now.Sub(since) >= lockNowhereFor:
+		case hub || game || !s.voice.checked:
+			l.since = time.Time{}
+		case l.since.IsZero():
+			l.since = now
+		case now.Sub(l.since) >= lockNowhereFor:
 			off = append(off, name)
 		}
+		s.voice.locks[name] = l
 	}
 	s.voice.mu.Unlock()
 	for _, name := range off {
-		s.unlock(name, "no account, banned, no Minecraft name, or in neither place for 30 s")
+		s.unlock(name, "no account, banned, no or another Minecraft name, or in neither place for 30 s")
 	}
 }

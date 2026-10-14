@@ -94,8 +94,8 @@ await fetch(`${HUB}/api/channels/text-link/messages`, { method: 'POST', headers:
 
 // #voice-link: the bridge in it and Paul's player in the group in game (as LiveKit's signed
 // webhooks would say), and Paul's Minecraft name, so his player's row has his lock.
-const webhook = async (id, identity) => {
-  const body = JSON.stringify({ id, event: 'participant_joined', room: { name: 'voice-link' }, participant: { identity, joinedAt: '1' } });
+const webhook = async (id, identity, event = 'participant_joined') => {
+  const body = JSON.stringify({ id, event, room: { name: 'voice-link' }, participant: { identity, joinedAt: '1' } });
   const enc = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
   const msg = enc({ alg: 'HS256', typ: 'JWT' }) + '.' + enc({ iss: 'k', exp: Math.floor(Date.now() / 1000) + 60, sha256: createHash('sha256').update(body).digest('base64') });
   const r = await fetch(`${HUB}/api/voice/webhook`, { method: 'POST', headers: { authorization: `Bearer ${msg}.${createHmac('sha256', 'check-secret-0123456789').update(msg).digest('base64url')}` }, body });
@@ -140,6 +140,8 @@ await cmd('script.addPreloadScript', { functionDeclaration: `() => {
   window.fetch = (...a) => { s.f++; const end = () => { s.f--; did(); }; return f(...a).then((r) => { end(); return r; }, (e) => { end(); throw e; }); };
   const ES = window.EventSource;
   window.EventSource = class extends ES { constructor(...a) { super(...a); s.es.push(this); } };
+  // 'voice-link no microphone': the microphone refused.
+  if (localStorage.getItem('check-gum-fail') === '1') navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException('Permission denied', 'NotAllowedError'));
 }` });
 const BUSY = `(() => {
   const s = window.__s;
@@ -179,7 +181,7 @@ const VIEWS = [['tree and chat', 'gyp'], ['file', 'boards/Playground juggling gl
   ['schematics', 'schems'], ['picture', 'screenshots/2026-09-01 15.00.01 Peggy.png'], ['viewer', 'screenshots/2026-09-01 15.00.01 Peggy.png'],
   ['chat (main panel)', 'chan=general'], ['search', 'gyp'], ['mention popup', 'chan=general'], ['command popup', 'chan=general'], ['server status', 'chan=general'], ['emoji picker', 'chan=general'],
   ['new line and jump', 'chan=piggy-jig'], ['save to files', 'chan=general'], ['chat files', 'chan=general'], ['private chat', 'chan=jig-staff'], ['server link', 'chan=text-link'], ['delete question', 'gyp'], ['delete message question', 'chan=general'], ['rows selected', 'gyp'], ['rows cut', 'gyp'], ['trash', 'gyp'], ['tiles picked and the box', 'folder=screenshots'],
-  ['minecraft name', 'gyp'], ['message edit', 'chan=general'], ['file tray', 'chan=general'], ['sending and failed', 'chan=general'], ['sound settings', 'gyp'], ['voice settings', 'gyp'], ['voice-link lock', 'gyp'], ['voice-link locked', 'gyp'], ['admin', 'gyp']];
+  ['minecraft name', 'gyp'], ['message edit', 'chan=general'], ['file tray', 'chan=general'], ['sending and failed', 'chan=general'], ['sound settings', 'gyp'], ['voice settings', 'gyp'], ['voice-link lock', 'gyp'], ['voice-link locked', 'gyp'], ['voice-link no microphone', 'gyp'], ['admin', 'gyp']];
 mkdirSync(OUT, { recursive: true });
 const T = {}; let t0 = Date.now();
 const lap = (k) => { const n = Date.now(); T[k] = (T[k] ?? 0) + n - t0; t0 = n; };
@@ -188,12 +190,23 @@ for (const [name, hash] of VIEWS) {
   t0 = Date.now();
   if (name === 'new line and jump') await js(`localStorage.setItem('mt-read', JSON.stringify({ 'piggy-jig': '${readTo}' }))`);
   if (name === 'voice-link lock' || name === 'voice-link locked') await setLock(name === 'voice-link locked');
+  if (name === 'voice-link no microphone') await js(`localStorage.setItem('check-gum-fail', '1')`);
+  // A locked page takes the microphone by itself only in a focused window (as Firefox gives it
+  // only then): focus it again, in case a click elsewhere took it during the check.
+  if (name.startsWith('voice-link')) execFileSync('i3-msg', ['[class="MTHubCheck"] focus'], { env: X, stdio: 'ignore' });
   await cmd('browsingContext.navigate', { context: ctx, url: `${HUB}/?r=${Math.random()}#${encodeURI(hash)}`, wait: 'complete' });
   lap('load');
   await idle(1800);
   lap('wait after load');
   if (name === 'voice-link lock') await shown(name, 'the open lock on his player', `!!document.querySelector('#voice-list .voice-lock:not(.on)')`);
+  if (name.startsWith('voice-link') && !(await js('document.hasFocus()'))) console.log(`(${name}: the page's window isn't focused)`);
   if (name === 'voice-link locked') await shown(name, 'the closed lock, holding the microphone', `!!document.querySelector('#voice-list .voice-lock.on:not(.lost)')`);
+  if (name === 'voice-link no microphone') { // locked, the microphone refused, his player leaves the game: the take-over can't run
+    await shown(name, 'the red lock', `!!document.querySelector('#voice-list .voice-lock.lost')`);
+    await webhook('w3', 'link:survival:Gypsy_Paul', 'participant_left');
+    await shown(name, 'the voice bar saying so', `document.querySelector('#voice-bar .voice-bad')?.textContent === 'Couldn’t rejoin voice-link: microphone unavailable'`);
+    await idle(600);
+  }
   if (name === 'viewer') {
     await js(`document.querySelector('img[title="Click for full size"]').click()`);
     await shown(name, 'the viewer', `document.getElementById('viewer')?.hidden === false`);

@@ -45,7 +45,8 @@ var serverAllow = []string{
 	"POST /api/server-status",
 	"GET /api/server-link",
 	"POST /api/server-link",
-	"POST /api/voice-link/left", // a player left the group in game on purpose: their lock goes off
+	"POST /api/voice-link/left",   // a player left the group in game on purpose: their lock goes off
+	"POST /api/voice-link/locked", // which of its players are locked (voice_lock.go)
 }
 
 // tokenAllowed says whether a token of this kind may make this request. Only clean paths

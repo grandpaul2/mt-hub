@@ -208,6 +208,11 @@ var MCNameRE = regexp.MustCompile(`^[A-Za-z0-9_]{1,16}$`)
 
 var ErrMCTaken = errors.New("another account has that Minecraft name")
 
+// ErrMCIsName: a Minecraft name may not be another account's name, nor an account's name
+// another account's Minecraft name (whatever the case): the hub shows a linked player under
+// the account's name, so the two would look like one person.
+var ErrMCIsName = errors.New("that is another account's name")
+
 // CheckMC says what is wrong with a Minecraft name, if anything.
 func CheckMC(mc string) error {
 	if !MCNameRE.MatchString(mc) || len(mc) < 3 {
@@ -233,6 +238,9 @@ func (s *Store) SetMC(name, mc string) error {
 		for n, o := range users {
 			if n != name && mc != "" && strings.EqualFold(o.MC, mc) {
 				return ErrMCTaken
+			}
+			if n != name && mc != "" && strings.EqualFold(n, mc) {
+				return ErrMCIsName
 			}
 		}
 		u.MC = mc
@@ -282,9 +290,12 @@ func (s *Store) Add(name string, admin bool) (string, error) {
 		return "", ErrReserved
 	}
 	return pw, s.update(func(users map[string]User) error {
-		for n := range users {
+		for n, u := range users {
 			if strings.EqualFold(n, name) {
 				return ErrExists
+			}
+			if u.MC != "" && strings.EqualFold(u.MC, name) {
+				return ErrMCIsName
 			}
 		}
 		for _, n := range s.retired() {
