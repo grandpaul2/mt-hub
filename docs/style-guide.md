@@ -381,7 +381,7 @@ dialog, click-twice in Admin, and Shift+click. The rule:
   - One at a time, top centre, 8 px radius, dismissed by time; a new one replaces it.
   - **Two kinds:** **info** (2.5 s) and **error** (6 s, red edge).
   - **Two have a button:** "Moved … to Trash" and "Moved … to <folder>/" stay 6 s and have
-    **Undo** (a plain button after the words).
+    **Undo** (a blue button after the words, the primary button's look).
   - Progress (uploads) stays until done.
   - Toasts never ask anything; a question is a dialog.
 - **Banner:** a `--warn` strip under a file's bar, for "this file changed under you". It stays

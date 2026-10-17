@@ -136,7 +136,7 @@ const undo = async () => {
   await ev(`document.querySelector('#toast .toast-act').click()`);
   await settle(1200);
 };
-check('a move has Undo', await ev(`document.querySelector('#toast .toast-act')?.textContent ?? null`), 'Undo');
+check('a move has Undo, blue', await ev(`(() => { const b = document.querySelector('#toast .toast-act'); return b && [b.textContent, getComputedStyle(b).backgroundColor === getComputedStyle(document.querySelector('#toast .toast-act')).backgroundColor && getComputedStyle(b).backgroundColor === 'rgb(14, 99, 156)']; })()`), ['Undo', true]);
 await undo();
 check('Undo puts it back', [await has('docs/one.md', 'notes/one.md'), await toastText()], [[true, false], 'Moved one.md back to docs/']);
 await click(row('docs/one.md'));
