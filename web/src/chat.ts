@@ -9,7 +9,7 @@ import { emojiImg, emojiPicker as pickerContent } from './emoji';
 import { autocomplete } from './autocomplete';
 import { commandIn, type Command } from './commands';
 import { dingFor, setupDing } from './ding';
-import { $, accounts, ask, bytes, opTag, tagOf, dateTime, fullDate, GLYPH, time, closeDialog, copyText, dialog, enc, h, isAdmin, json, labels, load, req, showMenu, store, toast, toastError, user, type MenuItem, type Live, thumbOr, dragData, draggedPaths } from './util';
+import { $, accounts, ask, bytes, opTag, tagOf, dateTime, fullDate, GLYPH, time, closeDialog, copyText, dialog, enc, h, isAdmin, json, labels, load, req, showMenu, store, toast, toastError, user, type MenuItem, type Live, thumbOr, dragData, dragLabel, draggedPaths } from './util';
 import { iconURL } from './icons';
 
 type Message = {
@@ -1603,7 +1603,9 @@ export function renderChannels() {
       linked ? h('span', { class: 'hash', innerHTML: ICON.link }) : h('span', { class: 'hash' }, dm ? '@' : '#'),
       renaming ? renameBox(c.name) : h('span', { class: 'name' }, dm ? dmPeople(c) : c.name),
       ...(c.kind === 'private' ? [h('span', { class: 'lock', title: 'Private chat', innerHTML: ICON.lock })] : []));
+    row.dataset.chat = c.name;
     row.onclick = () => openInMain(c.name);
+    takesDrops(row, c.name);
     row.oncontextmenu = (e) => {
       e.preventDefault();
       chanMenu(e, c.name, unread);
@@ -1718,6 +1720,30 @@ function draggableChat(row: HTMLElement, name: string) {
     const order = chatOrder().filter((n) => n !== from);
     moveChat(from, order.indexOf(name) + (below(e) ? 1 : 0));
   };
+}
+
+// takesDrops makes a chat's row in the list a place to drop what a chat pane takes: it goes
+// in that chat's box, and the chat opens there, so words can be added before sending. The row
+// is a deliberate target, so a picture out of a message counts even on its own chat's row.
+// (An admin's drag of a row to reorder the list carries its own type and is left alone.)
+function takesDrops(row: HTMLElement, name: string) {
+  const wanted = (e: DragEvent) => carriesFiles(e) && !e.dataTransfer!.types.includes('text/x-mt-chat');
+  row.addEventListener('dragover', (e) => {
+    if (!wanted(e)) return;
+    e.preventDefault();
+    e.dataTransfer!.dropEffect = 'copy';
+    row.classList.add('drop-target');
+  });
+  row.addEventListener('dragleave', () => row.classList.remove('drop-target'));
+  row.addEventListener('drop', (e) => {
+    row.classList.remove('drop-target');
+    if (!wanted(e)) return;
+    e.preventDefault();
+    const paths = draggedPaths(e);
+    const files = [...(e.dataTransfer?.files ?? [])];
+    openInMain(name);
+    main.take(paths, files);
+  });
 }
 
 function openChanEdit(edit: NonNullable<typeof chanEdit>) {
@@ -2222,22 +2248,25 @@ const baseName = (path: string) => path.slice(path.lastIndexOf('/') + 1);
 // is where such a drag began: dropped back in that same chat it counts only on the message
 // box, so a picture pressed too long and let go goes nowhere (see accidental).
 let fromMessage: { view: ChatView | null; chat: string } | null = null;
+const DRAG_W = 160;
 function draggable(el: HTMLElement, path: string) {
   el.draggable = true;
   el.ondragstart = (e) => {
     e.stopPropagation();
     dragData(e, path, [path]);
-    // The picture itself, at the size it shows, as what's dragged: Firefox's first picture of
-    // the card was a grey box, and an <img> given as is drags at its full size.
-    const img = el.querySelector('img');
+    // What's dragged is small, so it hides little of where it's going: a picture at most
+    // DRAG_W wide (drawn on a canvas: Firefox's first picture of the card was a grey box, and an
+    // <img> given as is drags at its full size); a card without one, a row with its name.
+    const img = el.querySelector('img:not(.icon)') as HTMLImageElement | null;
     if (img?.complete && img.naturalWidth) {
       const r = img.getBoundingClientRect();
-      const c = h('canvas', { width: Math.round(r.width), height: Math.round(r.height), class: 'drag-pic' });
+      const k = Math.min(1, DRAG_W / r.width);
+      const c = h('canvas', { width: Math.round(r.width * k), height: Math.round(r.height * k), class: 'drag-pic' });
       c.getContext('2d')?.drawImage(img, 0, 0, c.width, c.height);
       document.body.append(c);
-      e.dataTransfer?.setDragImage(c, e.clientX - r.left, e.clientY - r.top);
+      e.dataTransfer?.setDragImage(c, Math.min((e.clientX - r.left) * k, c.width), Math.min((e.clientY - r.top) * k, c.height));
       setTimeout(() => c.remove());
-    }
+    } else if (!(el instanceof HTMLAnchorElement)) dragLabel(e, baseName(path));
     const view = [main, side].find((v) => v.root.contains(el)) ?? null;
     fromMessage = { view, chat: view?.channel ?? '' };
   };

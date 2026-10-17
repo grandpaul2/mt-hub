@@ -651,21 +651,22 @@ function startCreate(folder: boolean) {
 }
 
 // movePath renames or moves a file or folder, carrying open folders, the open file and
-// the selection along with it.
-async function movePath(from: string, to: string) {
+// the selection along with it. It says why it couldn't (unless quiet: then the caller does);
+// the answer is whether it did, or the HTTP status that refused it.
+async function movePath(from: string, to: string, quiet = false): Promise<true | number> {
   const inside = (p: string) => p === from || p.startsWith(from + '/');
   const moved = (p: string) => to + p.slice(from.length);
   if (cur && inside(cur.stat.path) && dirty()) {
     toast(`Save or discard your changes to ${baseName(cur.stat.path)} first`);
     renderTree();
-    return;
+    return 0;
   }
   const r = await req('POST', '/api/move', JSON.stringify({ from, to }));
   if (!r.ok) {
     const err = (await r.json().catch(() => ({}))).error;
-    toast(r.status === 409 ? `${to} already exists` : err ?? 'Couldn’t move it');
+    if (!quiet) toast(r.status === 409 ? `${to} already exists` : err ?? 'Couldn’t move it');
     renderTree();
-    return;
+    return r.status;
   }
   for (const p of [...expanded]) {
     if (inside(p)) {
@@ -682,6 +683,7 @@ async function movePath(from: string, to: string) {
   await refreshTree();
   if (cur && inside(cur.stat.path)) await openFile(moved(cur.stat.path), true);
   renderTree();
+  return true;
 }
 
 // moveMany moves a selection into dir. One thing goes the way a single move always has;
@@ -692,9 +694,12 @@ async function moveMany(paths: string[], dir: string) {
   const fixed = all.filter((p) => AREAS.includes(p));
   const moving = all.filter((p) => !AREAS.includes(p) && dirName(p) !== dir);
   const stays = !fixed.length ? '' : fixed.length === 1 ? `${fixed[0]}/ stays where it is` : `${fixed.map((p) => p + '/').join(' and ')} stay where they are`;
+  const where = dir ? dir + '/' : 'Files';
   if (moving.length < 2) {
-    if (moving.length) await movePath(moving[0], inDir(dir, baseName(moving[0])));
-    if (stays) toast(stays);
+    const one = moving[0];
+    if (one && await movePath(one, inDir(dir, baseName(one))) === true) {
+      toastUndo(`Moved ${baseName(one)} to ${where}` + (stays ? `. ${stays}.` : ''), () => void moveBack([[inDir(dir, baseName(one)), dirName(one)]]));
+    } else if (!one && stays) toast(stays);
     return;
   }
   if (cur && dirty() && moving.some((p) => within(cur!.stat.path, p))) {
@@ -733,7 +738,25 @@ async function moveMany(paths: string[], dir: string) {
   if (open && moved(open) !== open) await openFile(moved(open), true);
   goAlong();
   renderTree();
-  toast(`Moved ${moving.length} items to ${dir ? dir + '/' : 'Files'}` + (stays ? `. ${stays}.` : ''));
+  toastUndo(`Moved ${moving.length} items to ${where}` + (stays ? `. ${stays}.` : ''),
+    () => void moveBack(moving.map((p) => [inDir(dir, baseName(p)), dirName(p)])));
+}
+
+// moveBack is a move's Undo: each thing goes back to the folder it came from, one at a time,
+// so a name taken there since keeps only that one where it is (and says so). It has no Undo
+// of its own.
+async function moveBack(moves: [string, string][]) {
+  const stayed: string[] = [];
+  let back = 0;
+  for (const [now, dir] of moves) {
+    const r = await movePath(now, inDir(dir, baseName(now)), true);
+    if (r === true) back++;
+    else stayed.push(r === 409 ? `${baseName(now)} stayed in ${dirName(now) ? dirName(now) + '/' : 'Files'}: ${dir ? dir + '/' : 'Files'} has a ${baseName(now)} now`
+      : `${baseName(now)} couldn’t be moved back`);
+  }
+  if (stayed.length) toastError(stayed.join('. '));
+  else if (back === 1) toast(`Moved ${baseName(moves[0][0])} back to ${moves[0][1] ? moves[0][1] + '/' : 'Files'}`);
+  else if (back) toast(`Moved ${back} items back`);
 }
 
 // toTrash moves files and folders to the Trash. Nothing is asked, since they can be brought

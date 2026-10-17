@@ -371,15 +371,17 @@ dialog, click-twice in Admin, and Shift+click. The rule:
   - Deleting a message that is the last link to files posted in chat offers to move them to
     Trash too (ticked). From a private chat or a DM it adds that they are kept 30 days and
     only an admin can get them back, since the Trash never shows those.
-- **Undo** is on one toast: "Moved … to Trash". It puts back what that move took.
+- **Undo** is on two toasts: "Moved … to Trash" puts back what that move took, and "Moved … to
+  <folder>/" (any move in Files: a drag, the folder view, cut and paste) puts each thing back
+  in the folder it came from. A rename is not a move and has none; nor has an Undo.
 
 ### 6.7 Toasts and banners
 
 - **Toast:**
   - One at a time, top centre, 8 px radius, dismissed by time; a new one replaces it.
   - **Two kinds:** **info** (2.5 s) and **error** (6 s, red edge).
-  - **One has a button:** "Moved … to Trash" stays 6 s and has **Undo** (a plain button after
-    the words).
+  - **Two have a button:** "Moved … to Trash" and "Moved … to <folder>/" stay 6 s and have
+    **Undo** (a plain button after the words).
   - Progress (uploads) stays until done.
   - Toasts never ask anything; a question is a dialog.
 - **Banner:** a `--warn` strip under a file's bar, for "this file changed under you". It stays
@@ -564,8 +566,11 @@ separate dialogs.
       folder from Files, a schematic card, a picture or file out of a message: a card,
       linked where it is (a private chat's or DM's file dropped elsewhere: a copy). Only
       text is text.
-    - A drop on a message being edited goes into its cards; a drop anywhere else on the
-      page goes to the chat that is showing; the page never opens a dropped file.
+    - A drop on a message being edited goes into its cards; a drop on a chat's row goes to
+      that chat, which opens; a drop anywhere else on the page goes to the chat that is
+      showing; the page never opens a dropped file.
+    - What is dragged is small, so it hides little of the target: a picture at most 160 px
+      wide; a card, tile or several things a label (the "3 items" one).
     - Under a message every linked file, folder or schematic post is a card. Its link text
       shows only inside a sentence (or a quote, list or heading line); alone, it's hidden,
       and no empty line is left.
