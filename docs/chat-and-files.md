@@ -22,7 +22,9 @@ are in [`style-guide.md`](style-guide.md).
   file card (or file link) out of a message. Things already on the hub are linked where they
   are; a file posted in a private chat or DM dropped into another chat is copied instead
   (`take`, `sortDropped` in `chat.ts`). A message being edited takes drops into its own
-  cards. A drop anywhere else on the page goes to the chat that is showing, and the page
+  cards. Something dragged out of a message and let go in that same chat counts only on the
+  message box (or an edit box), so a picture pressed too long goes nowhere; another chat's
+  pane takes it anywhere (`accidental`). A drop anywhere else on the page goes to the chat that is showing, and the page
   never opens a dropped file in the tab (`catchStrayDrops`); the tree, a folder view, the
   Trash and the Schematic Manager keep their own drops.
 - **How links show:** every link to a file, folder or schematic post gets a card under the
