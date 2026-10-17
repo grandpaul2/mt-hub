@@ -137,14 +137,28 @@ const sent = (await msgs('general')).pop();
 check('stored as plain links', sent.text, `#[${shot1}] #docs`);
 check('drawn as a picture and a folder card', await drawn(sent.id), [null, ['ref-pic', 'folder-card'], 0]);
 
-// Out of a message: the picture and the file link carry the hub's path, not a URL.
+// Out of a message: the picture and the file link carry the hub's path, not a URL. In the
+// same chat only the message box takes them (a picture dragged by accident and let go over
+// the messages, or anywhere else, goes nowhere); another chat takes them anywhere.
 const posted = await say('general', 'here #docs/guide.md is the plan\n#media/shapes/a.png');
 await settle(800);
-check('a picture in a message drags as a card', await drag(`${M} .msg[data-id="${posted.id}"] .ref-pic`, `${M} .chat-body .messages`), [true, true]);
-await drag(`${M} .msg[data-id="${posted.id}"] .msg-body a.file-link`, `${M} .chat-body .messages`);
+const pic = `${M} .msg[data-id="${posted.id}"] .ref-pic`;
+// (The page still keeps the drop from the browser, so a dragged link never opens in the tab.)
+check('same chat, over the messages: taken nowhere', [await drag(pic, `${M} .chat-body .messages`), await tray(), await ev(`document.querySelector('${M}-body').classList.contains('drop')`)], [[true, true], [], false]);
+await drag(pic, '#channels');
+await settle(300);
+check('same chat, let go on the chat list: nowhere', await tray(), []);
+check('a picture in a message drags as a card onto the box', await drag(pic, `${M} .compose`), [true, true]);
+await drag(`${M} .msg[data-id="${posted.id}"] .msg-body a.file-link`, `${M} .composer`);
 await settle(300);
 check('picture and file link: cards, no URL text', [await tray(), await compose()], [[['a.png', 'done'], ['guide.md', 'done']], '']);
 await clearTray();
+check('another chat takes it anywhere', await drag(pic, `${M} .chat-body .messages`, `location.hash = '#chan=shapes'; await new Promise((r) => setTimeout(r, 1200));`), [true, true]);
+await settle(300);
+check('(the card is in that chat)', await tray(), [['a.png', 'done']]);
+await clearTray();
+await ev(`location.hash = '#chan=general'`);
+await settle(1200);
 
 // A private chat's file into another chat: a copy, uploaded on send.
 await send('Page.navigate', { url: `${HUB}/?r=3#chan=staff` });

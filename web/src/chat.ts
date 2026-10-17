@@ -169,7 +169,7 @@ class ChatView {
     // computer, files and folders from the tree or a folder view, a Schematic Manager card,
     // a picture or file from a message.
     root.ondragover = (e) => {
-      if (!carriesFiles(e)) return;
+      if (!carriesFiles(e) || accidental(e, this)) return;
       e.preventDefault();
       root.classList.add('drop');
     };
@@ -180,7 +180,7 @@ class ChatView {
       root.classList.remove('drop');
       const paths = draggedPaths(e); // a selection: a card for every one of them
       const files = [...(e.dataTransfer?.files ?? [])];
-      if (!paths.length && !files.length) return;
+      if ((!paths.length && !files.length) || accidental(e, this)) return;
       e.preventDefault();
       this.take(paths, files);
     };
@@ -942,10 +942,13 @@ function catchStrayDrops() {
   // (In Files' places a drag of things on the hub is theirs alone to take or refuse; a
   // computer file they refuse is still kept from opening in the tab.)
   const leave = (e: DragEvent) => !carriesFiles(e) || e.defaultPrevented || (own(e) && !e.dataTransfer!.types.includes('Files'));
+  // A drag starting anywhere isn't one out of a message until draggable says so.
+  document.addEventListener('dragstart', () => (fromMessage = null), { capture: true });
+  document.addEventListener('dragend', () => (fromMessage = null));
   document.addEventListener('dragover', (e) => {
     if (leave(e)) return;
     e.preventDefault();
-    const v = target(e);
+    const v = fromMessage ? null : target(e);
     e.dataTransfer!.dropEffect = v ? 'copy' : 'none';
     light(v);
   });
@@ -953,7 +956,7 @@ function catchStrayDrops() {
     if (leave(e)) return;
     e.preventDefault();
     light(null);
-    target(e)?.take(draggedPaths(e), [...(e.dataTransfer?.files ?? [])]);
+    if (!fromMessage) target(e)?.take(draggedPaths(e), [...(e.dataTransfer?.files ?? [])]);
   });
 }
 
@@ -2214,14 +2217,28 @@ function mediaPreviews(paths: string[], msg?: Message) {
 const baseName = (path: string) => path.slice(path.lastIndexOf('/') + 1);
 
 // draggable makes a card under a message (or a link in its text) drag as the hub's path to
-// it, so dropping it in a chat makes a card there, never the page's URL as text.
+// it, so dropping it in a chat makes a card there, never the page's URL as text. fromMessage
+// is where such a drag began: dropped back in that same chat it counts only on the message
+// box, so a picture pressed too long and let go goes nowhere (see accidental).
+let fromMessage: { view: ChatView | null; chat: string } | null = null;
 function draggable(el: HTMLElement, path: string) {
   el.draggable = true;
   el.ondragstart = (e) => {
     e.stopPropagation();
     dragData(e, path, [path]);
+    const view = [main, side].find((v) => v.root.contains(el)) ?? null;
+    fromMessage = { view, chat: view?.channel ?? '' };
   };
   return el;
+}
+
+// accidental: a drag out of a message let go anywhere but a message box (its own chat's, or
+// an edit box) or another chat's pane. It's taken nowhere.
+function accidental(e: DragEvent, into: ChatView | null) {
+  if (!fromMessage) return false;
+  if (!into) return true;
+  const same = fromMessage.view === into && fromMessage.chat === into.channel;
+  return same && !(e.target as Element).closest?.('.composer, .msg-edit');
 }
 
 // filesCard is a file or folder in Files under a message: its icon, name and size (a
