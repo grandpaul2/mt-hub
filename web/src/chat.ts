@@ -9,7 +9,7 @@ import { emojiImg, emojiPicker as pickerContent } from './emoji';
 import { autocomplete } from './autocomplete';
 import { commandIn, type Command } from './commands';
 import { dingFor, setupDing } from './ding';
-import { $, accounts, ask, bytes, opTag, tagOf, dateTime, fullDate, GLYPH, time, closeDialog, copyText, dialog, enc, h, isAdmin, json, labels, load, req, showMenu, store, toast, toastError, user, type MenuItem, type Live, thumbOr, draggedPaths } from './util';
+import { $, accounts, ask, bytes, opTag, tagOf, dateTime, fullDate, GLYPH, time, closeDialog, copyText, dialog, enc, h, isAdmin, json, labels, load, req, showMenu, store, toast, toastError, user, type MenuItem, type Live, thumbOr, dragData, draggedPaths } from './util';
 import { iconURL } from './icons';
 
 type Message = {
@@ -33,6 +33,7 @@ type Hooks = {
   showSidePanel(): void; // un-hide the right-hand chat panel
   schemPost(path: string): { title: string; credit?: string; file: string } | null; // a linked schematic post's folder
   fileMod(path: string): number | null; // a workspace file's modification time, or null if it isn't there
+  entry(path: string): { dir: boolean; size: number } | null; // a file or folder in Files, or null
   send(url: string, f: File, progress: (fraction: number) => void): Promise<{ status: number; body: any }>; // an upload, with progress
   uploadInto(files: File[], dir: string): Promise<string[]>; // into a Files folder; their paths
   folders(): string[]; // every folder in Files
@@ -164,12 +165,11 @@ class ChatView {
       e.preventDefault();
       this.attach(files);
     };
-    // Drag a file or folder from the tree or a folder view, or a card from the Schematic
-    // Manager, anywhere onto the pane to link it in the box. Files from the computer are
-    // posted in the chat (see attach) and linked the same way.
-    const linkable = (e: DragEvent) => !!e.dataTransfer?.types.some((t) => t === 'text/x-mt-path' || t === 'Files');
+    // Anything dropped anywhere on the pane is a card in the tray (see take): files from the
+    // computer, files and folders from the tree or a folder view, a Schematic Manager card,
+    // a picture or file from a message.
     root.ondragover = (e) => {
-      if (!linkable(e)) return;
+      if (!carriesFiles(e)) return;
       e.preventDefault();
       root.classList.add('drop');
     };
@@ -178,14 +178,11 @@ class ChatView {
     };
     root.ondrop = (e) => {
       root.classList.remove('drop');
-      const paths = draggedPaths(e); // a selection links every one of them
+      const paths = draggedPaths(e); // a selection: a card for every one of them
       const files = [...(e.dataTransfer?.files ?? [])];
       if (!paths.length && !files.length) return;
       e.preventDefault();
-      if (paths.length) {
-        insert(c, (c.value && !/\s$/.test(c.value) ? ' ' : '') + paths.map(pathRef).join(' ') + ' ');
-        this.keepDraft();
-      } else this.attach(files);
+      this.take(paths, files);
     };
     this.list.onscroll = () => {
       if (this.list.scrollTop !== this.ownTop) { // the reader's, not ours (keep, scrollToBottom)
@@ -213,11 +210,20 @@ class ChatView {
     if (big.length) addToLarge(big, async () => this.link(await hooks.uploadInto(big, 'large')), priv);
   }
 
-  // link puts #path links to files in the message box.
+  // take puts what was dropped in the tray: files from the computer to be posted (attach),
+  // and a card for each thing already on the hub, linked where it is; a file from a private
+  // chat or DM dropped in another chat is copied instead (its readers may not see the first).
+  take(paths: string[], files: File[]) {
+    const { links, copies } = sortDropped(paths, this.channel);
+    if (links.length) addLinks(this.channel, links);
+    if (files.length) this.attach(files);
+    for (const p of copies) void copyOf(p).then((f) => f && this.attach([f]));
+    this.compose.focus();
+  }
+
+  // link puts cards for files in Files in the tray (the big files attach put there).
   link(paths: string[]) {
-    const c = this.compose;
-    if (paths.length) insert(c, (c.value && !/\s$/.test(c.value) ? ' ' : '') + paths.map(pathRef).join(' ') + ' ');
-    this.keepDraft();
+    if (paths.length) addLinks(this.channel, paths);
   }
 
   // keepDraft saves what's in the box as this chat's draft (see drafts).
@@ -572,7 +578,8 @@ class ChatView {
       return el;
     }
     // Text, unless it was only links shown as previews below (then just "(edited)").
-    const nodes = m.text ? renderBody(m.text) : [];
+    const cards = ownCards(m);
+    const nodes = m.text ? renderBody(m.text, cards) : [];
     const visible = nodes.some((n) => n.nodeType !== Node.TEXT_NODE || n.textContent!.trim());
     if (visible || m.edited) {
       const body = h('div', { class: 'msg-body' }, ...(visible ? nodes : []));
@@ -581,7 +588,7 @@ class ChatView {
     }
     if (m.fwd) el.append(forwardBox(m.fwd));
     const all = withoutCode(m.text + '\n' + (m.fwd?.text ?? ''));
-    const refs = mediaPreviews(all, m);
+    const refs = mediaPreviews(cards, m);
     if (refs) el.append(refs);
     const links = previewLinks(all);
     if (links.length) el.append(this.embeds(links));
@@ -636,7 +643,7 @@ class ChatView {
       btn('reply', 'Reply', () => this.startReply(m)),
       btn('forward', 'Forward', () => forwardDialog(m)));
     if (mine && m.text) box.append(btn('edit', 'Edit', () => this.startEdit(m.id)));
-    const words = splitFiles(m.text, m.channel).words || m.fwd?.text || '';
+    const words = splitFiles(m.text).words || m.fwd?.text || '';
     if (words) box.append(btn('copy', 'Copy text', () => copyText(words)));
     if (mine || canModerate(m.channel)) box.append(btn('trash', 'Delete (Shift+click: no question)', (_, e) => deleteMessage(this, m, e.shiftKey), 'danger'));
     const { posted, inFiles } = linkedFiles(m);
@@ -661,7 +668,7 @@ class ChatView {
     const { posted, inFiles } = linkedFiles(m);
     if (posted.length) items.push(['Save to Files…', () => saveToFiles(posted)]);
     if (inFiles.length) items.push(['Open Folder', () => hooks.revealMedia(inFiles[0])]);
-    const words = splitFiles(m.text, m.channel).words || m.fwd?.text || '';
+    const words = splitFiles(m.text).words || m.fwd?.text || '';
     items.push(null);
     if (words) items.push(['Copy Text', () => copyText(words)]);
     items.push(['Copy Link', () => copyText(`${location.origin}/#chan=${m.channel}&msg=${m.id}`)]);
@@ -748,10 +755,13 @@ class ChatView {
   }
 
   // editBox edits a message's words. Its files aren't text here (as in Discord): they're
-  // cards under the box, each with an x that takes it out of the message on Save.
+  // cards under the box, each with an x that takes it out of the message on Save. What is
+  // dropped or pasted on it becomes a card too, as in the message box (files from the
+  // computer are posted on Save).
   editBox(m: Message) {
-    const { words, files } = splitFiles(m.text, m.channel);
+    const { words, files } = splitFiles(m.text);
     const kept = new Set(files);
+    const extra: Pend[] = [];
     const box = h('textarea', { value: words, rows: 1, maxLength: 4000 });
     const done = () => {
       this.editing = null;
@@ -760,13 +770,14 @@ class ChatView {
     };
     const save = async () => {
       const typed = box.value.trim();
-      const keep = files.filter((f) => kept.has(f));
-      if (typed === words && keep.length === files.length) return done();
-      if (!typed && !keep.length && !m.fwd) { // nothing left: Discord asks to delete it instead
+      const keep = [...kept];
+      if (typed === words && !extra.length && keep.join('\n') === files.join('\n')) return done();
+      if (!typed && !keep.length && !extra.length && !m.fwd) { // nothing left: Discord asks to delete it instead
         done();
         return deleteMessage(this, m, false);
       }
-      const text = joinFiles(typed, keep);
+      if (extra.length && !await uploadPending(m.channel, extra)) return showCards();
+      const text = joinFiles(typed, [...keep, ...extra.map((p) => p.path!)]);
       const r = await req('PATCH', `/api/channels/${m.channel}/messages/${m.id}`, JSON.stringify({ text }));
       if (!r.ok) {
         toastError(`Couldn’t save it: ${(await r.json().catch(() => ({}))).error ?? r.status}.`);
@@ -801,18 +812,70 @@ class ChatView {
     enterKey.onclick = save;
     const escKey = h('button', { class: 'key', type: 'button', title: 'Cancel' }, 'Esc');
     escKey.onclick = done;
-    const cards = h('div', { class: 'pend-tray edit-files', hidden: !files.length }, ...files.map((f) => {
-      const card = sentCard(f, () => {
+    const cards = h('div', { class: 'pend-tray edit-files' });
+    function showCards() {
+      cards.replaceChildren(...[...kept].map((f) => sentCard(f, () => {
         kept.delete(f);
-        card.remove();
-        cards.hidden = !kept.size;
+        showCards();
         box.focus();
-      });
-      return card;
-    }));
-    return h('div', { class: 'msg-edit' }, box, cards,
+      })), ...extra.map((p) => pendCard(p, () => {
+        extra.splice(extra.indexOf(p), 1);
+        if (p.url) URL.revokeObjectURL(p.url);
+        showCards();
+      }, null)));
+      cards.hidden = !cards.children.length;
+    }
+    showCards();
+    const full = () => kept.size + extra.length >= MAX_FILES;
+    const addFiles = (fs: File[]) => {
+      const big = fs.filter((f) => f.size > MAX_POSTED);
+      if (big.length) toastError('Files posted in chat are at most 50 MB.');
+      for (const f of fs.filter((x) => x.size <= MAX_POSTED)) {
+        if (full()) {
+          toastError(`A message takes up to ${MAX_FILES} files.`);
+          break;
+        }
+        extra.push(newPend(f));
+      }
+      showCards();
+    };
+    const take = (paths: string[], dropped: File[]) => {
+      const { links, copies } = sortDropped(paths, m.channel);
+      for (const p of links) {
+        if (kept.has(p)) continue;
+        if (full()) {
+          toastError(`A message takes up to ${MAX_FILES} files.`);
+          break;
+        }
+        kept.add(p);
+      }
+      addFiles(dropped);
+      for (const p of copies) void copyOf(p).then((f) => f && addFiles([f]));
+      box.focus();
+    };
+    box.onpaste = (e) => {
+      const fs = [...(e.clipboardData?.files ?? [])];
+      if (!fs.length) return;
+      e.preventDefault();
+      take([], fs);
+    };
+    const el = h('div', { class: 'msg-edit' }, box, cards,
       h('div', { class: 'hint' }, enterKey, ' to save · ', escKey, ' to cancel'),
       saveBtn, cancel);
+    el.ondragover = (e) => {
+      if (!carriesFiles(e)) return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    el.ondrop = (e) => {
+      const paths = draggedPaths(e);
+      const fs = [...(e.dataTransfer?.files ?? [])];
+      if (!paths.length && !fs.length) return;
+      e.preventDefault();
+      e.stopPropagation();
+      take(paths, fs);
+    };
+    return el;
   }
 
   nearBottom() {
@@ -856,10 +919,49 @@ class ChatView {
 
 // ---- setup and shared state ----
 
+// catchStrayDrops: files (or things on the hub) dropped where nothing takes them go to the
+// chat that's showing, as in Discord, and the page never opens a dropped file in the tab.
+// Files' own places (the tree, a folder, the Trash, the Schematic Manager) keep their drops
+// and take nothing more; neither does an open dialog. Text drags are left to the browser.
+const OWN_DROPS = '#tree, #main-folder, #main-trash, #main-schems';
+function catchStrayDrops() {
+  let lit: ChatView | null = null;
+  let unlight = 0;
+  const light = (v: ChatView | null) => {
+    if (lit && lit !== v) lit.root.classList.remove('drop');
+    lit = v;
+    v?.root.classList.add('drop');
+    clearTimeout(unlight);
+    if (v) unlight = window.setTimeout(() => light(null), 200); // dragover repeats while it's there
+  };
+  const own = (e: DragEvent) => !!(e.target as Element).closest?.(OWN_DROPS);
+  const target = (e: DragEvent) => {
+    if (!$('overlay').hidden || own(e)) return null;
+    return main.shown() ? main : side.shown() ? side : null;
+  };
+  // (In Files' places a drag of things on the hub is theirs alone to take or refuse; a
+  // computer file they refuse is still kept from opening in the tab.)
+  const leave = (e: DragEvent) => !carriesFiles(e) || e.defaultPrevented || (own(e) && !e.dataTransfer!.types.includes('Files'));
+  document.addEventListener('dragover', (e) => {
+    if (leave(e)) return;
+    e.preventDefault();
+    const v = target(e);
+    e.dataTransfer!.dropEffect = v ? 'copy' : 'none';
+    light(v);
+  });
+  document.addEventListener('drop', (e) => {
+    if (leave(e)) return;
+    e.preventDefault();
+    light(null);
+    target(e)?.take(draggedPaths(e), [...(e.dataTransfer?.files ?? [])]);
+  });
+}
+
 export function setupChat(events: Live, h_: Hooks) {
   hooks = h_;
   side = new ChatView($('chat-body'), 'mt-chat-side', 'general');
   main = new ChatView($('main-chat-body'), 'mt-chat-main', 'general');
+  catchStrayDrops();
   // Each pane's header gets buttons for its chat's files and pinned messages (pins rightmost).
   for (const [v, place] of [[main, (b: HTMLElement) => $('main-chat-title').parentElement!.append(b)], [side, (b: HTMLElement) => $('chat-hide').before(b)]] as const) {
     const b = h('button', { class: 'tool pins-btn', title: 'Pinned messages', innerHTML: ICON.pin });
@@ -1100,12 +1202,14 @@ async function deliver(name: string, u: Unsent) {
 
 // ---- files in the message box ----
 
-// pending is the files waiting in each chat's message box: added by paste, drop or the +
-// button, shown as cards above the text, and posted in the chat (kept with it, not in Files)
-// only when the message is sent. Until then a file is just the browser's handle on it, so
-// nothing is on the hub to clean up if it's removed, and a reload forgets it (as in Discord).
+// pending is the cards waiting in each chat's message box: added by paste, drop or the +
+// button, shown above the text. A file from the computer is posted in the chat (kept with it,
+// not in Files) only when the message is sent; until then it is just the browser's handle on
+// it, so nothing is on the hub to clean up if it's removed, and a reload forgets it (as in
+// Discord). A card for something already on the hub (a file or folder in Files, a schematic
+// post, a file posted in a chat) is a link to it: done from the start, nothing to upload.
 type Pend = {
-  id: number; file: File; name: string;
+  id: number; file?: File; name: string; link?: boolean;
   url: string | null; // the browser's own preview of a picture or video
   state: 'ready' | 'up' | 'done' | 'failed'; frac: number;
   path?: string; // once it's up: the path to link
@@ -1124,13 +1228,28 @@ function addPending(name: string, files: File[]) {
   const list = pending[name] ??= [];
   const room = MAX_FILES - list.length;
   if (files.length > room) toastError(`A message takes up to ${MAX_FILES} files.`);
-  for (const f of files.slice(0, Math.max(0, room))) {
-    const fname = /^image\.\w+$/.test(f.name) ? hooks.stampName(f) : f.name;
-    list.push({ id: ++pendIds, file: f, name: fname, state: 'ready', frac: 0,
-      url: IMAGE_EXT.test(fname) || VIDEO_EXT.test(fname) ? URL.createObjectURL(f) : null });
-  }
+  for (const f of files.slice(0, Math.max(0, room))) list.push(newPend(f));
   if (!list.length) delete pending[name];
   drawTrays();
+}
+
+// addLinks puts cards for things already on the hub in a chat's tray; one already there isn't
+// added again.
+function addLinks(name: string, paths: string[]) {
+  const list = pending[name] ??= [];
+  const fresh = [...new Set(paths)].filter((p) => !list.some((x) => x.path === p));
+  const room = MAX_FILES - list.length;
+  if (fresh.length > room) toastError(`A message takes up to ${MAX_FILES} files.`);
+  for (const p of fresh.slice(0, Math.max(0, room))) list.push({ id: ++pendIds, name: linkName(p), link: true, url: null, state: 'done', frac: 1, path: p });
+  if (!list.length) delete pending[name];
+  drawTrays();
+}
+
+// newPend is a card for a file from the computer. A pasted picture (always image.png) is
+// named after the time and who posted it.
+function newPend(f: File): Pend {
+  const name = /^image\.\w+$/.test(f.name) ? hooks.stampName(f) : f.name;
+  return { id: ++pendIds, file: f, name, state: 'ready', frac: 0, url: IMAGE_EXT.test(name) || VIDEO_EXT.test(name) ? URL.createObjectURL(f) : null };
 }
 
 function removePending(name: string, p: Pend) {
@@ -1152,7 +1271,7 @@ async function uploadPending(name: string, files: Pend[]): Promise<boolean> {
     delete p.error;
     drawTrays();
     try {
-      const r = await hooks.send(`/api/channels/${enc(name)}/media?name=${encodeURIComponent(p.name)}`, p.file, (x) => {
+      const r = await hooks.send(`/api/channels/${enc(name)}/media?name=${encodeURIComponent(p.name)}`, p.file!, (x) => {
         p.frac = x;
         for (const el of document.querySelectorAll<HTMLElement>(`.pend[data-pend="${p.id}"]`)) {
           el.querySelector<HTMLElement>('.pend-bar i')!.style.width = `${Math.floor(x * 100)}%`;
@@ -1176,8 +1295,8 @@ async function uploadPending(name: string, files: Pend[]): Promise<boolean> {
   return files.every((p) => p.state === 'done');
 }
 
-const pendNote = (p: Pend) => p.state === 'up' ? `Uploading ${Math.floor(p.frac * 100)}%`
-  : p.state === 'failed' ? `Couldn’t upload: ${p.error}` : bytes(p.file.size);
+const pendNote = (p: Pend) => p.link ? linkNote(p.path!) : p.state === 'up' ? `Uploading ${Math.floor(p.frac * 100)}%`
+  : p.state === 'failed' ? `Couldn’t upload: ${p.error}` : bytes(p.file!.size);
 
 // fileChip is one file's card in a tray: its picture (or icon), its name, a line under it,
 // and its buttons in the top right corner.
@@ -1191,7 +1310,7 @@ const fileIcon = (name: string) => h('img', { class: 'icon', src: iconURL(name, 
 
 // pendCard is a waiting file's card. remove and retry are null while files are going up.
 function pendCard(p: Pend, remove: (() => void) | null, retry: (() => void) | null) {
-  const media = p.url && IMAGE_EXT.test(p.name) ? h('img', { src: p.url, alt: '', draggable: false })
+  const media = p.link ? linkThumb(p.path!) : p.url && IMAGE_EXT.test(p.name) ? h('img', { src: p.url, alt: '', draggable: false })
     : p.url ? h('video', { src: p.url + '#t=0.1', preload: 'metadata', muted: true })
     : fileIcon(p.name);
   const tools: HTMLElement[] = [];
@@ -1211,40 +1330,40 @@ function pendCard(p: Pend, remove: (() => void) | null, retry: (() => void) | nu
   return el;
 }
 
-// sentCard is the card of a file a message already has (its link path), for the edit box.
-function sentCard(path: string, remove: () => void) {
-  const a = attachment(path)!;
-  const media = IMAGE_EXT.test(a.file)
-    ? thumbOr(h('img', { src: /\.gif$/i.test(a.file) ? attachURL(a) : `/api/channels/${enc(a.chat)}/thumb/${encodeURIComponent(a.file)}`, alt: '', draggable: false }), attachURL(a), () => fileIcon(a.file))
-    : fileIcon(a.file);
-  const x = h('button', { class: 'tool danger', title: 'Remove file', innerHTML: ICON.close });
-  x.onclick = remove;
-  return fileChip('done', media, a.file, '', [x]);
+// linkThumb, linkName and linkNote are a card's picture, name and line for something on the
+// hub: a file posted in a chat, a file or folder in Files, a schematic post.
+function linkThumb(path: string): HTMLElement {
+  const a = attachment(path);
+  if (IMAGE_EXT.test(path) && (a || hooks.fileMod(path) !== null)) {
+    const src = a ? (/\.gif$/i.test(a.file) ? attachURL(a) : `/api/channels/${enc(a.chat)}/thumb/${encodeURIComponent(a.file)}`) : `/api/thumb/${enc(path)}?v=${hooks.fileMod(path)}`;
+    return thumbOr(h('img', { src, alt: '', draggable: false }), mediaURL(path), () => fileIcon(path));
+  }
+  const post = hooks.schemPost(path);
+  if (post) return fileIcon(post.file);
+  return hooks.entry(path)?.dir ? h('img', { class: 'icon', src: iconURL(path, true, false), alt: '', draggable: false }) : fileIcon(path);
+}
+const linkName = (path: string) => hooks.schemPost(path)?.title ?? baseName(path);
+function linkNote(path: string) {
+  if (hooks.schemPost(path)) return 'Schematic';
+  const e = hooks.entry(path);
+  return e?.dir ? 'Folder' : e ? bytes(e.size) : '';
 }
 
-// A message is stored as text, and the files posted with it are #media/<chat>/<file> links in
-// that text. People never see or type those: splitFiles takes a message apart into its words
-// and its files (link paths, as they are now), and joinFiles puts one together. Links inside
-// code are left as text.
-function splitFiles(text: string, chat: string): { words: string; files: string[] } {
-  const own = resolveChannel(chat) ?? chat;
-  const files: string[] = [];
-  let words = '';
-  let last = 0;
-  for (const m of maskCode(text).matchAll(TOKEN)) {
-    const written = m[2] ?? m[3];
-    const path = written === undefined ? null : resolveRef(written);
-    if (!path || attachment(path)?.chat !== own) continue;
-    // The link goes, with the space before it (or after it, at the start of a line).
-    let from = m.index!;
-    let to = from + m[0].length;
-    if (from > last && /[ \t]/.test(text[from - 1])) from--;
-    else if (/[ \t]/.test(text[to] ?? '')) to++;
-    words += text.slice(last, from);
-    last = to;
-    if (!files.includes(path)) files.push(path);
-  }
-  return { words: (words + text.slice(last)).trim(), files };
+// sentCard is the card of something a message already has (its link path), for the edit box.
+function sentCard(path: string, remove: () => void) {
+  const x = h('button', { class: 'tool danger', title: 'Remove file', innerHTML: ICON.close });
+  x.onclick = remove;
+  return fileChip('done', linkThumb(path), linkName(path), linkNote(path), [x]);
+}
+
+// A message is stored as text, and its files are #path links in that text: files posted in
+// the chat (#media/<chat>/<file>), files and folders in Files, schematic posts. splitFiles takes
+// a message apart into its words and its files: the links that stand alone (aloneLinks), as
+// cards, as they are now. joinFiles puts one together. A link inside a sentence stays in the
+// words; links inside code are left as text.
+function splitFiles(text: string): { words: string; files: string[] } {
+  const alone = aloneLinks(text, cardPaths(text));
+  return { words: hideAlone(text, alone).trim(), files: [...new Set(alone.map((l) => l.path))] };
 }
 
 const joinFiles = (words: string, files: string[]) => [words, files.map(pathRef).join(' ')].filter(Boolean).join(' ');
@@ -1261,6 +1380,33 @@ function attachment(path: string): { chat: string; file: string } | null {
 // attachURL is where a file posted in a chat is fetched from.
 const attachURL = (a: { chat: string; file: string }, download = false) =>
   `/api/channels/${enc(a.chat)}/media/${encodeURIComponent(a.file)}${download ? '?download=1' : ''}`;
+
+// sortDropped splits what was dragged into a chat: links to things on the hub, and files
+// posted in a private chat or DM that are copied when dropped in another chat.
+function sortDropped(paths: string[], into: string) {
+  const links: string[] = [];
+  const copies: string[] = [];
+  for (const p of paths) {
+    const a = attachment(p);
+    (a && a.chat !== resolveChannel(into) && info(a.chat)?.kind ? copies : links).push(p);
+  }
+  return { links, copies };
+}
+
+// copyOf fetches a file posted in a chat, to post a copy of it elsewhere.
+async function copyOf(path: string): Promise<File | null> {
+  const a = attachment(path)!;
+  const r = await req('GET', attachURL(a));
+  if (!r.ok) {
+    toastError(`Couldn’t copy ${a.file}: ${r.status}.`);
+    return null;
+  }
+  const b = await r.blob();
+  return new File([b], a.file, { type: b.type });
+}
+
+// carriesFiles: a drag of files from the computer, or of things on the hub (their paths).
+const carriesFiles = (e: DragEvent) => !!e.dataTransfer?.types.some((t) => t === 'text/x-mt-path' || t === 'Files');
 
 // resolveRef is where a #path link points: a file posted in a chat, under the chat's name
 // now, else the file in Files where it is now (null if it's gone).
@@ -1941,21 +2087,81 @@ const VIDEO_EXT = /\.(mp4|webm|mov|m4v)$/i;
 const AUDIO_EXT = /\.(mp3|ogg|wav|m4a|flac)$/i;
 const MEDIA_EXT = /\.(png|jpe?g|gif|webp|mp4|webm|mov|m4v|mp3|ogg|wav|m4a|flac)$/i;
 
-// isMedia: a linked picture, video or sound chat shows as a preview instead of a link: one in
-// Files that's there, or one posted in a chat.
+// isMedia: a picture, video or sound in Files that's there, or one posted in a chat.
 const isMedia = (path: string) => MEDIA_EXT.test(path) && (hooks.fileMod(path) !== null || !!attachment(path));
 
-// shownBelow: a link chat shows under the message instead of in the text: any file posted in
-// a chat (a preview, or a file card), a picture, video or sound in Files, a schematic post.
-const shownBelow = (path: string) => !!attachment(path) || isMedia(path) || !!hooks.schemPost(path);
+// carded: a link chat shows as a card under the message: a file posted in a chat, a file or
+// folder in Files, a schematic post. Any of them, however the link got into the text.
+const carded = (path: string) => !!attachment(path) || !!hooks.schemPost(path) || !!hooks.entry(path);
 
-// mediaPreviews is what a message's links show underneath, in order: pictures (a thumbnail,
-// or the GIF itself so it moves), videos and sounds (players), schematic cards, and a card
-// for any other file posted in chat (name, size, Download). They
-// stand in for the links, which aren't shown in the text. Clicking a picture or card opens
-// it. As pictures arrive the list grows; ChatView.keep holds the view.
-function mediaPreviews(text: string, msg?: Message) {
-  const seen = new Set<string>();
+// fileLinks is a text's links to things with a card, where they are in it (code left out).
+type FileLink = { from: number; to: number; path: string };
+function fileLinks(text: string): FileLink[] {
+  const out: FileLink[] = [];
+  for (const m of maskCode(text).matchAll(TOKEN)) {
+    const written = m[2] ?? m[3];
+    const path = written === undefined ? null : resolveRef(written);
+    if (path && carded(path)) out.push({ from: m.index!, to: m.index! + m[0].length, path });
+  }
+  return out;
+}
+
+// cardPaths is what gets a card under a message: the first ten things its links point to.
+function cardPaths(text: string): string[] {
+  const out: string[] = [];
+  for (const l of fileLinks(text)) if (out.length < MAX_PREVIEWS_MEDIA && !out.includes(l.path)) out.push(l.path);
+  return out;
+}
+
+// A line that starts a Markdown block: a quote, a list item, a heading, small text.
+const BLOCK = /^\s*(?:>|[-*] |\d{1,3}\. |#{1,3} |-# )/;
+
+// aloneLinks is the links (to cards) whose text isn't shown: one on a line of its own (with
+// other such links at most), or after the message's last words. One inside a sentence stays
+// a link, its card below as well (as in Discord, which hides a link only when it stands alone).
+function aloneLinks(text: string, cards: string[]): FileLink[] {
+  const links = fileLinks(text).filter((l) => cards.includes(l.path));
+  if (!links.length) return [];
+  const blank = text.split('');
+  for (const l of links) blank.fill(' ', l.from, l.to);
+  const rest = blank.join('');
+  const words = rest.trimEnd().length; // links from here on come after the last words
+  return links.filter((l) => {
+    const end = rest.indexOf('\n', l.from);
+    const line = rest.slice(rest.lastIndexOf('\n', l.from) + 1, end < 0 ? undefined : end);
+    if (BLOCK.test(line)) return false; // in a quote, a list or a heading: part of it
+    return l.from >= words || !line.trim();
+  });
+}
+
+// hideAlone is the text without those links (and a space beside each). A line they leave
+// empty goes with its line break, so no gap shows where a link was.
+function hideAlone(text: string, alone: FileLink[]): string {
+  if (!alone.length) return text;
+  const gone = new Uint8Array(text.length);
+  for (let { from, to } of alone) {
+    if (from > 0 && /[ \t]/.test(text[from - 1])) from--;
+    else if (/[ \t]/.test(text[to] ?? '')) to++;
+    gone.fill(1, from, to);
+  }
+  const out: string[] = [];
+  let at = 0;
+  for (const line of text.split('\n')) {
+    let kept = '';
+    for (let i = 0; i < line.length; i++) if (!gone[at + i]) kept += line[i];
+    if (!line.trim() || kept.trim()) out.push(kept);
+    at += line.length + 1;
+  }
+  return out.join('\n').replace(/^(?:[ \t]*\n)+|(?:\n[ \t]*)+$/g, '');
+}
+
+// mediaPreviews is the cards under a message, for its links (cardPaths), in order: pictures
+// (a thumbnail, or the GIF itself so it moves), videos and sounds (players), schematic cards,
+// a card for any other file posted in chat (name, size, Download), and for a file or folder
+// in Files (name, size; opens it). Clicking a picture or card opens it; each drags as its
+// path (a card in another chat's box). As pictures arrive the list grows; ChatView.keep
+// holds the view.
+function mediaPreviews(paths: string[], msg?: Message) {
   const box = h('div', { class: 'refs' });
   // The message's pictures, for the viewer: clicking one opens it on all of them, with
   // Forward (the message) and Open folder (where the picture lives).
@@ -1975,43 +2181,58 @@ function mediaPreviews(text: string, msg?: Message) {
     };
     return a;
   };
-  for (const m of text.matchAll(TOKEN)) {
-    if (seen.size === MAX_PREVIEWS_MEDIA) break;
-    const [, , bracketed, bare] = m;
-    const written = bracketed ?? bare;
-    const path = written === undefined ? null : resolveRef(written);
-    if (!path || seen.has(path)) continue;
+  for (const path of paths) {
+    box.append(draggable(previewOf(path), path));
+  }
+  return paths.length ? box : null;
+
+  function previewOf(path: string): HTMLElement {
     // A schematic post (its folder): a card.
     const post = hooks.schemPost(path);
     if (post) {
-      seen.add(path);
       const c = h('div', { class: 'ref-card', title: 'Open the post' },
         h('div', { class: 'ref-title' }, post.title),
         h('div', { class: 'ref-file' }, post.file), h('div', { class: 'muted' }, post.credit ? `Design by ${post.credit}` : 'Schematic'));
       c.onclick = () => hooks.openPath(path);
-      box.append(c);
-      continue;
+      return c;
     }
     const att = attachment(path);
-    if (!att && !isMedia(path)) continue;
-    seen.add(path);
     const url = mediaURL(path);
-    const name = path.slice(path.lastIndexOf('/') + 1);
-    if (att && !MEDIA_EXT.test(path)) {
-      box.append(fileCard(att));
-    } else if (IMAGE_EXT.test(path)) {
+    const name = baseName(path);
+    if (!MEDIA_EXT.test(path)) return att ? fileCard(att) : filesCard(path);
+    if (IMAGE_EXT.test(path)) {
       const src = /\.gif$/i.test(path) ? url : att ? `/api/channels/${enc(att.chat)}/thumb/${encodeURIComponent(att.file)}` : `/api/thumb/${enc(path)}?v=${hooks.fileMod(path)}`;
-      box.append(pic(src, url, name, '#' + path, view({ src: url, name, who: msg?.user, when: msg?.t ?? hooks.fileMod(path) ?? undefined,
+      return pic(src, url, name, '#' + path, view({ src: url, name, who: msg?.user, when: msg?.t ?? hooks.fileMod(path) ?? undefined,
         forward: forward ?? (() => shareLink(pathRef(path))),
-        reveal: att ? undefined : () => hooks.revealMedia(path), save: att ? () => saveToFiles([path]) : undefined })));
-    } else if (VIDEO_EXT.test(path)) {
-      const v = h('video', { src: url, controls: true, preload: 'metadata', title: name });
-      box.append(h('div', { class: 'ref-video' }, v));
-    } else if (AUDIO_EXT.test(path)) {
-      box.append(h('div', { class: 'ref-audio' }, h('div', { class: 'ref-file' }, name), h('audio', { src: url, controls: true, preload: 'none' })));
+        reveal: att ? undefined : () => hooks.revealMedia(path), save: att ? () => saveToFiles([path]) : undefined }));
     }
+    if (VIDEO_EXT.test(path)) return h('div', { class: 'ref-video' }, h('video', { src: url, controls: true, preload: 'metadata', title: name }));
+    return h('div', { class: 'ref-audio' }, h('div', { class: 'ref-file' }, name), h('audio', { src: url, controls: true, preload: 'none' }));
   }
-  return seen.size ? box : null;
+}
+
+const baseName = (path: string) => path.slice(path.lastIndexOf('/') + 1);
+
+// draggable makes a card under a message (or a link in its text) drag as the hub's path to
+// it, so dropping it in a chat makes a card there, never the page's URL as text.
+function draggable(el: HTMLElement, path: string) {
+  el.draggable = true;
+  el.ondragstart = (e) => {
+    e.stopPropagation();
+    dragData(e, path, [path]);
+  };
+  return el;
+}
+
+// filesCard is a file or folder in Files under a message: its icon, name and size (a
+// folder's line says Folder). Clicking it opens it.
+function filesCard(path: string) {
+  const e = hooks.entry(path);
+  const dir = !!e?.dir;
+  const c = h('div', { class: dir ? 'folder-card' : 'file-card', title: `Open ${path}` }, h('img', { class: 'icon', src: iconURL(path, dir, false), alt: '' }),
+    h('div', { class: 'file-text' }, h('div', { class: 'file-name' }, baseName(path)), h('div', { class: 'muted file-size' }, dir ? 'Folder' : e ? bytes(e.size) : '')));
+  c.onclick = () => hooks.openPath(path);
+  return c;
 }
 
 // fileCard is a file posted in chat that isn't a picture, video or sound, Discord style: its
@@ -2029,14 +2250,14 @@ function fileCard(a: { chat: string; file: string }) {
 }
 
 // plainText is message text for one-line snippets (reply quotes, the forward dialog): no
-// formatting marks (style guide 8), and links to media and schematic posts become their
-// names, so no raw paths show.
+// formatting marks (style guide 8), and links to what has a card become their names, so no
+// raw paths show.
 function plainText(text: string) {
   return stripMarkdown(text).replace(TOKEN, (whole, url, bracketed, bare) => {
     const path = (bracketed ?? bare) !== undefined ? resolveRef(bracketed ?? bare) : null;
     const post = path && hooks.schemPost(path);
     if (post) return `[${post.title}]`;
-    if (path && (isMedia(path) || attachment(path))) return `[${path.slice(path.lastIndexOf('/') + 1)}]`;
+    if (path && carded(path)) return `[${baseName(path)}]`;
     return whole;
   });
 }
@@ -2072,10 +2293,18 @@ function parseRelease(text: string): Release | null {
   return { name, version: version ?? '', tags, ref, changes: rest.join('\n').trim(), note };
 }
 
-// renderBody is a message's text as shown: a release card, or formatted text.
-function renderBody(text: string): Node[] {
+// renderBody is a message's text as shown: a release card, or formatted text without the
+// links that stand alone (their cards, cards, are under the message).
+function renderBody(text: string, cards = cardPaths(text)): Node[] {
   const r = parseRelease(text);
-  return r ? [releaseCard(r)] : renderText(text);
+  return r ? [releaseCard(r)] : renderText(hideAlone(text, aloneLinks(text, cards)));
+}
+
+// ownCards is what gets a card under a message: its links, then its forward's. A release
+// card's file is in the card already.
+function ownCards(m: Message): string[] {
+  const r = m.text ? parseRelease(m.text) : null;
+  return cardPaths((r ? `${r.changes}\n${r.note ?? ''}` : m.text) + '\n' + (m.fwd?.text ?? ''));
 }
 
 function releaseCard(r: Release) {
@@ -2256,11 +2485,6 @@ function renderLinks(text: string): Node[] {
     const written = bracketed ?? bare;
     const path = written === undefined ? null : resolveRef(written);
     if (written !== undefined && !path) continue; // just text, e.g. #1
-    if (path && shownBelow(path)) { // a preview under the message instead
-      out.push(...emojify(text.slice(last, m.index!)));
-      last = m.index! + whole.length;
-      continue;
-    }
     // <https://…> is a link without a preview; the brackets aren't shown.
     const quiet = !!url && text[m.index! - 1] === '<' && text[m.index! + whole.length] === '>';
     out.push(...emojify(text.slice(last, m.index! - (quiet ? 1 : 0))));
@@ -2270,6 +2494,10 @@ function renderLinks(text: string): Node[] {
         last = m.index! + whole.length + 1;
         continue;
       }
+    } else if (attachment(path!)) {
+      // A file posted in a chat, inside a sentence: its name (its card is under the message).
+      const a = attachment(path!)!;
+      out.push(draggable(h('a', { href: attachURL(a), target: '_blank', rel: 'noopener', class: 'file-link', title: `Open ${a.file}` }, a.file), path!));
     } else {
       // A file that has moved since shows its name now; the tooltip keeps the original.
       const title = path === written ? `Open ${path}` : `Was ${written} · Open ${path}`;
@@ -2278,7 +2506,7 @@ function renderLinks(text: string): Node[] {
         e.preventDefault();
         hooks.openPath(path!);
       };
-      out.push(a);
+      out.push(draggable(a, path!));
     }
     last = m.index! + whole.length;
   }

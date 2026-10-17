@@ -38,7 +38,7 @@ check('saved without conflict', await (await hub(`/api/file/archive/notes/todo.m
 check('no conflict view', await ev(`!!document.querySelector('.diff')`), false);
 
 // 3. Chat links follow moves.
-await api('POST', '/api/channels/general/messages', { Text: 'see #README.md and #[docs/guide.md]' });
+await api('POST', '/api/channels/general/messages', { Text: 'see #README.md and #[docs/guide.md] for it' });
 await api('POST', '/api/move', { from: 'README.md', to: 'INTRO.md' });
 await settle(1200);
 check('chat links', await ev(`[...document.querySelectorAll('#chat a.file-link')].map((a) => [a.textContent, a.title])`),

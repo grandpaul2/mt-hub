@@ -436,7 +436,7 @@ separate dialogs.
     as Zip, Delete, Copy Paths), and on any other row it selects just that one. Delete asks
     once. Dragging one of them takes the rest along: onto a folder they all move or none
     does (a name taken there stops it and the message names it), into a chat each gets a
-    link. Several drag as a small "3 items" label. A folder selected with its own files
+    card. Several drag as a small "3 items" label. A folder selected with its own files
     counts once; the fixed top-level folders stay, and the message says so.
   - **Trash** is the tree's last row, a little apart, with a trash icon in grey. It isn't a
     folder: a click opens the Trash, and nothing is renamed, made or uploaded in it. Rows and
@@ -544,7 +544,7 @@ separate dialogs.
     (a dashed line at 50, where the server falls behind) with the last minute's average and
     the peak (the longest single tick in those ten minutes, so a spike registers), and memory as a bar with used / max. The mspt number is red only at 50 or more.
     An offline server is one line: "Offline · last seen 12 min ago". Numbers are in mono.
-  - **Behaviour:** anything that's a file can be dragged into chat to link it.
+  - **Behaviour:** anything that's a file can be dragged into chat, where it is a card.
 - **Empty states:** one muted line, in sentence case with a full stop, saying what to do next
   where there is something ("Empty folder. Drop files here to upload them."). One style:
   `.muted.pad`. The file view's centred `.empty` is the exception, for a blank main panel.
@@ -559,6 +559,16 @@ separate dialogs.
   - **Files** (Discord): a pasted, dropped or picked file (any kind) waits in a tray that is the
     top of the box, as a card: its picture, or its icon, then its name and size, and an x in
     the corner. No link text goes in the box. Up to 10 files a message.
+    - **Wherever it comes from, the same card**: the same screenshot dropped from the
+      computer and from Files must not give two results. A file or
+      folder from Files, a schematic card, a picture or file out of a message: a card,
+      linked where it is (a private chat's or DM's file dropped elsewhere: a copy). Only
+      text is text.
+    - A drop on a message being edited goes into its cards; a drop anywhere else on the
+      page goes to the chat that is showing; the page never opens a dropped file.
+    - Under a message every linked file, folder or schematic post is a card. Its link text
+      shows only inside a sentence (or a quote, list or heading line); alone, it's hidden,
+      and no empty line is left.
     - Nothing reaches the hub until Enter. Then the box locks, each card shows its own
       progress along its bottom edge, and the message is posted with its files. A message
       can be files only.

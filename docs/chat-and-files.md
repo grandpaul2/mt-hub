@@ -15,8 +15,21 @@ are in [`style-guide.md`](style-guide.md).
 - **Links:** `#path/to/file` (or `#[path with spaces]`; the bracket form is also needed for a
   name with a `+`) becomes a link that opens the file.
   A link to a schematic post's folder (`#[schematics/<title>]`) shows as the post's card and
-  opens it in the Schematic Manager. Drag a file or folder from the tree, a tile from a
-  folder, or a card from the Manager onto a chat to insert its link.
+  opens it in the Schematic Manager.
+- **One rule for what goes into a chat:** anything dragged or pasted onto a chat becomes a
+  card in its message box, never text: a file from the computer (uploaded on send), a file
+  or folder from the tree or a folder (any selection), a card from the Manager, a picture or
+  file card (or file link) out of a message. Things already on the hub are linked where they
+  are; a file posted in a private chat or DM dropped into another chat is copied instead
+  (`take`, `sortDropped` in `chat.ts`). A message being edited takes drops into its own
+  cards. A drop anywhere else on the page goes to the chat that is showing, and the page
+  never opens a dropped file in the tab (`catchStrayDrops`); the tree, a folder view, the
+  Trash and the Schematic Manager keep their own drops.
+- **How links show:** every link to a file, folder or schematic post gets a card under the
+  message (up to 10); its text is hidden when it stands alone (a line of its own, or after
+  the last words), and stays a link inside a sentence or a quote, list or heading line
+  (`aloneLinks`, `hideAlone`). A line left empty goes with its line break. Messages are
+  stored as before: plain text with `#path` links.
 - **Sending:** the page draws your message at once and posts it with a `nonce`; the hub puts
   the nonce on the message it answers with and on the live event (it is never stored), so
   whichever arrives first replaces the waiting copy (`unsent` and `deliver` in `chat.ts`).
@@ -24,7 +37,8 @@ are in [`style-guide.md`](style-guide.md).
   button), up to 50 MB, is kept with the chat (`<data>/chat/<chat>/media/`, outside Files and
   its history). It waits in the message box as a card and is uploaded when the message is
   sent; the stored message links it as `#media/<chat>/<file>`, which the page adds on send
-  and hides wherever it shows the message's words (`splitFiles` / `joinFiles` in `chat.ts`).
+  and hides wherever it shows the message's words when it stands alone (`splitFiles` /
+  `joinFiles` in `chat.ts`).
   Only people who can see the chat can fetch it. A file no message links (an upload whose
   message never went) is moved to the trash by a daily sweep once it is a day old
   (`sweepMedia`), and so is a file an edit takes out of its last message. Pictures, videos and sounds show as previews under the message

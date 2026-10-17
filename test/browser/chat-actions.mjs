@@ -160,9 +160,10 @@ const shotRow = await ev(`document.querySelector('#tree .row[data-path^="screens
 const schemRow = 'schematics/Build 1';
 check('tree row draggable', await ev(`document.querySelector('#tree .row[data-path^="screenshots/"]').draggable`), true);
 check('drop accepted on the messages', await dragInto('#tree .row[data-path^="screenshots/"]'), true);
-check('screenshot link in the box', await compose(), `#[${shotRow}] `);
+const cards = () => ev(`[...document.querySelectorAll('${M} .composer .pend-name')].map((n) => n.textContent)`);
+check('screenshot: a card, no text in the box', [await cards(), await compose()], [[shotRow.slice('screenshots/'.length)], '']);
 await dragInto('#tree .row[data-path="schematics/Build 1"]');
-check('schematic link added', await compose(), `#[${shotRow}] #[${schemRow}] `);
+check('schematic: a card too', await cards(), [shotRow.slice('screenshots/'.length), 'Build 1']);
 await ev(`document.querySelector('${M} .compose').focus()`);
 await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
 await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
@@ -190,8 +191,8 @@ check('drop from the map art folder', await ev(`(() => {
   const pane = document.getElementById('chat-body');
   pane.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt }));
   pane.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }));
-  return document.querySelector('#chat .compose').value;
-})()`), '#[map art/MA-001 Logo.png] ');
+  return [document.querySelector('#chat .compose').value, [...document.querySelectorAll('#chat .composer .pend-name')].map((n) => n.textContent)];
+})()`), ['', ['MA-001 Logo.png']]);
 
 // The schematic card opens the post in the Schematic Manager.
 await send('Page.navigate', { url: `${HUB}/?r=6#chan=general` });
