@@ -7,7 +7,7 @@
 // sit, with move and remove buttons on its pictures, and Save writes plain files. A new post
 // is the same page, empty. Opened from the button in schematics/' folder bar.
 import { marked } from 'marked';
-import { $, ask, bytes, cleanHTML, GLYPH, glyphs, closeDialog, dialog, enc, fileURL, go, h, load, req, store, toast, toastError, typing, type Live, thumbOr } from './util';
+import { $, ask, bytes, cleanHTML, GLYPH, glyphs, closeDialog, dialog, enc, fileURL, go, h, load, req, store, toast, toastError, typing, type Live, thumbOr, dragData } from './util';
 import { ICON, openViewer, singleBar, viewerOpen } from './viewer';
 
 type Item = { name: string; size: number; mod: number };
@@ -193,9 +193,9 @@ function card(p: Post) {
     render();
     body.scrollTop = 0;
   };
-  // Drag a card onto a chat to link the post (its folder).
+  // Drag a card onto a chat: a card for the post (its folder), dragged as a small label.
   el.draggable = true;
-  el.ondragstart = (e) => e.dataTransfer?.setData('text/x-mt-path', path(p));
+  el.ondragstart = (e) => dragData(e, path(p), [path(p)], true);
   return el;
 }
 

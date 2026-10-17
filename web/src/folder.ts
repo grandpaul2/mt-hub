@@ -195,14 +195,14 @@ function tileMenu(e: MouseEvent, p: string) {
   hooks.menu(e, p);
 }
 
-// tileDrag: a tile drags into a chat (a link) or onto a folder (a move); a picked one takes
+// tileDrag: a tile drags into a chat (a card) or onto a folder (a move), as a small label; a picked one takes
 // the rest of the picked along.
 function tileDrag(el: HTMLElement, p: string) {
   el.draggable = true;
   el.ondragstart = (e) => {
     const paths = picked.size > 1 && picked.has(p) ? pickedPaths() : [p];
     hooks.drag(paths);
-    dragData(e, p, paths);
+    dragData(e, p, paths, true);
   };
 }
 

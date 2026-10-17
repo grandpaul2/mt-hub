@@ -24,7 +24,9 @@ are in [`style-guide.md`](style-guide.md).
   (`take`, `sortDropped` in `chat.ts`). A message being edited takes drops into its own
   cards. Something dragged out of a message and let go in that same chat counts only on the
   message box (or an edit box), so a picture pressed too long goes nowhere; another chat's
-  pane takes it anywhere (`accidental`). A drop anywhere else on the page goes to the chat that is showing, and the page
+  pane takes it anywhere (`accidental`). A chat's row in the list takes drops too: they go in
+  that chat's box and the chat opens (`takesDrops`). What is dragged from the hub drags small:
+  a picture at most 160 px wide, a card or tile as a label with its name (`dragLabel`). A drop anywhere else on the page goes to the chat that is showing, and the page
   never opens a dropped file in the tab (`catchStrayDrops`); the tree, a folder view, the
   Trash and the Schematic Manager keep their own drops.
 - **How links show:** every link to a file, folder or schematic post gets a card under the

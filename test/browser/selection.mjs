@@ -129,7 +129,29 @@ await click(row('large'), CTRL);
 check('a taken name stops it with large/ picked too', [await drag(row('docs/one.md'), row('notes')), await toastText(), await has('notes/one.md', 'docs/two.md', 'large/world.zip')], [true, 'two.md already exists in notes/', [false, true, true]]);
 await click(row('docs/one.md'));
 await click(row('large'), CTRL);
-check('one and large/: the one moves', [await drag(row('docs/one.md'), row('notes')), await toastText(), await has('notes/one.md', 'large/world.zip')], [true, 'large/ stays where it is', [true, true]]);
+check('one and large/: the one moves', [await drag(row('docs/one.md'), row('notes')), await toastText(), await has('notes/one.md', 'large/world.zip')], [true, 'Moved one.md to notes/. large/ stays where it is.', [true, true]]);
+
+// Every move says where it went and has Undo, which puts each thing back where it was.
+const undo = async () => {
+  await ev(`document.querySelector('#toast .toast-act').click()`);
+  await settle(1200);
+};
+check('a move has Undo', await ev(`document.querySelector('#toast .toast-act')?.textContent ?? null`), 'Undo');
+await undo();
+check('Undo puts it back', [await has('docs/one.md', 'notes/one.md'), await toastText()], [[true, false], 'Moved one.md back to docs/']);
+await click(row('docs/one.md'));
+await click(row('README.md'), CTRL);
+check('two from two folders', [await drag(row('docs/one.md'), row('boards')), await has('boards/one.md', 'boards/README.md'), await toastText()], [true, [true, true], 'Moved 2 items to boards/']);
+await undo();
+check('Undo puts each back in its own folder', [await has('docs/one.md', 'README.md', 'boards/one.md', 'boards/README.md'), await toastText()], [[true, true, false, false], 'Moved 2 items back']);
+await click(row('docs/one.md'));
+await drag(row('docs/one.md'), row('notes'));
+await hub('/api/file/docs/one.md?base=', { method: 'PUT', body: 'a new one' });
+await settle(800);
+await undo();
+check('a name taken since: that one stays, and says so', [await has('notes/one.md', 'docs/one.md'), await toastText()], [[true, true], 'one.md stayed in notes/: docs/ has a one.md now']);
+await hub('/api/batch/delete', { method: 'POST', body: JSON.stringify({ paths: ['docs/one.md'] }) });
+await settle(800);
 
 // Someone else deletes a selected file: the selection lets go of it.
 await click(row('docs/two.md'));

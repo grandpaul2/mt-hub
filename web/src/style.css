@@ -1097,6 +1097,7 @@ body.chat-hidden #chat .pins-btn, body.chat-hidden #chat .files-btn { display: n
   outline: none;
 }
 #tree .row.drop-target { background: var(--select); }
+#channels .row.channel.drop-target { background: var(--select); }
 /* The folder view's New File / New Folder tile: the name box sits where the name goes. */
 .folder-grid .creating .shot-meta { flex-wrap: nowrap; }
 .folder-grid .creating .rename { flex: 1; min-width: 0; height: 22px; padding: 0 3px; background: var(--border); color: var(--text); border: 1px solid var(--focus); font: inherit; outline: none; }

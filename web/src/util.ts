@@ -303,8 +303,8 @@ export function toastError(msg: string) {
   show(msg, 6000, true);
 }
 
-// toastUndo is the one toast with a button: what was just moved to the Trash can be put back
-// from it. 6 s, long enough to reach for.
+// toastUndo is the toast with a button: what was just moved (to the Trash, or to another
+// folder) can be put back from it. 6 s, long enough to reach for.
 export function toastUndo(msg: string, undo: () => void) {
   show(msg, 6000, false);
   const b = h('button', { class: 'toast-act', type: 'button' }, 'Undo');
@@ -463,12 +463,18 @@ export function ask(o: { title: string; body?: string | Node; confirm: string; d
 
 // dragData is what a dragged file or folder carries: its own path (what chat and the tree
 // have always read) and, when a selection is dragged with it, every path in it. Several
-// drag as a small "3 items" label.
-export function dragData(e: DragEvent, path: string, paths: string[]) {
+// drag as a small "3 items" label; one dragged from something big (a tile, a card) as its
+// name (small).
+export function dragData(e: DragEvent, path: string, paths: string[], small = false) {
   e.dataTransfer?.setData('text/x-mt-path', path);
   e.dataTransfer?.setData('text/x-mt-paths', JSON.stringify(paths));
-  if (paths.length < 2) return;
-  const ghost = h('div', { class: 'drag-ghost' }, `${paths.length} items`);
+  if (paths.length > 1) dragLabel(e, `${paths.length} items`);
+  else if (small) dragLabel(e, path.slice(path.lastIndexOf('/') + 1));
+}
+
+// dragLabel makes a drag's picture a small label, about a tree row's size, beside the pointer.
+export function dragLabel(e: DragEvent, text: string) {
+  const ghost = h('div', { class: 'drag-ghost' }, text);
   document.body.append(ghost);
   e.dataTransfer?.setDragImage(ghost, -12, -8);
   setTimeout(() => ghost.remove());

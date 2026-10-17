@@ -21,7 +21,7 @@ const tile = (p) => `document.querySelector('#main-folder .shot[data-path=${JSON
 const selected = () => ev(`[...document.querySelectorAll('#tree .row.selected')].map((r) => r.dataset.path)`);
 const picked = () => ev(`[...document.querySelectorAll('#main-folder .shot.picked')].map((r) => r.dataset.path)`);
 const cut = () => ev(`[...document.querySelectorAll('#tree .row.cut, #main-folder .shot.cut')].map((r) => r.dataset.path)`);
-const toastText = () => ev(`document.getElementById('toast').textContent`);
+const toastText = () => ev(`document.getElementById('toast').firstChild?.textContent ?? ''`); // (without an Undo button)
 const hash = () => ev(`decodeURIComponent(location.hash)`);
 const menu = () => ev(`[...document.querySelectorAll('#menu > button')].map((b) => b.firstChild.textContent + (b.disabled ? ' (off)' : ''))`);
 const menuPick = async (label) => { await ev(`[...document.querySelectorAll('#menu > button')].find((b) => b.firstChild.textContent === ${JSON.stringify(label)}).click()`); await settle(900); };

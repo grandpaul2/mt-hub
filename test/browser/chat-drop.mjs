@@ -169,19 +169,19 @@ check('the picture is what’s dragged, at its size in chat', await ev(`(() => {
   dt.setDragImage = (el) => (used = el);
   const shown = document.querySelector(${JSON.stringify(pic)} + ' img').getBoundingClientRect();
   document.querySelector(${JSON.stringify(pic)}).dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: dt }));
-  return used && [used.tagName, used.width === Math.round(shown.width), used.height === Math.round(shown.height), used.width < 400];
+  return used && [used.tagName, used.width === Math.min(160, Math.round(shown.width)), used.width / used.height === Math.round(shown.width) / Math.round(shown.height) || Math.abs(used.width / used.height - shown.width / shown.height) < 0.05, used.width < 400];
 })()`), ['CANVAS', true, true, true]);
 // A big picture drags at the size it shows in chat, not its own.
 const big = await say('general', '#media/shapes/big.png');
 await settle(1500);
-check('a big picture drags at its size in chat', await ev(`(() => {
+check('a big picture drags at most 160 px wide', await ev(`(() => {
   let used = null;
   const dt = new DataTransfer();
   dt.setDragImage = (el) => (used = el);
   const img = document.querySelector('${M} .msg[data-id="${big.id}"] .ref-pic img');
   const shown = img.getBoundingClientRect();
   img.closest('.ref-pic').dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: dt }));
-  return used && [used.tagName, used.width === Math.round(shown.width), shown.width < 600, img.naturalWidth > 600];
+  return used && [used.tagName, used.width === Math.min(160, Math.round(shown.width)), shown.width < 600, img.naturalWidth > 600];
 })()`), ['CANVAS', true, true, true]);
 check('picture and file link: cards, no URL text', [await tray(), await compose()], [[['a.png', 'done'], ['guide.md', 'done']], '']);
 await clearTray();
@@ -224,6 +224,46 @@ check('both in the open chat’s tray', await tray(), [['stray.txt', 'ready'], [
 await clearTray();
 check('a tree file on the chat list: a card', [await drag(`#tree .row[data-path="docs/guide.md"]`, '#channels'), await tray()], [[true, true], [['guide.md', 'done']]]);
 await clearTray();
+// On a chat's row: that chat takes it, and opens.
+check('a chat row lights up under a drag', await ev(`(() => {
+  const dt = new DataTransfer(); dt.items.add(new File(['x'], 'r.txt', { type: 'text/plain' }));
+  const row = document.querySelector('#channels .row[data-chat="shapes"]');
+  const over = new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt });
+  row.dispatchEvent(over);
+  const lit = row.classList.contains('drop-target');
+  row.dispatchEvent(new DragEvent('dragleave', { bubbles: true, dataTransfer: dt }));
+  return [over.defaultPrevented, lit, row.classList.contains('drop-target')];
+})()`), [true, true, false]);
+await ev(`(() => {
+  const dt = new DataTransfer(); dt.items.add(new File(['x'], 'onrow.txt', { type: 'text/plain' }));
+  const row = document.querySelector('#channels .row[data-chat="shapes"]');
+  row.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt }));
+  row.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }));
+})()`);
+await settle(1200);
+check('a file on a chat row: that chat opens with the card', [await ev(`location.hash`), await tray()], ['#chan=shapes', [['onrow.txt', 'ready']]]);
+await clearTray();
+await ev(`location.hash = '#chan=general'`);
+await settle(1200);
+await drag(pic, '#channels .row[data-chat="general"]');
+await settle(1200);
+check('a picture from a message on its own chat’s row counts', [await ev(`location.hash`), await tray()], ['#chan=general', [['a.png', 'done']]]);
+await clearTray();
+// Drag pictures are small: a picture at most 160 px wide, a folder tile or card a row.
+check('a big picture drags small', await ev(`(() => {
+  let used = null;
+  const dt = new DataTransfer();
+  dt.setDragImage = (el) => (used = el);
+  document.querySelector('${M} .msg[data-id="${big.id}"] .ref-pic').dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: dt }));
+  return used && [used.tagName, used.width <= 160, used.width > 50];
+})()`), ['CANVAS', true, true]);
+check('a card without a picture drags as a row', await ev(`(() => {
+  let used = null;
+  const dt = new DataTransfer();
+  dt.setDragImage = (el) => (used = el);
+  document.querySelector('${M} .msg[data-id="${posted.id}"] .refs .file-card').dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: dt }));
+  return used && [used.className, used.textContent];
+})()`), ['drag-ghost', 'guide.md']);
 check('text dropped on the chat list is left alone', await ev(`(() => {
   const dt = new DataTransfer(); dt.setData('text/plain', 'hello');
   const over = new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt });
