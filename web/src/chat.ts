@@ -2227,11 +2227,16 @@ function draggable(el: HTMLElement, path: string) {
   el.ondragstart = (e) => {
     e.stopPropagation();
     dragData(e, path, [path]);
-    // The picture itself as what's dragged: Firefox's first picture of the card was a grey box.
+    // The picture itself, at the size it shows, as what's dragged: Firefox's first picture of
+    // the card was a grey box, and an <img> given as is drags at its full size.
     const img = el.querySelector('img');
     if (img?.complete && img.naturalWidth) {
       const r = img.getBoundingClientRect();
-      e.dataTransfer?.setDragImage(img, e.clientX - r.left, e.clientY - r.top);
+      const c = h('canvas', { width: Math.round(r.width), height: Math.round(r.height), class: 'drag-pic' });
+      c.getContext('2d')?.drawImage(img, 0, 0, c.width, c.height);
+      document.body.append(c);
+      e.dataTransfer?.setDragImage(c, e.clientX - r.left, e.clientY - r.top);
+      setTimeout(() => c.remove());
     }
     const view = [main, side].find((v) => v.root.contains(el)) ?? null;
     fromMessage = { view, chat: view?.channel ?? '' };
