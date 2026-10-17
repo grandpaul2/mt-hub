@@ -2095,6 +2095,10 @@ function setup() {
     showSidePanel: () => document.body.classList.contains('chat-hidden') && $('chat-hide').click(),
     schemPost,
     fileMod: (p) => entries.find((e) => e.path === p && !e.dir)?.mod ?? null,
+    entry: (p) => {
+      const e = entries.find((x) => x.path === p);
+      return e ? { dir: e.dir, size: e.size } : null;
+    },
     send: (url, f, progress) => put(url, f, progress, 'POST'),
     stampName: (f) => stampName(Date.now(), f.name.slice(f.name.lastIndexOf('.')), () => false),
     uploadInto,

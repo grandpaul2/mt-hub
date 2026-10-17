@@ -685,8 +685,9 @@ img.emoji { width: 1.3em; height: 1.3em; margin: 0 .05em; vertical-align: -.3em;
 .ref-audio { padding: 8px 10px; background: var(--panel-2); border-radius: 6px; }
 .ref-audio audio { display: block; max-width: 100%; margin-top: 4px; }
 /* Any other file posted in chat: a card with its icon, name (a download link), size and a
-   download button, as in Discord. */
-.file-card {
+   download button, as in Discord. A file or folder in Files: the same card without the
+   button; clicking it opens the file or folder. */
+.file-card, .folder-card {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -698,7 +699,9 @@ img.emoji { width: 1.3em; height: 1.3em; margin: 0 .05em; vertical-align: -.3em;
   border-radius: 6px;
   align-self: flex-start;
 }
-.file-card .icon { width: 28px; height: 28px; flex: none; }
+.file-card .icon, .folder-card .icon { width: 28px; height: 28px; flex: none; }
+.file-card[title^="Open "], .folder-card { cursor: pointer; }
+.file-card[title^="Open "]:hover, .folder-card:hover { background: var(--select); }
 .file-text { flex: 1; min-width: 0; }
 .file-text .file-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--link); font-size: 14px; }
 .file-card a.file-name { text-decoration: none; }

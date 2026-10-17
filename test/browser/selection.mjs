@@ -139,12 +139,12 @@ await api('POST', '/api/batch/delete', { paths: ['notes/one.md'] });
 await settle(1000);
 check('a row someone deleted leaves the selection', await selected(), ['docs/two.md', 'README.md']);
 
-// Into a chat: a link to each.
+// Into a chat: a card for each.
 await ev(`document.querySelector('#chat-body .compose').value = ''`);
 await ev(`(() => { const dt = new DataTransfer();
   (${row('docs/two.md')}).dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
   document.querySelector('#chat-body').dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt })); })()`);
-check('dragged into chat: every one linked', await ev(`document.querySelector('#chat-body .compose').value`), '#docs/two.md #README.md ');
+check('dragged into chat: a card for every one', await ev(`[document.querySelector('#chat-body .compose').value, [...document.querySelectorAll('#chat-body .composer .pend-name')].map((n) => n.textContent)]`), ['', ['two.md', 'README.md']]);
 
 // ---- the folder view ----
 
