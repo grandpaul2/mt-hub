@@ -15,6 +15,7 @@ const msgEl = (id) => `document.querySelector('${M} .msg[data-id="${id}"]')`;
 await api('POST', '/api/channels', { name: 'shapes' }, 'Paul');
 await api('POST', '/api/channels', { name: 'staff', kind: 'private', members: ['Alex'] }, 'Paul');
 await postFile('shapes', 'a.png', png(120, 80, [200, 40, 40]));
+await postFile('shapes', 'big.png', png(1600, 1000, [40, 40, 200]));
 await postFile('staff', 'secret.png', png(120, 80, [40, 200, 40]));
 const shot1 = `screenshots/${SEED.shots[0]}`;
 
@@ -162,13 +163,26 @@ check('lit over the box, not after it', await ev(`(() => {
   over('${M} .chat-body .messages');
   return [a, lit()];
 })()`), [true, false]);
-check('the picture is what’s dragged', await ev(`(() => {
+check('the picture is what’s dragged, at its size in chat', await ev(`(() => {
   let used = null;
   const dt = new DataTransfer();
-  dt.setDragImage = (el) => (used = el.tagName + ':' + !!el.closest('.ref-pic'));
+  dt.setDragImage = (el) => (used = el);
+  const shown = document.querySelector(${JSON.stringify(pic)} + ' img').getBoundingClientRect();
   document.querySelector(${JSON.stringify(pic)}).dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: dt }));
-  return used;
-})()`), 'IMG:true');
+  return used && [used.tagName, used.width === Math.round(shown.width), used.height === Math.round(shown.height), used.width < 400];
+})()`), ['CANVAS', true, true, true]);
+// A big picture drags at the size it shows in chat, not its own.
+const big = await say('general', '#media/shapes/big.png');
+await settle(1500);
+check('a big picture drags at its size in chat', await ev(`(() => {
+  let used = null;
+  const dt = new DataTransfer();
+  dt.setDragImage = (el) => (used = el);
+  const img = document.querySelector('${M} .msg[data-id="${big.id}"] .ref-pic img');
+  const shown = img.getBoundingClientRect();
+  img.closest('.ref-pic').dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: dt }));
+  return used && [used.tagName, used.width === Math.round(shown.width), shown.width < 600, img.naturalWidth > 600];
+})()`), ['CANVAS', true, true, true]);
 check('picture and file link: cards, no URL text', [await tray(), await compose()], [[['a.png', 'done'], ['guide.md', 'done']], '']);
 await clearTray();
 check('another chat takes it anywhere', await drag(pic, `${M} .chat-body .messages`, `location.hash = '#chan=shapes'; await new Promise((r) => setTimeout(r, 1200));`), [true, true]);

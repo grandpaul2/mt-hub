@@ -960,6 +960,8 @@ body.chat-hidden #chat .pins-btn, body.chat-hidden #chat .files-btn { display: n
 .pick-box { position: absolute; z-index: 2; background: color-mix(in srgb, var(--focus) 18%, transparent); border: 1px solid var(--focus); pointer-events: none; }
 /* What several dragged files show under the pointer: "3 items". Kept off screen; the
    browser takes its picture. */
+/* A picture's drag image (draggable in chat.ts): drawn once, off screen. */
+.drag-pic { position: fixed; top: -10000px; left: 0; border-radius: 6px; }
 .drag-ghost { position: fixed; top: -100px; left: 0; padding: 3px 10px; background: var(--panel); border: 1px solid var(--focus); border-radius: 6px; color: var(--text); font-size: 13px; }
 /* The Trash row, last in the tree, and the Trash itself: a list in the main panel, each row
    its icon, name over a muted line (where it was, who, when, how long it has left), then
