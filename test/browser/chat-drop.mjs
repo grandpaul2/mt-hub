@@ -151,6 +151,24 @@ check('same chat, let go on the chat list: nowhere', await tray(), []);
 check('a picture in a message drags as a card onto the box', await drag(pic, `${M} .compose`), [true, true]);
 await drag(`${M} .msg[data-id="${posted.id}"] .msg-body a.file-link`, `${M} .composer`);
 await settle(300);
+// Over the box the pane lights; back over the messages it goes out.
+check('lit over the box, not after it', await ev(`(() => {
+  const dt = new DataTransfer();
+  document.querySelector(${JSON.stringify(pic)}).dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: dt }));
+  const over = (sel) => document.querySelector(sel).dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt }));
+  const lit = () => document.querySelector('${M}-body').classList.contains('drop');
+  over('${M} .compose');
+  const a = lit();
+  over('${M} .chat-body .messages');
+  return [a, lit()];
+})()`), [true, false]);
+check('the picture is what’s dragged', await ev(`(() => {
+  let used = null;
+  const dt = new DataTransfer();
+  dt.setDragImage = (el) => (used = el.tagName + ':' + !!el.closest('.ref-pic'));
+  document.querySelector(${JSON.stringify(pic)}).dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: dt }));
+  return used;
+})()`), 'IMG:true');
 check('picture and file link: cards, no URL text', [await tray(), await compose()], [[['a.png', 'done'], ['guide.md', 'done']], '']);
 await clearTray();
 check('another chat takes it anywhere', await drag(pic, `${M} .chat-body .messages`, `location.hash = '#chan=shapes'; await new Promise((r) => setTimeout(r, 1200));`), [true, true]);

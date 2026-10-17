@@ -169,7 +169,8 @@ class ChatView {
     // computer, files and folders from the tree or a folder view, a Schematic Manager card,
     // a picture or file from a message.
     root.ondragover = (e) => {
-      if (!carriesFiles(e) || accidental(e, this)) return;
+      if (!carriesFiles(e)) return;
+      if (accidental(e, this)) return root.classList.remove('drop'); // back off the box
       e.preventDefault();
       root.classList.add('drop');
     };
@@ -2226,6 +2227,12 @@ function draggable(el: HTMLElement, path: string) {
   el.ondragstart = (e) => {
     e.stopPropagation();
     dragData(e, path, [path]);
+    // The picture itself as what's dragged: Firefox's first picture of the card was a grey box.
+    const img = el.querySelector('img');
+    if (img?.complete && img.naturalWidth) {
+      const r = img.getBoundingClientRect();
+      e.dataTransfer?.setDragImage(img, e.clientX - r.left, e.clientY - r.top);
+    }
     const view = [main, side].find((v) => v.root.contains(el)) ?? null;
     fromMessage = { view, chat: view?.channel ?? '' };
   };
