@@ -307,7 +307,7 @@ export function toastError(msg: string) {
 // folder) can be put back from it. 6 s, long enough to reach for.
 export function toastUndo(msg: string, undo: () => void) {
   show(msg, 6000, false);
-  const b = h('button', { class: 'toast-act', type: 'button' }, 'Undo');
+  const b = h('button', { class: 'toast-act primary', type: 'button' }, 'Undo');
   b.onclick = () => {
     $('toast').hidden = true;
     undo();
