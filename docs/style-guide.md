@@ -233,7 +233,7 @@ Red means "this destroys something" or "this went wrong", and nothing else.
 
 ---
 
-## 5. Shape and depth
+## 5. Shape, depth and motion
 
 - **Corner radius, three sizes:**
   - **4 px:** controls (buttons, inputs, chips, small icons).
@@ -253,6 +253,38 @@ Red means "this destroys something" or "this went wrong", and nothing else.
   - menus, popups and dropdowns (50);
   - the viewer (100);
   - **toasts (110)**, so a toast shows over the viewer. Today toasts sit at 60, under it.
+- **Motion:**
+  - **Only to show what changed.** Something moves only to show where a thing came from or
+    went, as the direct result of a click, a key or a setting. Nothing moves for decoration,
+    when a page or view first draws or is redrawn, or on a loop. Content arriving in a list (a
+    message, a file, a person joining a voice chat, a stream starting) appears at once, as in
+    Discord and VS Code.
+  - **One speed, one curve:** `--motion`, 180 ms, `ease-out` (fast first, so it answers at
+    once, then settling). The tree's chevron, a switch's knob, the folder search box and
+    everything that opens inside a panel use it.
+    - **The flash** (a 1.6 s `ease-out` fade of `--flash` on a message, tile or heading you
+      were sent to) is the one longer one: it has to be seen after the jump.
+  - **Opening and closing inside a panel** (a settings row, a warning line, a bar above the
+    message box, the bars at the bottom of the sidebar, the folder view's filters): the panel
+    grows or shrinks to make room, and the thing is uncovered from its top edge down (in a
+    bar's row, from its left edge), never faded or scaled. What is below it moves with it.
+    Built with `reveal()` in `util.ts`.
+  - **At once:** things that float over the page (menus, popups, dropdowns, toasts, tooltips,
+    dialogs themselves, the viewer) and switching what a panel shows (another file, chat or
+    folder). They cover rather than push, and a delay there only slows you down. Anything not
+    named in these rules appears at once too.
+  - **Changed midway, it turns round from where it is:** nothing jumps to an end first.
+  - **It never holds you up:** the page works during a slide. What is closing can't be
+    clicked.
+  - **Nothing moves under the pointer** (principle 5) still holds, with one exception: a
+    centred dialog grows both ways, so its contents move by half the change, the control just
+    used included. That is the price of keeping dialogs centred (2026-10-20). The chat keeps its
+    place while a bar opens under the messages: at the bottom, it stays at the bottom.
+  - **Reduced motion** (`prefers-reduced-motion`) turns every animation off; every change is
+    instant and the page works the same.
+  - **No animation library and no CSS `@keyframes` for size:** CSS transitions where both
+    ends are known sizes (the chevron, the knob, the search box), `reveal()` where one end is
+    the thing's own size.
 
 ---
 
@@ -811,7 +843,7 @@ at home in apps like this:
 - **Contrast:** text at least 4.5:1 against its background (the muted greys pass on the panels;
   check new ones).
 - **Targets:** at least 22 px for icon buttons (they are today); 32 px on phones.
-- **Motion:** `prefers-reduced-motion` turns off the flash and chevron animations.
+- **Motion:** `prefers-reduced-motion` turns every animation off (5, Motion).
 - **Tooltips:** every icon button has one; images have `alt` (emoji keep the character).
 
 ---
