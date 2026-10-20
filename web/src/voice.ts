@@ -17,7 +17,7 @@
 // would make you sound worse to others.
 import type * as LK from 'livekit-client';
 import { DEFAULT_SETTINGS, type MicSettings } from './svcmic';
-import { $, group, h, isAdmin, load, loadBundle, readout, req, row, settingsDialog, showMenu, store, toast, toastError, toggle, user, volumeCurve, type MenuItem, type Live } from './util';
+import { $, footBar, group, h, isAdmin, load, loadBundle, readout, req, reveal, row, settingsDialog, showMenu, store, toast, toastError, toggle, user, volumeCurve, type MenuItem, type Live } from './util';
 import { ICON } from './viewer';
 import { ICON as CHAT_ICON, memberPicker, messageUser } from './chat';
 
@@ -657,7 +657,7 @@ let joinedAt = 0;
 const BLOCKED_AFTER = 1000; // ms
 
 function renderBar() {
-  bar.hidden = !cur && !barNote;
+  footBar(bar, !!cur || !!barNote);
   if (!cur) {
     // Not in a call, with something to say (a take-over that couldn't run): a click clears it.
     if (barNote) {
@@ -999,35 +999,39 @@ export async function openSettings() {
   const vadRow = row('Voice activation', null, [vad]);
   const thresholdRow = row('Voice activation threshold', null, [threshold, thresholdVal]);
   const gateRow = row('Keyboard noise gate', 'Keeps typing and mouse clicks from opening your microphone. Others hear you 60 ms later.', [keyboardGate]);
-  // warn marks a row's title red and puts the reason under it (or takes both away).
-  const warn = (r: HTMLElement, why: string | null) => {
+  // warn marks a row's title red and slides the reason open under it (or shuts it, and takes
+  // the red away).
+  const warn = (r: HTMLElement, why: string | null, animate: boolean) => {
     r.querySelector('.set-title')!.classList.toggle('off-default', !!why);
     let sub = r.querySelector<HTMLElement>('.set-warn');
-    if (!why) return sub?.remove();
     if (!sub) {
-      sub = h('div', { class: 'set-sub set-warn' });
+      sub = h('div', { class: 'set-sub set-warn', hidden: true });
       r.querySelector('.set-text')!.append(sub);
     }
-    sub.textContent = why;
+    if (why) sub.textContent = why;
+    reveal(sub, !!why, { animate });
   };
-  const show = () => {
+  // show draws the rows for the settings as they are now; a change in the dialog slides rows
+  // open and shut (style guide 5, Motion), the first drawing doesn't.
+  const show = (animate = true) => {
     const s = settings;
-    warn(gainRow, s.agc ? null : 'Leave this on Auto so everyone hears you at a steady level.');
-    gainDbRow.hidden = s.agc;
+    const slide = (r: HTMLElement, on: boolean) => reveal(r, on, { animate });
+    warn(gainRow, s.agc ? null : 'Leave this on Auto so everyone hears you at a steady level.', animate);
+    slide(gainDbRow, !s.agc);
     gainVal.textContent = `${s.gainDb > 0 ? '+' : ''}${s.gainDb} dB`;
     gainVal.classList.toggle('off-default', s.gainDb > GAIN_WARN);
-    warn(gainDbRow, s.gainDb > GAIN_WARN ? `More than +${GAIN_WARN} dB can distort your voice.` : null);
-    keyRow.hidden = !s.ptt;
+    warn(gainDbRow, s.gainDb > GAIN_WARN ? `More than +${GAIN_WARN} dB can distort your voice.` : null, animate);
+    slide(keyRow, s.ptt);
     if (!listening) keyBtn.textContent = s.pttKey ? keyName(s.pttKey) : 'Set a key';
-    vadRow.hidden = s.ptt;
-    thresholdRow.hidden = s.ptt || s.vad;
+    slide(vadRow, !s.ptt);
+    slide(thresholdRow, !s.ptt && !s.vad);
     thresholdVal.textContent = `${s.thresholdDb} dB`;
     thresholdVal.classList.toggle('off-default', s.thresholdDb >= THRESHOLD_WARN);
-    warn(thresholdRow, s.thresholdDb >= 0 ? 'At 0 dB your microphone never opens.' : null);
+    warn(thresholdRow, s.thresholdDb >= 0 ? 'At 0 dB your microphone never opens.' : null, animate);
     thresholdRow.querySelector('.set-title')!.classList.toggle('off-default', s.thresholdDb >= THRESHOLD_WARN);
-    gateRow.hidden = s.ptt;
+    slide(gateRow, !s.ptt);
   };
-  show();
+  show(false);
 
   // Mic test: hear yourself as the others would, after the whole chain (in a voice chat: your
   // live microphone; otherwise one built just for the test). Push to Talk sends without the key

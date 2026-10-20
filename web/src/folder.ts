@@ -11,7 +11,7 @@
 // name the new one in a tile, as the tree does in a row.
 import { iconURL } from './icons';
 import { ICON, viewerOpen } from './viewer';
-import { $, GLYPH, glyphs, baseName, date, dateTime, bytes, dragData, enc, go, h, load, showMenu, store, user, typing, thumbOr } from './util';
+import { $, GLYPH, glyphs, baseName, date, dateTime, bytes, dragData, enc, go, h, load, reveal, showMenu, store, user, typing, thumbOr } from './util';
 
 // mod: when a file last changed; a folder's is its newest file's, however deep.
 export type FolderFile = { path: string; size: number; mod?: number; dir: boolean };
@@ -123,6 +123,7 @@ const filters = h('span', { class: 'filters' }, who, h('label', {}, 'From ', fro
 // stay out (Clear is blue then: the way to put them away), so nothing is filtered unseen.
 const filtersBtn = h('button', { class: 'filters-toggle' }, 'Filters');
 let filtersOpen = false;
+let filtersSlide = false; // the next render is from the Filters button: they slide out or in
 const filtered = () => !!(who.value || from.value || to.value);
 // Reads "sort:name" or "sort:date" (the sort in use); a click opens the menu with both.
 const sortBtn = h('button', { class: 'sort', title: 'Sort by' });
@@ -422,6 +423,7 @@ export function setupFolder(h_: Hooks) {
   filtersBtn.onclick = () => {
     if (filtered()) return;
     filtersOpen = !filtersOpen;
+    filtersSlide = true;
     render();
   };
   // Ctrl+V while a folder shows puts the clipboard's pictures in it, named by when and who.
@@ -551,10 +553,12 @@ function render() {
   who.replaceChildren(h('option', { value: '' }, 'Everyone'), ...people.map((p) => h('option', { value: p, selected: p === pick }, p)));
   const on = filtered();
   filtersBtn.hidden = !stampedHere;
-  filters.hidden = !stampedHere || !(filtersOpen || on);
-  filtersBtn.setAttribute('aria-pressed', String(!filters.hidden));
+  const out = stampedHere && (filtersOpen || on);
+  reveal(filters, out, { animate: filtersSlide, axis: 'x' });
+  filtersSlide = false;
+  filtersBtn.setAttribute('aria-pressed', String(out));
   filtersBtn.setAttribute('aria-disabled', String(on));
-  filtersBtn.title = on ? 'Clear the filters to hide them' : filters.hidden ? 'Show the filters' : 'Hide the filters';
+  filtersBtn.title = on ? 'Clear the filters to hide them' : out ? 'Hide the filters' : 'Show the filters';
   clear.classList.toggle('primary', on);
   const q = search.value.trim().toLowerCase();
   const fits = (f: FolderFile, st: ReturnType<typeof stamped>) => {

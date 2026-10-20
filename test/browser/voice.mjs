@@ -7,7 +7,7 @@ import { spawn } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { join } from 'node:path';
-import { api, check, COOKIE, DATA, done, ev, HUB, send, settle, shot, ws } from './lib.mjs';
+import { api, check, COOKIE, DATA, done, ev, frames, HUB, send, settle, shot, STILL, ws } from './lib.mjs';
 import { ensureLivekit } from './support/livekit.mjs';
 
 const LK = ensureLivekit();
@@ -107,13 +107,13 @@ check('Stop test stops it', await testBtn(ev), 'Test');
 // The settings are Simple Voice Chat's; a change that makes you sound worse turns red and says why.
 const titles = () => ev(`[...document.querySelectorAll('#dialog .set-group')].map((g) => [g.querySelector('h3').textContent, ...[...g.querySelectorAll('.set-row')].filter((r) => !r.hidden).map((r) => r.querySelector('.set-title').textContent)])`);
 const rowOf = (t) => `[...document.querySelectorAll('#dialog .set-row')].find((r) => r.querySelector('.set-title').textContent === '${t}')`;
-const red = (t) => ev(`(() => { const r = ${rowOf(t)}; return [r.querySelector('.set-title').classList.contains('off-default'), r.querySelector('.set-warn')?.textContent ?? null]; })()`);
+const red = (t) => ev(`(() => { const r = ${rowOf(t)}; return [r.querySelector('.set-title').classList.contains('off-default'), r.querySelector('.set-warn:not([hidden])')?.textContent ?? null]; })()`);
 const pickIn = (t, v) => ev(`(() => { const s = ${rowOf(t)}.querySelector('select'); s.value = '${v}'; s.dispatchEvent(new Event('change')); })()`);
 const slide = (t, v) => ev(`(() => { const s = ${rowOf(t)}.querySelector('input[type=range]'); s.value = '${v}'; s.dispatchEvent(new Event('input')); })()`);
 const mine = () => ev(`JSON.parse(localStorage.getItem('mt-voice') ?? '{}')`);
 check('the rows at the defaults', await titles(),
   [['Input', 'Microphone', 'Gain', 'Noise suppression', 'Mic test'], ['Activation', 'Activation method', 'Voice activation', 'Keyboard noise gate'], ['Output', 'Speaker', 'Output volume']]);
-check('nothing red at the defaults', await ev(`document.querySelectorAll('#dialog .off-default, #dialog .set-warn').length`), 0);
+check('nothing red at the defaults', await ev(`document.querySelectorAll('#dialog .off-default, #dialog .set-warn:not([hidden])').length`), 0);
 await pickIn('Gain', 'manual');
 check('Gain: Manual is red, says why, and shows Microphone gain', [await red('Gain'), (await titles())[0], (await mine()).agc],
   [[true, 'Leave this on Auto so everyone hears you at a steady level.'], ['Input', 'Microphone', 'Gain', 'Microphone gain', 'Noise suppression', 'Mic test'], false]);
@@ -138,7 +138,7 @@ check('Push to Talk: asks for its key, says where it works, hides the voice rows
 await ev(`${rowOf('Push to Talk key')}.querySelector('button').dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyV', key: 'v', bubbles: true }))`);
 check('the key pressed is the key', [await ev(`${rowOf('Push to Talk key')}.querySelector('button').textContent`), (await mine()).pttKey, (await mine()).ptt], ['V', 'KeyV', true]);
 await pickIn('Activation method', 'voice');
-check('back at the defaults, nothing is red', await ev(`document.querySelectorAll('#dialog .off-default, #dialog .set-warn').length`), 0);
+check('back at the defaults, nothing is red', await ev(`document.querySelectorAll('#dialog .off-default, #dialog .set-warn:not([hidden])').length`), 0);
 await ev(`document.querySelector('#dialog .dialog-x').click()`);
 check('the X closes it (and ends the test)', await ev(`document.getElementById('overlay').hidden`), true);
 
@@ -306,7 +306,13 @@ await settle(300);
 check('and he can unmute himself', (await bar(alex.ev))[0], 'Mute');
 
 // Paul leaves: Alex moves to the top; then Paul (an admin, not in it) disconnects Alex and it's gone.
-await ev(`document.querySelector('#voice-bar button[title="Leave the voice chat"]').click()`);
+// With motion on for this once (lib.mjs turns it off): the bottom of the sidebar slides shut
+// with the bar still in it (style guide 5, Motion).
+await send('Emulation.setEmulatedMedia', { features: [] });
+const foot = await frames(`document.querySelector('#voice-bar button[title="Leave the voice chat"]').click()`,
+  `[document.getElementById('side-foot').hidden ? 0 : document.getElementById('side-foot').getBoundingClientRect().height, document.querySelectorAll('#voice-bar .voice-buttons button').length]`, 2000);
+await send('Emulation.setEmulatedMedia', { features: STILL });
+check('leaving: the sidebar’s bottom slides shut, the bar in it to the end', [foot.some(([h]) => h > 0.5 && h < foot[0][0] - 0.5), foot.filter(([h]) => h > 0).every(([, n]) => n === 4), foot.at(-1)[0]], [true, true, 0]);
 await until('Paul gone', async () => JSON.stringify(await rows(alex.ev)) === '["Alex*"]');
 await until('Paul’s page updated', async () => JSON.stringify(await rows(ev)) === '["Alex"]').catch(() => {});
 check('Alex is now the top (Alex’s page)', await rows(alex.ev), ['Alex*']);

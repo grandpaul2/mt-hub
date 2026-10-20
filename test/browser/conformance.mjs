@@ -1,7 +1,7 @@
 // The style guide's conformance pass, batch 1 (section 15): one themed question with a red
 // confirm for destroying, Esc closing dialogs (not the login, and not the folder underneath),
 // keyboard in menus, error toasts, toasts above the viewer, focus rings, Keyboard Shortcuts.
-import { api, check, done, ev, HUB, key, send, settle, typeText } from './lib.mjs';
+import { api, check, done, ev, HUB, key, send, settle, STILL, typeText } from './lib.mjs';
 
 await api('POST', '/api/channels/general/messages', { text: 'hello' }, 'Paul');
 await send('Page.navigate', { url: `${HUB}/#folder=notes` });
@@ -109,7 +109,7 @@ check('a focused button has a ring', await ev(`(() => { const b = document.activ
 check('the chat panel toggle is an icon', await ev(`(() => { const b = document.getElementById('chat-hide'); return [!!b.querySelector('svg'), b.textContent.trim()]; })()`), [true, '']);
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
 check('reduced motion: no turning chevrons', await ev(`getComputedStyle(document.querySelector('#tree .row .twisty svg')).transitionDuration`), '0s');
-await send('Emulation.setEmulatedMedia', { features: [] });
+await send('Emulation.setEmulatedMedia', { features: STILL }); // (as every suite runs: lib.mjs)
 await send('Page.navigate', { url: `${HUB}/?r=3#chan=general` }); // out of the edit above
 await settle(2500);
 await ev(`document.querySelector('#main-chat .msg').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 300, clientY: 300 }))`);

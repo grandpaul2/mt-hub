@@ -371,6 +371,91 @@ document.addEventListener('keydown', (e) => {
   }
 }, true);
 
+// ---- motion (style guide 5, Motion) -------------------------------------------------------
+
+// MOTION is the one speed things move at, ms: --motion in style.css is the same number.
+export const MOTION = 180;
+const slides = new WeakMap<HTMLElement, { show: boolean; anim: Animation | null; after?: () => void }>();
+
+// shown says whether el is shown or on its way to it (a closing slide is not shown).
+export const shown = (el: HTMLElement) => slides.get(el)?.show ?? !el.hidden;
+
+// reveal shows or hides something inside a panel. With animate it slides: the panel makes room
+// as it is uncovered from its top edge (axis x: from its left edge), and closing is the same
+// backwards; asked to turn round midway, it turns round from where it is. Without animate (a
+// redraw, a view first drawing), with reduced motion, or out of sight, it is plain `hidden`.
+// after runs once it is hidden (at the end of a closing slide), for content to go only then.
+export function reveal(el: HTMLElement, show: boolean, opts: { animate?: boolean; axis?: 'x' | 'y'; after?: () => void } = {}) {
+  let s = slides.get(el);
+  if (!s) slides.set(el, (s = { show: !el.hidden, anim: null }));
+  if (s.show === show) return;
+  s.show = show;
+  s.after = opts.after;
+  if (s.anim) {
+    if (opts.animate) {
+      s.anim.reverse();
+      el.inert = !show; // closing is unclickable, opening isn't
+      return;
+    }
+    s.anim.cancel();
+    el.classList.remove('revealing', 'revealing-x');
+    el.inert = false;
+    s.anim = null;
+  }
+  const still = !opts.animate || matchMedia('(prefers-reduced-motion: reduce)').matches
+    || !el.isConnected || !el.parentElement?.getClientRects().length;
+  if (still) {
+    el.hidden = !show;
+    if (!show) opts.after?.();
+    return;
+  }
+  const x = opts.axis === 'x';
+  el.classList.add('revealing', ...(x ? ['revealing-x'] : []));
+  el.hidden = false;
+  // The collapsed end, with everything that takes room at 0; the open end is the element's
+  // own CSS (implicit), but for its size, which can't be animated to auto, so it is measured.
+  const box = el.getBoundingClientRect();
+  const gap = parseFloat(getComputedStyle(el.parentElement!).columnGap) || 0;
+  const shut: Keyframe = x
+    ? { width: '0px', minWidth: '0px', paddingLeft: '0px', paddingRight: '0px', borderLeftWidth: '0px', borderRightWidth: '0px', marginLeft: `${-gap}px`, marginRight: '0px' }
+    : { height: '0px', minHeight: '0px', paddingTop: '0px', paddingBottom: '0px', borderTopWidth: '0px', borderBottomWidth: '0px', marginTop: '0px', marginBottom: '0px' };
+  const open: Keyframe = x ? { width: `${box.width}px` } : { height: `${box.height}px` };
+  // Closing runs forwards too (open to shut): played backwards, ease-out would start slow, and
+  // a row going while another comes would lag it (the dialog swelling past both ends).
+  const anim = el.animate(show ? [shut, open] : [open, shut], { duration: MOTION, easing: 'ease-out', fill: 'both' });
+  el.inert = !show;
+  s.anim = anim;
+  anim.onfinish = () => {
+    if (s!.anim !== anim) return;
+    el.classList.remove('revealing', 'revealing-x');
+    el.inert = false;
+    s!.anim = null;
+    if (!s!.show) el.hidden = true;
+    anim.cancel(); // (fill held the last frame until hidden took over)
+    if (!s!.show) s!.after?.();
+  };
+}
+
+// footBar shows or hides one of the bars at the bottom of the sidebar (voice, watching,
+// sharing). The foot has padding of its own, so when the first bar comes or the last one
+// goes it is the foot that slides, with the bar in it.
+const footWants = new Set<HTMLElement>();
+export function footBar(el: HTMLElement, show: boolean, animate = true) {
+  const foot = $('side-foot');
+  const was = footWants.size > 0;
+  if (show) footWants.add(el);
+  else footWants.delete(el);
+  const bars = [...foot.children] as HTMLElement[];
+  const tidy = () => bars.forEach((b) => reveal(b, footWants.has(b)));
+  if (was && footWants.size) return reveal(el, show, { animate });
+  if (footWants.size) {
+    tidy();
+    return reveal(foot, true, { animate });
+  }
+  if (!was) return reveal(el, false);
+  reveal(foot, false, { animate, after: tidy });
+}
+
 // ---- settings dialogs (style guide 6.8) -----------------------------------------------
 // Admin, Voice settings and Sound settings: 520 px, a header with the title and a close X,
 // then groups of rows. Their settings apply at once, so there's no Done or Save (Esc and
