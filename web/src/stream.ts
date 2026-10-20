@@ -15,7 +15,7 @@
 // have sound, open at #stream=<name>, and come straight from the relay over WebRTC; the hub
 // only passes the offer on (internal/server/relay.go). No LiveKit for those.
 import type * as LK from 'livekit-client';
-import { $, closeDialog, dialog, h, isAdmin, load, loadBundle, req, showMenu, store, toast, toastError, user, volumeCurve, type Live, type MenuItem } from './util';
+import { $, closeDialog, dialog, footBar, h, isAdmin, load, loadBundle, req, showMenu, store, toast, toastError, user, volumeCurve, type Live, type MenuItem } from './util';
 import { messageUser } from './chat';
 
 // (tag: what they say the stream is, a line under their name; theirs to set while live.)
@@ -291,8 +291,8 @@ async function stopShare(tell: boolean, quiet = false) {
 const bar = h('div', { id: 'share-bar', hidden: true });
 
 function renderBar() {
-  bar.hidden = !sharing;
-  if (!sharing) return bar.replaceChildren();
+  footBar(bar, !!sharing);
+  if (!sharing) return; // (what it said stays while it slides shut)
   const mine = info.streams.find((s) => s.id === sharing!.id);
   const viewers = mine?.viewers ?? [];
   const who = h('span', { class: 'muted' }, viewers.length ? `${viewers.length} watching` : 'Nobody watching yet');
@@ -371,8 +371,8 @@ const barMute = h('button', { class: 'tool' });
 
 function renderWatchBar() {
   const w = watching;
-  watchBar.hidden = !w || w.over;
-  if (!w || w.over) return watchBar.replaceChildren();
+  footBar(watchBar, !!w && !w.over);
+  if (!w || w.over) return; // (what it said stays while it slides shut)
   const state = w.live ? 'Watching' : w.away ? 'Waiting…' : w.shown ? 'Reconnecting…' : 'Connecting…';
   const where = h('button', { class: 'share-where', title: 'Back to the picture' },
     h('span', { class: w.live ? 'share-ok' : 'muted' }, state), h('span', { class: 'muted' }, what(w)));

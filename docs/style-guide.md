@@ -255,8 +255,8 @@ Red means "this destroys something" or "this went wrong", and nothing else.
   - **toasts (110)**, so a toast shows over the viewer. Today toasts sit at 60, under it.
 - **Motion:**
   - **Only to show what changed.** Something moves only to show where a thing came from or
-    went, as the direct result of a click, a key or a setting. Nothing moves for decoration,
-    when a page or view first draws or is redrawn, or on a loop. Content arriving in a list (a
+    went while you look: a part of the page opening or closing, a switch flipping. Nothing
+    moves for decoration, when a page or view first draws or is redrawn, or on a loop. Content arriving in a list (a
     message, a file, a person joining a voice chat, a stream starting) appears at once, as in
     Discord and VS Code.
   - **One speed, one curve:** `--motion`, 180 ms, `ease-out` (fast first, so it answers at

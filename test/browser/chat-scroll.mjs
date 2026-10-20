@@ -1,7 +1,7 @@
 // Chat scroll position while the list changes size (the side panel resized, so every message
 // rewraps): at the bottom it stays at the bottom; scrolled up, the message on the bottom edge
 // stays put; and resizing doesn't stop new messages from scrolling into view.
-import { api, check, done, ev, HUB, send, settle } from './lib.mjs';
+import { api, check, done, ev, frames, HUB, send, settle, STILL } from './lib.mjs';
 
 const words = 'the restock line runs from the crafters to the bulk and then the list maker unlocks each slice in turn'.split(' ');
 for (let i = 0; i < 120; i++) {
@@ -43,5 +43,26 @@ for (const w of widths) {
 }
 check('scrolled up: the bottom message holds its place', [...moved], ['held']);
 check('scrolled up: not pulled to the bottom', (await gap()) > 1000, true);
+
+// The reply bar sliding open under the messages (motion on for this, style guide 5): the chat
+// holds its place on every frame, at the bottom and scrolled up.
+await send('Emulation.setEmulatedMedia', { features: [] });
+const replyTo = (where) => `${L}.querySelector('.msg${where} .msg-tools [data-tool="reply"]').click()`;
+const gapNow = `(() => { const l = ${L}; return Math.round(l.scrollHeight - l.scrollTop - l.clientHeight); })()`;
+await ev(`${L}.scrollTop = ${L}.scrollHeight`);
+await settle(300);
+let run = await frames(replyTo(':last-of-type'), gapNow, 400, true);
+check('the reply bar opening: at the bottom on every frame', Math.max(...run), 0);
+await ev(`document.querySelector('#chat .reply-bar button').click()`);
+await settle(400);
+await ev(`${L}.scrollTop = ${L}.scrollHeight / 2`);
+await settle(300);
+const edgeNow = `(() => { const r = ${L}.getBoundingClientRect(); const e = document.elementFromPoint(r.left + 120, r.bottom - 12).closest('.msg');
+  return e.querySelector('.msg-body').textContent.split(' ')[0] + ' ' + Math.round(r.bottom - e.getBoundingClientRect().bottom); })()`;
+run = await frames(replyTo(''), edgeNow, 400, true);
+const [id0, off0] = run[0].split(' ');
+check('scrolled up: the bottom message holds its place on every frame (to a whole pixel, as above)',
+  [...new Set(run.map((e) => { const [id, off] = e.split(' '); return id === id0 && Math.abs(off - off0) <= 1 ? 'held' : `${e} (was ${run[0]})`; }))], ['held']);
+await send('Emulation.setEmulatedMedia', { features: STILL });
 
 await done();

@@ -219,6 +219,24 @@ ws.addEventListener('message', (e) => {
   else if (m.method === 'Page.frameNavigated' && !p.frame.parentId) { owed = null; net.open.clear(); }
 });
 await send('Network.enable');
+// Every suite but reveal runs with reduced motion, so what slides open or shut (style guide 5,
+// Motion) is in its final state at once, as the suites read it; reveal has motion on.
+export const STILL = [{ name: 'prefers-reduced-motion', value: 'reduce' }];
+if (SUITE !== 'reveal') await send('Emulation.setEmulatedMedia', { features: STILL });
+// frames runs act in the page, then reads measure at once and on every frame for ms: the sizes
+// something passes through as it slides (reveal.mjs). drawn reads each frame once it has been
+// drawn (after the page's own resize observers have had their say, as the chat's scroll place
+// does) rather than as it starts.
+export const frames = (act, measure, ms = 400, drawn = false) => ev(`(async () => {
+  const m = () => (${measure});
+  ${act};
+  const out = [m()];
+  for (const t0 = performance.now(); performance.now() - t0 < ${ms};) {
+    await new Promise((r) => requestAnimationFrame(${drawn ? '() => setTimeout(r, 0)' : 'r'}));
+    out.push(m());
+  }
+  return out;
+})()`);
 await send('Page.addScriptToEvaluateOnNewDocument', { source: `{
   const S = (window.__settle = { fetches: 0, timers: new Map(), at: performance.now(), what: 'start', n: 0 });
   const did = (what) => { S.at = performance.now(); S.what = what; S.n++; };

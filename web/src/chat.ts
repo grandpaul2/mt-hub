@@ -9,7 +9,7 @@ import { emojiImg, emojiPicker as pickerContent } from './emoji';
 import { autocomplete } from './autocomplete';
 import { commandIn, type Command } from './commands';
 import { dingFor, setupDing } from './ding';
-import { $, accounts, ask, bytes, opTag, tagOf, dateTime, fullDate, GLYPH, time, closeDialog, copyText, dialog, enc, h, isAdmin, json, labels, load, req, showMenu, store, toast, toastError, user, type MenuItem, type Live, thumbOr, dragData, dragLabel, draggedPaths } from './util';
+import { $, accounts, ask, bytes, opTag, tagOf, dateTime, fullDate, GLYPH, time, closeDialog, copyText, dialog, enc, h, isAdmin, json, labels, load, req, reveal, showMenu, store, toast, toastError, user, type MenuItem, type Live, thumbOr, dragData, dragLabel, draggedPaths } from './util';
 import { iconURL } from './icons';
 
 type Message = {
@@ -104,6 +104,7 @@ class ChatView {
   readonly compose = h('textarea', { class: 'compose', rows: 1, maxLength: 4000 });
   readonly replyBar = h('div', { class: 'reply-bar', hidden: true });
   readonly tray = h('div', { class: 'pend-tray', hidden: true }); // files waiting to go with the message
+  private trayFor = ''; // the chat the tray was last drawn for (drawTray)
   readonly picker = h('input', { type: 'file', multiple: true, hidden: true });
   readonly jump = h('button', { class: 'jump', hidden: true, innerHTML: 'Jump to present ' + ICON.down });
   readonly note = h('div', { class: 'chat-privacy', hidden: true }); // who can see a private chat or DM
@@ -248,7 +249,7 @@ class ChatView {
     store(this.key, name);
     this.editing = null;
     this.gone.clear();
-    this.cancelReply();
+    this.cancelReply(false);
     this.compose.value = drafts[name] ?? '';
     this.drawTray();
     grow(this.compose);
@@ -356,9 +357,14 @@ class ChatView {
   drawTray() {
     const list = pending[this.channel] ?? [];
     const busy = sending.has(this.channel);
-    this.tray.hidden = !list.length;
-    this.tray.replaceChildren(...list.map((p) => pendCard(p, busy ? null : () => removePending(this.channel, p), busy ? null : () => this.send())));
+    // It slides open with its first card and shut with its last (or on send), in the same
+    // chat; opening another chat draws its tray at once. Shutting, the cards stay till it's shut.
+    const animate = this.trayFor === this.channel;
+    this.trayFor = this.channel;
+    reveal(this.tray, list.length > 0, { animate, after: () => this.tray.replaceChildren() });
     this.compose.readOnly = busy;
+    if (!list.length) return;
+    this.tray.replaceChildren(...list.map((p) => pendCard(p, busy ? null : () => removePending(this.channel, p), busy ? null : () => this.send())));
   }
 
   // send posts the box's text and its waiting files as one message. The files go up first,
@@ -701,13 +707,14 @@ class ChatView {
     const x = h('button', { class: 'tool', title: 'Cancel reply (Esc)', innerHTML: ICON.close });
     x.onclick = () => this.cancelReply();
     this.replyBar.replaceChildren(h('span', {}, 'Replying to ', h('b', {}, m.user)), x);
-    this.replyBar.hidden = false;
+    reveal(this.replyBar, true, { animate: true });
     this.compose.focus();
   }
 
-  cancelReply() {
+  // cancelReply puts the reply bar away: it slides shut, but at once on opening another chat.
+  cancelReply(animate = true) {
     this.replyTo = null;
-    this.replyBar.hidden = true;
+    reveal(this.replyBar, false, { animate });
   }
 
   // jumpTo scrolls to a message, loading older ones until it's there, and flashes it.
