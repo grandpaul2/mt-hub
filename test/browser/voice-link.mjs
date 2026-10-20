@@ -133,7 +133,8 @@ check('an admin cannot disconnect or mute a player through the hub', [(await api
 // Steve leaves the group; then the bridge goes: Paul stays, the note is back.
 roster(false);
 await until('Steve gone', async () => !(await rows()).some((r) => r.includes('Steve')), 20000);
-check('the player leaving the group leaves the list', await rows(), ['#voice-link*', '  Paul*']);
+// (Paul's own talking mark is the fake microphone's beeps, lit or not by chance: not this check's.)
+check('the player leaving the group leaves the list', (await rows()).map((r) => r.replace(' (talking)', '')), ['#voice-link*', '  Paul*']);
 bridge.kill('SIGTERM');
 await until('the note back', async () => (await rows()).some((r) => r.startsWith('(')), 30000);
 check('the bridge gone: still a voice chat, and it says so', await rows(), ['#voice-link*', '(Not connected to the game servers)', '  Paul*']);

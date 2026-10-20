@@ -68,7 +68,7 @@ the guide first, with the reason.
   - **Main panel:** shows one thing at a time: a file, a chat, a folder, the Schematic
     Manager, or a screen being watched.
   - **Right panel:** a second chat with its own picker. It collapses to a thin strip; » flips
-    to « in the same spot.
+    to « in the same spot. It slides open and shut (5, Motion).
 - **Sizes**:
   - **Sidebar:** 260 px by default, at least 160 px.
   - **Chat panel:** 340 px by default, at least 240 px.
@@ -268,6 +268,10 @@ Red means "this destroys something" or "this went wrong", and nothing else.
     grows or shrinks to make room, and the thing is uncovered from its top edge down (in a
     bar's row, from its left edge), never faded or scaled. What is below it moves with it.
     Built with `reveal()` in `util.ts`.
+  - **The chat panel** opens and shuts the same way when its button is clicked: the main panel
+    makes room frame by frame, the panel's contents keep their open width and ride in with its
+    edge (nothing rewraps), and the button stays where it was clicked. Shutting by itself in a
+    narrow window is instant.
   - **At once:** things that float over the page (menus, popups, dropdowns, toasts, tooltips,
     dialogs themselves, the viewer) and switching what a panel shows (another file, chat or
     folder). They cover rather than push, and a delay there only slows you down. Anything not
