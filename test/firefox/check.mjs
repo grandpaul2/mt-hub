@@ -181,7 +181,7 @@ const VIEWS = [['tree and chat', 'gyp'], ['file', 'boards/Playground juggling gl
   ['schematics', 'schems'], ['picture', 'screenshots/2026-09-01 15.00.01 Peggy.png'], ['viewer', 'screenshots/2026-09-01 15.00.01 Peggy.png'],
   ['chat (main panel)', 'chan=general'], ['search', 'gyp'], ['mention popup', 'chan=general'], ['command popup', 'chan=general'], ['server status', 'chan=general'], ['emoji picker', 'chan=general'],
   ['new line and jump', 'chan=piggy-jig'], ['save to files', 'chan=general'], ['chat files', 'chan=general'], ['private chat', 'chan=jig-staff'], ['server link', 'chan=text-link'], ['delete question', 'gyp'], ['delete message question', 'chan=general'], ['rows selected', 'gyp'], ['rows cut', 'gyp'], ['trash', 'gyp'], ['tiles picked and the box', 'folder=screenshots'],
-  ['minecraft name', 'gyp'], ['message edit', 'chan=general'], ['file tray', 'chan=general'], ['sending and failed', 'chan=general'], ['sound settings', 'gyp'], ['voice settings', 'gyp'], ['voice-link lock', 'gyp'], ['voice-link locked', 'gyp'], ['voice-link no microphone', 'gyp'], ['admin', 'gyp']];
+  ['minecraft name', 'gyp'], ['message edit', 'chan=general'], ['file tray', 'chan=general'], ['sending and failed', 'chan=general'], ['sound settings', 'gyp'], ['voice settings', 'gyp'], ['voice settings warned', 'gyp'], ['voice-link lock', 'gyp'], ['voice-link locked', 'gyp'], ['voice-link no microphone', 'gyp'], ['admin', 'gyp']];
 mkdirSync(OUT, { recursive: true });
 const T = {}; let t0 = Date.now();
 const lap = (k) => { const n = Date.now(); T[k] = (T[k] ?? 0) + n - t0; t0 = n; };
@@ -191,6 +191,10 @@ for (const [name, hash] of VIEWS) {
   if (name === 'new line and jump') await js(`localStorage.setItem('mt-read', JSON.stringify({ 'piggy-jig': '${readTo}' }))`);
   if (name === 'voice-link lock' || name === 'voice-link locked') await setLock(name === 'voice-link locked');
   if (name === 'voice-link no microphone') await js(`localStorage.setItem('check-gum-fail', '1')`);
+  // Voice settings off their defaults, as Simple Voice Chat warns in red: Gain: Manual at +12 dB,
+  // Voice activation: Manual at 0 dB. Back to the defaults for the views after it.
+  if (name === 'voice settings warned') await js(`localStorage.setItem('mt-voice-svc', '1'); localStorage.setItem('mt-voice', JSON.stringify({ agc: false, gainDb: 12, vad: false, thresholdDb: 0 }))`);
+  if (name === 'voice-link lock') await js(`localStorage.removeItem('mt-voice')`);
   // A locked page takes the microphone by itself only in a focused window (as Firefox gives it
   // only then): focus it again, in case a click elsewhere took it during the check.
   if (name.startsWith('voice-link')) execFileSync('i3-msg', ['[class="MTHubCheck"] focus'], { env: X, stdio: 'ignore' });
@@ -305,7 +309,7 @@ for (const [name, hash] of VIEWS) {
     await idle(600);
   }
   // The settings dialogs (style guide 6.8), from the menu on your name.
-  const fromMenu = { 'sound settings': 'Sound Settings', 'voice settings': 'Voice Settings', admin: 'Admin' }[name];
+  const fromMenu = { 'sound settings': 'Sound Settings', 'voice settings': 'Voice Settings', 'voice settings warned': 'Voice Settings', admin: 'Admin' }[name];
   if (fromMenu) {
     await js(`(() => { document.getElementById('user').click();
       [...document.querySelectorAll('#menu button')].find((b) => b.firstChild.textContent === '${fromMenu}').click(); })()`);
