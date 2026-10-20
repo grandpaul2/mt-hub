@@ -58,7 +58,7 @@ the guide first, with the reason.
 - **Desktop grid**:
   - top bar (34 px) over three columns: left sidebar, main panel, right chat panel.
   - **Sidebar:** FILES tree, then TEXT (the chats, DMs included), VOICE and LIVE. All four
-    are always there (2026-10-13; before, VOICE and LIVE came and went with use), so
+    are always there, so
     nothing below a section moves when a voice chat or a stream starts; an empty VOICE or
     LIVE is its head and its "+". On a hub without voice chats or streams set up, that
     section is left out. The bottom holds only the voice, sharing and watching bars,
@@ -108,8 +108,7 @@ the guide first, with the reason.
 ## 3. Colour
 
 Dark theme only. Every colour is a token in `:root`; no colours are hard-coded in rules.
-The token set below is today's values merged: the many near-same greys collapse into the
-nearest token, and the three reds and four blues become one role each.
+Near-same greys share one token, and each red and blue role has one.
 
 ### 3.1 Tokens
 
@@ -119,7 +118,7 @@ nearest token, and the three reds and four blues become one role each.
 | `--panel` | #252526 | sidebars, bars, dialogs, menus, popups, cards |
 | `--panel-2` | #2d2d2d | buttons, chips, code |
 | `--top` | #333333 | top bar |
-| `--border` | #3c3c3c | every 1 px line, including menus (was #454545) |
+| `--border` | #3c3c3c | every 1 px line, including menus |
 | `--hover` | #2a2d2e | row and message hover (VS Code list hover) |
 | `--select` | #37373d | the selected row, button hover, highlighted popup row |
 | `--active` | #04395e | menu item under the pointer, picked item in a list |
@@ -138,7 +137,7 @@ nearest token, and the three reds and four blues become one role each.
 | `--warn` | #5a4a14 | banners, notes to read |
 | `--mention` | #5865f2 | @mentions (Discord's blurple) |
 | `--flash` | rgba(250,200,60,.25) | a message or block you were sent to, search highlights |
-| `--tag-purple` `-gold` `-blue` `-teal` `-green` `-orange` `-red` `-pink` `-grey` | #8a3ffc #9c7a32 #2f6fd0 #1f8a7a #3d8b37 #c0601a #b8323f #c2407f #5f6670 | admin tags (the "op" badge): each admin picks one; purple by default, gold for the owner. `--tag-gold-text` #f2e3bf is gold's text. Were `--admin` and `--owner` |
+| `--tag-purple` `-gold` `-blue` `-teal` `-green` `-orange` `-red` `-pink` `-grey` | #8a3ffc #9c7a32 #2f6fd0 #1f8a7a #3d8b37 #c0601a #b8323f #c2407f #5f6670 | admin tags (the "op" badge): each admin picks one; purple by default, gold for the owner. `--tag-gold-text` #f2e3bf is gold's text |
 | `--border-hi` | #585858 | hovered edges, tree guides, reply and forward bars |
 | `--danger-fill-hi` | #be2f12 | red button hover |
 | `--logo-text` | #c6d2dd | the logo's MACROTECH lettering |
@@ -151,9 +150,9 @@ nearest token, and the three reds and four blues become one role each.
 | `--scrim` / `--scrim-soft` | rgba(0,0,0,.86) / .65 | behind the viewer / behind dialogs |
 | `--pill` | rgba(30,31,34,.92) | the viewer's tool pills |
 
-- **Added in the conformance pass:** the rows after the admin tags. The guide's set had no
-  token for these roles, so they got one instead of merging into a colour that would change
-  the look. `--shadow-near` and `--shadow-float` (5) are in `:root` too.
+- **The rows after the admin tags** are roles of their own (the logo, mentions, media, scrims),
+  kept apart rather than merged into a near colour that would change the look.
+  `--shadow-near`, `--shadow-float` (5) and `--motion` (5, Motion) are in `:root` too.
 
 - **Lighter shades:** white overlays with a set of alphas, for "a shade lighter than what's
   behind it" (Discord's hover style in chat).
@@ -174,7 +173,6 @@ nearest token, and the three reds and four blues become one role each.
   - **Everything else is grey,** including New post and Upload: buttons that are always
     there.
   - **Destructive confirms** (Delete, Ban, Discard) are **red** (`--danger-fill`), never blue.
-    Today the Delete in "Delete this message?" is blue.
   - **A switch that's on is blue**: that's state, not a call to action, and
     Discord, Windows and Apple all draw it that way.
   - **Settings dialogs that apply at once** have no confirm, so no blue button. Admin's
@@ -190,8 +188,8 @@ Red means "this destroys something" or "this went wrong", and nothing else.
 - **Hover:** danger icons (trash).
 - **Text:** a voice setting moved off its default in a way that makes you sound worse to
   others (Gain: Manual, a high Microphone gain or Voice activation threshold), with a line
-  saying why, as Simple Voice Chat marks the same settings in game (Paul, 2026-10-20). It
-  warns that something goes wrong for the people hearing you.
+  saying why, as Simple Voice Chat marks the same settings in game. It warns that something
+  goes wrong for the people hearing you.
 - **The NEW line:** Discord draws it red, but by the rule above that
   would make it read as an error. So it's drawn in `--mention` blurple instead. It's still
   unmistakable, and it keeps red's meaning.
@@ -215,7 +213,6 @@ Red means "this destroys something" or "this went wrong", and nothing else.
   - **Scale:** 11 · 12 · 13 · 14 · 15 · 16 · 22.
   - **Small labels:** section heads and times are 11 to 12 px, section heads in uppercase with
     letter-spacing (FILES, TEXT, MESSAGES · 3).
-  - Drops the one-off 12.5 and 13.5 px sizes.
 - **Weights:**
   - 400 for text.
   - 600 for section heads, names, bar titles.
@@ -239,20 +236,22 @@ Red means "this destroys something" or "this went wrong", and nothing else.
   - **4 px:** controls (buttons, inputs, chips, small icons).
   - **6 px:** surfaces (cards, menus, dialogs, popups, dropdowns, tiles).
   - **8 px:** the big rounded Discord pieces (composer, viewer tool pills, toast).
-  - Today it's 3, 4, 5, 6 and 8 px for the same roles.
+  - **Round things** are fully round (a switch, the Jump to present pill, dots); highlights on
+    text and the status card's thin bars are 2–3 px.
   - **Exception:** the tree's inline rename box stays square (VS Code).
 - **Shadows, two:**
   - `--shadow-near`: the message hover toolbar.
   - `--shadow-float`: menus, popups, dropdowns, toasts, dialogs.
-  - Today there are six.
 - **Layers, bottom to top:**
   - panel content;
   - hover toolbars (1);
   - resize handles (2–3);
   - dialogs (10);
-  - menus, popups and dropdowns (50);
+  - a stream watched on a phone, full screen (30);
+  - menus, popups and dropdowns (50; the composer's autocomplete 60);
   - the viewer (100);
-  - **toasts (110)**, so a toast shows over the viewer. Today toasts sit at 60, under it.
+  - the offline line under the top bar (105, 6.7);
+  - **toasts (110)**, so a toast shows over the viewer.
 - **Motion:**
   - **Only to show what changed.** Something moves only to show where a thing came from or
     went while you look: a part of the page opening or closing, a switch flipping. Nothing
@@ -278,7 +277,7 @@ Red means "this destroys something" or "this went wrong", and nothing else.
     clicked.
   - **Nothing moves under the pointer** (principle 5) still holds, with one exception: a
     centred dialog grows both ways, so its contents move by half the change, the control just
-    used included. That is the price of keeping dialogs centred (2026-10-20). The chat keeps its
+    used included. That is the price of keeping dialogs centred. The chat keeps its
     place while a bar opens under the messages: at the bottom, it stays at the bottom.
   - **Reduced motion** (`prefers-reduced-motion`) turns every animation off; every change is
     instant and the page works the same.
@@ -305,8 +304,7 @@ Red means "this destroys something" or "this went wrong", and nothing else.
 - **Icons:**
   - One stroke icon set, the SVGs in `chat.ts` `ICON` and the sidebar heads.
   - Material icons only in the file tree and file rows (VS Code).
-  - **No text glyphs as icons in new UI** (the schematic form's ◀ ▶ ✕ and the chat panel's
-    » « are today's exceptions).
+  - **No text glyphs as icons:** ◀ ▶ ✕ » « are drawn as icons (`GLYPH` in util.ts).
 - **Every icon-only button has a tooltip,** and the tooltip names the shortcut if there is one:
   "Save (Ctrl+S)", "Close (Esc)".
 
@@ -315,7 +313,7 @@ Red means "this destroys something" or "this went wrong", and nothing else.
 - **One text input style:**
   - `--bg` fill, 1 px `--border`, 4 px radius, `4px 8px`.
   - **Focus:** 1 px `--focus` outline plus border.
-  - All search boxes use it: top bar, folder bar, board (today there are three looks).
+  - All search boxes use it: top bar, folder bar, board, emoji picker.
 - **Exceptions, each from its source app:**
   - **The chat composer** (Discord): roomy, 8 px radius, lighter fill, no focus ring.
   - **The tree's inline rename** (VS Code): square, `--focus` border.
@@ -341,8 +339,7 @@ Red means "this destroys something" or "this went wrong", and nothing else.
   the first turns it into "Ban? Click again" (red fill) and the menu stays open; a second
   click within 3 s acts (`MenuItem` extras in util.ts).
 - **A choice** (the folder view's sort): the item in use has a tick on the right (`checked`).
-- **Keyboard:** ↑/↓ move, Enter picks (VS Code and Discord both do this). Today menus
-  are mouse only; it's added in the conformance pass.
+- **Keyboard:** ↑/↓ move, Home/End, Enter picks (VS Code and Discord both do this).
 
 ### 6.4 Popups (pickers, autocomplete, dropdowns)
 
@@ -371,14 +368,11 @@ autocomplete, the emoji picker, the member picker for private chats and DMs.
 - **Opening:** focus goes to the first input, or to the confirm button when there's nothing to
   type.
 - **Closing:** **Esc closes every dialog except login.** A click on the overlay does
-  nothing, so typed input isn't lost by a stray click. Today dialogs ignore Esc.
+  nothing, so typed input isn't lost by a stray click.
 - **No browser dialogs:** no `confirm()`, `alert()` or `prompt()`. They don't follow the theme
-  or these rules (nine `confirm()` calls are left today).
+  or these rules.
 
 ### 6.6 Confirming and destroying
-
-Today there are five ways: browser `confirm()`, a dialog with a checkbox, a custom "ask"
-dialog, click-twice in Admin, and Shift+click. The rule:
 
 - **One way:** a themed dialog whose title is the question ("Delete #builds?"), with a body
   saying what's lost and what stays, and a red confirm button named for the action ("Delete",
@@ -422,6 +416,8 @@ dialog, click-twice in Admin, and Shift+click. The rule:
   - Toasts never ask anything; a question is a dialog.
 - **Banner:** a `--warn` strip under a file's bar, for "this file changed under you". It stays
   while it's true.
+- **The offline line:** a `--warn` strip under the top bar, "Can’t reach the hub. Trying
+  again…", while the hub can't be reached; toasts move down below it.
 
 ### 6.8 Settings dialogs
 
@@ -637,8 +633,8 @@ separate dialogs.
     newest message, with no name or time, and a line under it: an eye, "Only you can see
     this · **Dismiss**" (Dismiss in `--link`), as Discord does. It's never stored: Dismiss,
     leaving the chat or reloading removes it. In the side chat it starts at the left edge.
-- **The server link** (`internal/server/link.go`): the chat `#text-link` (`#server-link`
-  until 2026-10-13; old links follow) is always there on a hub with a game server: no Rename
+- **The server link** (`internal/server/link.go`): the chat `#text-link` (once `#server-link`;
+  old links follow) is always there on a hub with a game server: no Rename
   or Delete in its menu, and the hub refuses both. It is
   shared with game chat on our servers. A line a player starts with `$ ` in game shows here,
   and everything said here shows in game, in aqua, as `[SMP] name: text` (`[CMP]`, `[HUB]`).
@@ -671,7 +667,7 @@ separate dialogs.
   switch, a Volume slider (cubic like the system's; letting go plays it; **70% by default**,
   each sound's chosen level, so people can turn it up; a small tick above the slider marks
   it) and **Test**.
-  Today: Message sound and Voice chat sounds. New sounds get a section here. Voice Settings
+  The sounds: Message sound and Voice chat sounds. New sounds get a section here. Voice Settings
   keeps the microphone and the output (Speaker, Output volume 0–200% squared, a tick at 100%).
 - **Right-clicking someone in a voice chat** (Discord's conventions): Join or
   Leave (and Invite People… for a private one's starter), then **Message**; in your own
@@ -733,7 +729,9 @@ separate dialogs.
   tile with a play mark, and a player under the single-item bar, with ←/→ to the next file.
   No full window: there is nothing to show.
 - **Areas without history:** `large/`, `screenshots/`, `map art/` (and files posted in chat).
-  - Uploading to them, or deleting from them, says that nothing can be brought back.
+  - A file there has no versions to go back to. Uploading over one asks first ("Replace x?"),
+    and its old copy, like anything moved to Trash from there, stays in Trash for 30 days
+    (6.6).
   - They can't be renamed or deleted themselves.
 - **Schematic posts are edited in place**: Edit keeps the post's page and layout.
   The title, credit and description become boxes whose text sits where the text was; each
@@ -816,21 +814,18 @@ separate dialogs.
 - **Case:**
   - **Title Case** for menu items only ("Copy Link", "Open in Side Panel"), which is what
     both apps do.
-  - **Sentence case** everywhere else: buttons, tooltips, dialog titles, headings.
-  - So the chat hover tooltips become "Add reaction" and "Copy text". Today they copy the menu
-    items' Title Case.
+  - **Sentence case** everywhere else: buttons, tooltips, dialog titles, headings. So the chat
+    hover tooltips read "Add reaction" and "Copy text", where the menu says "Add Reaction…".
 - **"…" (one character, U+2026):**
   - Ends a menu item or button that needs more from you before it acts: a name box, a picker,
     a form (New File…, Rename…, Upload…, Forward…, Add Reaction…).
-  - **Not** on items that only ask "are you sure": Delete has none (today the chat menu's
-    Delete… does).
+  - **Not** on items that only ask "are you sure": Delete has none.
 - **Punctuation:**
   - Typographic apostrophes (’) and quotes (“ ”).
   - Full stops on sentences, not on labels or one-word toasts ("Saved", "Copied").
 - **Errors:** "Couldn’t <do it>." plus the reason if known: "Couldn’t send it: the chat was
   deleted." Never just "Failed", never a raw server string in lower case.
-- **Irreversible:** one phrase: "This can’t be undone." Today there are four ("has no history",
-  "can’t be brought back", "gone for good", "can’t be undone").
+- **Irreversible:** one phrase, in a dialog's body: "This can’t be undone."
 
 ---
 
@@ -842,7 +837,7 @@ at home in apps like this:
   (`--focus`).
 - **Contrast:** text at least 4.5:1 against its background (the muted greys pass on the panels;
   check new ones).
-- **Targets:** at least 22 px for icon buttons (they are today); 32 px on phones.
+- **Targets:** at least 22 px for icon buttons; 32 px on phones.
 - **Motion:** `prefers-reduced-motion` turns every animation off (5, Motion).
 - **Tooltips:** every icon button has one; images have `alt` (emoji keep the character).
 
@@ -850,7 +845,7 @@ at home in apps like this:
 
 ## 13. Browsers and verification
 
-- **Supported browsers:** Firefox (the maintainer's: forced WebRender, NVIDIA) and Chromium-based
+- **Supported browsers:** Firefox (on GPU rendering, where some bugs show only there) and Chromium-based
   browsers, desktop; phones for chat. Nothing older than a year.
 - **Every change gets a test that fails on the old code** (`make browser-test`, Chromium).
 - **Styling changes also run `make firefox-check`:**
