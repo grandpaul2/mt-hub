@@ -6,8 +6,8 @@ Started from VOICE's "+" (New Voice Chat, New Private Voice Chat…); no
 permanent rooms. VOICE is always in the sidebar, empty while there's no voice chat. A
 voice chat is shown as its people in join order and ends when the last one leaves. A private
 one is seen only by the people invited, not even admins. At most 3 at once. The design is
-[`voice/rooms-design.md`](voice/rooms-design.md), with the research and the voice lab's
-results beside it.
+[`voice/rooms-design.md`](voice/rooms-design.md); the microphone chain is
+[`voice/svc-mic.md`](voice/svc-mic.md).
 
 **#voice-link** is the one exception ([`voice/svc/hub-link-spec.md`](voice/svc/hub-link-spec.md)):
 a voice chat with a name, always listed first, that never ends and is not one of the 3. It is
@@ -27,10 +27,13 @@ there, and never treats them as accounts.
   and left; every 20 seconds the hub also asks LiveKit, in case one went missing.
 - **`<data>/voice.json`** holds LiveKit's addresses, key and secret (the same as in LiveKit's
   own config). Without it voice chats are off; edits take effect without a restart.
-- **In the page** (`voice.ts`): mic with the browser's automatic gain on (Automatic level) and
-  no other browser processing (Firefox's echo cancelling chops up voices on headphones) → level → DeepFilterNet3 (or RNNoise, or off) → 150 ms hold-back →
-  the Silero speech gate (`vad.worker.ts`) → LiveKit. Settings are per browser.
-- **Tests:** `TestVoice` (rules, privacy, webhooks, restart) and the `voice` browser suite,
+- **In the page** (`voice.ts`): the game's microphone chain ([`voice/svc-mic.md`](voice/svc-mic.md)):
+  the raw microphone → `svcmic.ts` in an audio worklet (Simple Voice Chat's RNNoise, gain and
+  activation, then the keyboard noise gate, from `svc-mic.wasm`, built in `native/svc-mic/`)
+  → LiveKit. Voice Settings are Simple Voice Chat's, per browser.
+- **Tests:** `test/unit/svcmic/` (the chain against Simple Voice Chat's natives and the game's
+  gate, in Node, by `make check`), `TestVoice` (rules, privacy, webhooks, restart) and the
+  `voice` browser suite,
   which runs a local LiveKit (`fetched/livekit-server`, downloaded on first run; see
   [`testing.md`](testing.md)) with two
   people in two browser profiles. `FAKE_AUDIO=<speech.wav>` also checks the speaking light.
@@ -96,14 +99,3 @@ how.
   **Turn sound on** button.
 - **Tests:** `TestRelay` (a stub relay) and the `relay` browser suite (a local MediaMTX, ffmpeg
   as the streamer, a stream with B-frames, a phone).
-
-## The voice lab
-
-`voicelab.ts` + `voicelab.html` are the voice lab at `/voice-lab/`, a test page that records
-the microphone through several noise filters at once to choose one for voice rooms by ear. Its
-filter files are served by the hub. DeepFilterNet3's two files (a wasm build and the model)
-are not on npm, so `build.mjs` downloads them once, on the first build, from
-`cdn.mezon.ai` (the model is identical to the one in the upstream
-[DeepFilterNet](https://github.com/Rikorose/DeepFilterNet) repository) into `fetched/dfn3/`
-(not in git), and checks them against pinned SHA-256 hashes. The download gives up after two
-minutes and says which file and host it was waiting for.

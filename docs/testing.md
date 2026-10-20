@@ -2,7 +2,7 @@
 
 ## Go tests
 
-    make check                              # type check, go vet, go test ./...
+    make check                              # type check, unit tests (test/unit/), go vet, go test ./...
     go test ./internal/server -run TestVoice   # one Go test (or a few, by name pattern)
 
 `make check` builds the page first, because the Go code embeds it.
@@ -36,10 +36,9 @@ Needs:
 - The `relay` suite runs a MediaMTX server, downloaded the same way into `fetched/mediamtx`
   (Linux x86-64), and `ffmpeg` from the PATH (with libx264 and libopus) as the streamer.
 
-The browser has a fake microphone (beeps). `FAKE_AUDIO=<file.wav> node test/browser/run.mjs
-voice-lab` records that file instead: speech mixed with noise shows the filters and the speech
-gate doing their job in the screenshot. `FAKE_AUDIO=<speech.wav>` with `voice` also checks the
-speaking light.
+The browser has a fake microphone (beeps once a second; the voice suite uses them to check the
+microphone chain in the page). `FAKE_AUDIO=<speech.wav>` with `voice` uses that file instead and
+also checks the speaking light.
 
 ## Firefox check
 

@@ -1562,6 +1562,8 @@ h3.md-h { font-size: 15px; }
 #dialog .set-control input[type=range] { width: 160px; margin: 0; padding: 0; border: 0; background: none; }
 #dialog .set-control button:not(.switch):not(.icon-btn):not(.tag-well) { min-width: 64px; white-space: nowrap; }
 #dialog .readout { width: 52px; text-align: right; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* A voice setting off its default in a way that makes you sound worse (voice.ts; style guide 3.3). */
+#dialog .set-title.off-default, #dialog .readout.off-default, #dialog .set-warn { color: var(--danger); }
 /* An on/off switch: off grey, on blue (blue like Discord's). */
 #dialog .switch { position: relative; flex: none; width: 36px; height: 20px; padding: 0; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; cursor: pointer; }
 #dialog .switch .knob { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--muted); transition: left .12s; }

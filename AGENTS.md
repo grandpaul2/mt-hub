@@ -29,7 +29,7 @@ with npm (current release; Node 20.11 or newer), and for the browser tests `chro
 PATH (`CHROMIUM=google-chrome` uses another browser).
 
     make                                  # npm ci, bundle the page, build bin/mthub
-    make check                            # tsc, go vet, go test ./...   (first run is slower)
+    make check                            # tsc, unit tests, go vet, go test ./...   (first run is slower)
     make browser-test                     # the page in headless Chromium, about 30 s
     node test/browser/run.mjs tree chats  # just those suites
     go test ./internal/server -run TestVoice   # one Go test
@@ -37,9 +37,7 @@ PATH (`CHROMIUM=google-chrome` uses another browser).
 
 - **Success:** `make check` ends with `ok` lines and no error; `make browser-test` ends with
   `N/N suites passed`.
-- **The first build needs network.** `build.mjs` downloads two DeepFilterNet3 model files from
-  `cdn.mezon.ai` into `fetched/` (about 25 MB, checked against pinned SHA-256 hashes; it gives
-  up after two minutes and names the file). The `voice` and `stream` suites download a LiveKit
+- **Network for some tests.** The `voice` and `stream` suites download a LiveKit
   server from github.com on their first run; they work on Linux x86-64 only and need `curl`,
   `tar` and `sha256sum`. The `relay` suite downloads a MediaMTX server the same way and needs
   `ffmpeg` (with libx264 and libopus) on the PATH. Elsewhere, name the other suites on the
@@ -82,7 +80,8 @@ PATH (`CHROMIUM=google-chrome` uses another browser).
   `internal/preview`: link previews. `internal/imgs`: image helpers.
 - `web/src/*.ts`: the page, bundled by `build.mjs` into `web/dist` (generated, not tracked).
   `main.ts` files, `chat.ts` chats, `folder.ts` folder view, `viewer.ts` single item,
-  `schems.ts` schematic posts, `commands.ts` `/` commands, `voice.ts`, `stream.ts`,
+  `schems.ts` schematic posts, `commands.ts` `/` commands, `voice.ts` (and `svcmic.ts`, the
+  microphone chain, with its native part in `native/svc-mic/`), `stream.ts`,
   `admin.ts`, `util.ts` shared helpers, `style.css` all styles.
 - `test/browser/`: one suite per area; `lib.mjs` has the helpers and the seed data.
   `test/firefox/`: the real-screen check (maintainer only).

@@ -17,12 +17,13 @@ Contributors and their agents start with [`../AGENTS.md`](../AGENTS.md).
 | [`admin.md`](admin.md) | reference | Accounts, the Admin page, game-server tokens, release cards, private chats and DMs. |
 | [`chat-and-files.md`](chat-and-files.md) | reference | How chat, pictures, the folder view and the Schematic Manager behave. |
 | [`storage.md`](storage.md) | reference | How files and chats are stored on disk, and the limits. |
-| [`voice-and-streams.md`](voice-and-streams.md) | reference | How voice chats, screen sharing and relay streams run, and the voice lab. |
+| [`voice-and-streams.md`](voice-and-streams.md) | reference | How voice chats, screen sharing and relay streams run. |
 | [`api.md`](api.md) | reference | The HTTP API. |
 | [`testing.md`](testing.md) | reference | Go tests, browser tests, the Firefox check. |
 | [`style-guide.md`](style-guide.md) | current spec | How the hub looks and behaves. Agreed by the maintainers; it wins over the code. |
 | [`hub-backlog.md`](hub-backlog.md) | current spec | Ideas not built yet (the **Later** list) and the stocktake they came from. |
 | [`voice/rooms-design.md`](voice/rooms-design.md) | current spec | Voice chats as built. |
+| [`voice/svc-mic.md`](voice/svc-mic.md) | current spec | The microphone chain: the game's (Simple Voice Chat and the keyboard noise gate), in the hub. |
 | [`stream/screen-share-spec.md`](stream/screen-share-spec.md) | current spec | Screen sharing as built. |
 | [`stream/relay-streams-spec.md`](stream/relay-streams-spec.md) | current spec | Relay streams (sent with OBS, also shown on screens in the game) watched in the hub. |
 | [`voice/svc/link-spec.md`](voice/svc/link-spec.md) | current spec | Voice Link: a Simple Voice Chat room shared between game servers. |
@@ -33,7 +34,7 @@ Contributors and their agents start with [`../AGENTS.md`](../AGENTS.md).
 
 | Doc | What it is |
 |-----|------------|
-| [`voice/README.md`](voice/README.md) | The voice design as built, the voice lab's results, and the superseded first proposal. |
+| [`voice/README.md`](voice/README.md) | The voice design, the earlier chain's voice lab results, and the superseded first proposal. |
 | [`voice/noise-suppression.md`](voice/noise-suppression.md) | Noise models that run in the browser. |
 | [`voice/audio-chain.md`](voice/audio-chain.md) | Voice detection, echo cancellation, gain and Opus settings. |
 | [`voice/transport.md`](voice/transport.md) | The media server, TURN and where media runs. |
