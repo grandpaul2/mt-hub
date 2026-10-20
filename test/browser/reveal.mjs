@@ -106,4 +106,20 @@ await settle(400);
 run = await frames(`document.querySelector('.row[data-path="map art"]').click()`, filters);
 check('opening another folder puts them away at once, not slid', [between(run, 0, fW), run.at(-1)], [false, 0]);
 
+// ---- The chat panel: the main panel makes room frame by frame, the contents ride in at their
+// open width (no rewrap), and the » button stays where it was clicked ----
+const panel = `(() => { const r = (id) => document.getElementById(id).getBoundingClientRect(), b = r('chat-hide');
+  return [r('chat').width, Math.round(b.left), Math.round(b.top), r('main').width, document.querySelector('#chat .messages')?.clientWidth ?? 0, document.body.classList.contains('chat-sliding')]; })()`;
+const hide = `document.getElementById('chat-hide').click()`;
+run = await frames(hide, panel, 400, true);
+let w = run.map((f) => f[0]), sliding = run.filter((f) => f[5]);
+const openW = w.at(-1);
+check('» opens the chat panel by sliding: its width passes between the strip and open, the main panel gives way all along',
+  [Math.round(w[0]), between(w, 36, openW), openW > 200, oneWay(w, true), oneWay(run.map((f) => f[3]), false), await left()], [36, true, true, true, true, 0]);
+check('while it slides the button stays put and the chat keeps its open width (nothing rewraps)',
+  [sliding.length > 3, new Set(sliding.map((f) => f[1] + ',' + f[2])).size, new Set(sliding.map((f) => f[4])).size, sliding[0]?.[4] > 0], [true, 1, 1, true]);
+run = await frames(hide, panel, 400, true);
+w = run.map((f) => f[0]);
+check('« shuts it the same way: ends as the strip', [between(w, 36, openW), oneWay(w, false), Math.round(w.at(-1)), await ev(`document.body.classList.contains('chat-hidden')`)], [true, true, 36, true]);
+
 await done();

@@ -7,7 +7,7 @@ import '@fontsource-variable/jetbrains-mono/wght.css';
 import './style.css';
 import {
   cleanHTML,
-  $, GLYPH, ago, glyphs, ask, baseName, dateTime, bytes, closeDialog, closeMenu, copyText, dialog, dirName, enc, fileURL, go, h, inMenuAnchor, json, load, loadBundle, MenuItem, req,
+  $, GLYPH, MOTION, ago, glyphs, ask, baseName, dateTime, bytes, closeDialog, closeMenu, copyText, dialog, dirName, enc, fileURL, go, h, inMenuAnchor, json, load, loadBundle, MenuItem, req,
   dragData, openDialog, setAccounts, showMenu, store, toast, toastError, toastUndo, typing, unreachable, user, Live,
 } from './util';
 import { openSchems, schemPost, setupSchems } from './schems';
@@ -1777,20 +1777,66 @@ const narrow = () => window.innerWidth > 700 && window.innerWidth <= 900;
 function setupChatPanel() {
   let hidden = load('mt-chat-hidden') === '1'; // your choice
   let openedNarrow = false;
+  const body = document.body, btn = $('chat-hide');
+  const flip = (shut: boolean) => {
+    btn.innerHTML = shut ? GLYPH.panelOpen : GLYPH.panelClose;
+    btn.title = shut ? 'Show the chat panel' : 'Hide the chat panel';
+  };
+  // A click slides the panel open or shut (style guide 5, Motion): the page's grid moves its
+  // last column, so the main panel makes room frame by frame, while the panel's contents keep
+  // their open width and ride with its edge; the button stays where it was clicked.
+  let slide: { anim: Animation; open: boolean } | null = null;
+  const endSlide = () => {
+    slide = null;
+    body.classList.remove('chat-sliding');
+    body.style.removeProperty('--chat-open');
+    body.style.removeProperty('--chat-btn');
+    btn.style.removeProperty('left');
+    btn.style.removeProperty('top');
+  };
   const apply = () => {
+    if (slide) {
+      slide.anim.cancel();
+      endSlide();
+    }
     const shut = hidden || (narrow() && !openedNarrow);
-    document.body.classList.toggle('chat-hidden', shut);
-    $('chat-hide').innerHTML = shut ? GLYPH.panelOpen : GLYPH.panelClose;
-    $('chat-hide').title = shut ? 'Show the chat panel' : 'Hide the chat panel';
+    body.classList.toggle('chat-hidden', shut);
+    flip(shut);
     layoutChanged();
   };
   apply();
-  $('chat-hide').onclick = () => {
-    const shut = document.body.classList.contains('chat-hidden');
+  const slideTo = (open: boolean) => {
+    const at = btn.getBoundingClientRect();
+    body.classList.remove('chat-hidden'); // drawn open throughout; shut again at the end
+    const [side, , w] = getComputedStyle(body).gridTemplateColumns.split(' ');
+    body.style.setProperty('--chat-open', w);
+    body.style.setProperty('--chat-btn', `${at.width}px`);
+    btn.style.left = `${at.left}px`;
+    btn.style.top = `${at.top}px`;
+    body.classList.add('chat-sliding');
+    flip(!open);
+    const ends = [`${side} 1fr 36px`, `${side} 1fr ${w}`];
+    const anim = body.animate({ gridTemplateColumns: open ? ends : ends.reverse() }, { duration: MOTION, easing: 'ease-out', fill: 'forwards' });
+    slide = { anim, open };
+    anim.onfinish = () => {
+      if (slide?.anim !== anim) return;
+      endSlide();
+      apply(); // (its classes take over from the held last frame)
+      anim.cancel();
+    };
+  };
+  btn.onclick = () => {
+    const shut = slide ? !slide.open : body.classList.contains('chat-hidden');
     hidden = !shut;
     openedNarrow = shut && narrow();
     store('mt-chat-hidden', hidden ? '1' : '');
-    apply();
+    if (slide) {
+      // Turned round midway: back from where it is.
+      slide.open = shut;
+      slide.anim.reverse();
+      flip(!shut);
+    } else if (matchMedia('(prefers-reduced-motion: reduce)').matches) apply();
+    else slideTo(shut);
   };
 
   // Both side panels resize by dragging their inner edge; the main panel keeps at least

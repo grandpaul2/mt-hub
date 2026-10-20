@@ -416,6 +416,13 @@ body:has(#offline:not([hidden])) #toast { top: 70px; }
 body.chat-hidden { grid-template-columns: var(--side-w, 260px) 1fr 36px; }
 body.chat-hidden #chat-select, body.chat-hidden #chat-body, body.chat-hidden #chat-resize { display: none; }
 body.chat-hidden #chat .chat-head { justify-content: flex-end; padding: 4px; }
+/* Sliding open or shut (main.ts setupChatPanel; style guide 5, Motion): the contents keep their
+   open width and ride with the panel's left edge, cut off on the right; the button stays where
+   it was clicked. */
+body.chat-sliding #chat > * { width: var(--chat-open); }
+body.chat-sliding #chat-resize { display: none; }
+body.chat-sliding #chat-hide { position: fixed; z-index: 3; }
+body.chat-sliding #chat .chat-head { padding-right: calc(8px + 6px + var(--chat-btn)); } /* (its place in the row, kept) */
 #chat-resize {
   position: absolute;
   left: 0;
