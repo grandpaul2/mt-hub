@@ -1,11 +1,13 @@
 # Hub voice chats: design and research
 
-**Status:** the built design is first on this page and in [`rooms-design.md`](rooms-design.md).
-The research reports in this folder are records of how it was chosen; the original proposal,
-which the lab results overturned in one place (echo cancellation), is kept at the end, marked
-superseded.
+**Status:** the microphone chain as built is [`svc-mic.md`](svc-mic.md) (since 2026-10-20: the
+game's own chain, Simple Voice Chat's and the keyboard noise gate's). The server and rooms are
+as built in [`rooms-design.md`](rooms-design.md). Everything else on this page and in the
+research reports is a record of how the earlier chain was chosen; the original proposal, which
+the lab overturned in one place (echo cancellation), is kept at the end, marked superseded.
 
-- [`rooms-design.md`](rooms-design.md): the design as built (current spec).
+- [`svc-mic.md`](svc-mic.md): the microphone chain as built (current).
+- [`rooms-design.md`](rooms-design.md): the server and rooms as built (current spec).
 - `noise-suppression.md`: noise models that run in the browser (research record).
 - `audio-chain.md`: voice detection, echo cancellation, gain and Opus settings (research
   record).
@@ -21,40 +23,24 @@ superseded.
 - **Media:** goes directly over UDP.
 - **Login:** the hub checks your session and gives the browser a short-lived LiveKit token.
 
-**The sending chain, in order:**
-1. **Microphone:** mono at 48 kHz, with the browser's **automatic gain on** (a switch,
-   Automatic level; see the 2026-10-13 finding below) and its echo cancellation and noise
-   suppression off by default (see the echo finding below).
-2. **Gain.** A mic level setting on top, for a microphone that is still quiet.
-3. **DeepFilterNet3**, with RNNoise as the fallback (lighter; used when the CPU can't keep up).
-4. **Silero speech gate**, holding back about 100 to 200 ms (the delay budget is about 150 ms
-   mouth to ear).
-5. **Opus:** mono, with FEC and DTX, published to LiveKit.
+**The sending chain:** the game's, in [`svc-mic.md`](svc-mic.md): raw microphone, RNNoise,
+Speex's automatic gain, Simple Voice Chat's activation and tail, the keyboard noise gate, Opus.
+Its file (`svc-mic.wasm`, about 2 MB) loads only when someone first uses voice, from the hub.
 
-The filters load only when someone first joins voice. The files are served by the hub itself.
+## The earlier chain and the voice lab (record)
 
-## The voice lab
+From 2026-10-03 to 2026-10-20 the hub had a chain of its own, chosen by ear in a voice lab
+page (`/voice-lab/`, removed with it; its code is in the history): the browser's automatic gain,
+a Mic level, DeepFilterNet3 (RNNoise as a fallback), a Silero gate with 150 ms hold-back and a
+sensitivity slider, Opus capped at 32 kbit/s. Hub members came out quieter, more heavily gated
+and less clear than the same people in game, so it was replaced by the game's own chain. The
+findings below are kept for what they found about browsers.
 
-**Where:** `/voice-lab/` on the hub, behind login. Source: `web/src/voicelab.ts`. It is a test
-page that was used to choose the chain above by ear, and it stays as a tool.
+**The lab, as it was:** every filter ran live on one audio graph during a single recording
+(raw, the browser's own suppression, RNNoise, GTCRN, DeepFilterNet3); playback lined the
+tracks up at the same loudness, with off, a volume gate or a simulated Silero gate.
 
-**Recording:**
-- Every filter runs live on one audio graph during a single recording: raw (echo cancelling
-  only), the browser's own noise suppression (a second capture of the mic), RNNoise, GTCRN and
-  DeepFilterNet3.
-- The recorder notes whenever the audio thread falls behind, so recording with the game in
-  front tests the background-tab risk.
-- If the browser can't give the second capture its own setting, the Browser track is dropped
-  and the page says so, rather than tainting every track.
-
-**Playback:**
-- Tracks are lined up and set to the same speech loudness.
-- Keys 1 to 5 switch track without losing your place.
-- Gate choices are off, a volume gate, or a Silero v6 speech gate. The speech gate's timing is
-  simulated honestly: 2 frames to open, 200 ms of buffered audio so the first word survives,
-  500 ms hold. A sensitivity slider adjusts it.
-
-**Numbers it reports:** the delay each filter adds, plus CPU cost from an offline run of each
+**Numbers it reported:** the delay each filter adds, plus CPU cost from an offline run of each
 filter.
 
 **First results** (Chromium, synthetic speech plus typing):

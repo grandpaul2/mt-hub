@@ -7,25 +7,22 @@
 // a time; the bar at the bottom of the sidebar has mute, deafen, settings and leave.
 //
 // The hub keeps the list and hands out tokens (internal/server/voice.go); the audio goes
-// through LiveKit on the relay VPS. Your microphone goes through the chain chosen in the voice
-// lab, all in this page:
-//   mic (the browser's automatic gain on, so a quiet microphone reaches the filter and the
-//   gate at a level they work at; its echo cancelling and noise suppression off: Firefox's
-//   echo cancelling chops up voices on headphones)
-//   -> level (quiet mics) -> DeepFilterNet3 or RNNoise -> 150 ms hold-back -> speech gate
+// through LiveKit on the relay VPS. Your microphone goes through the game's own chain, in this
+// page, so you sound the same here as in game (docs/voice/svc-mic.md):
+//   mic (the browser's processing all off: raw, as Simple Voice Chat reads a microphone)
+//   -> Simple Voice Chat's RNNoise, gain and activation, then MT Utils' keyboard gate
+//      (svcmic.ts, in the svc-mic worklet)
 //   -> LiveKit (Opus mono, with FEC and DTX).
-// The gate opens on speech only (Silero, in vad.worker.ts): typing alone never opens it. The
-// hold-back lets the gate open before the first word reaches others.
+// Voice Settings are Simple Voice Chat's, with its defaults, and say so in red when a change
+// would make you sound worse to others.
 import type * as LK from 'livekit-client';
-import { RnnoiseWorkletNode, loadRnnoise } from '@sapphi-red/web-noise-suppressor';
-import { DeepFilterNet3Core } from 'deepfilternet3-noise-filter';
+import { DEFAULT_SETTINGS, type MicSettings } from './svcmic';
 import { $, group, h, isAdmin, load, loadBundle, readout, req, row, settingsDialog, showMenu, store, toast, toastError, toggle, user, volumeCurve, type MenuItem, type Live } from './util';
 import { ICON } from './viewer';
 import { ICON as CHAT_ICON, memberPicker, messageUser } from './chat';
 
-const BASE = '/voice/'; // the filter files (build.mjs)
+const BASE = '/voice/'; // the microphone chain's files (build.mjs)
 const RATE = 48000;
-const HOLD_BACK = 0.15; // seconds; see docs/voice/README.md on the delay budget
 
 // (show and via: a player in game, in #voice-link: their Minecraft name and server tag; name is
 // then the bridge's identity for them, which is also who their sound comes from.)
@@ -34,7 +31,8 @@ type Person = { name: string; since: string; show?: string; via?: string; game?:
 // (link: #voice-link, always there; linked: the bridge to the game servers is in it.)
 // (lock: #voice-link only, and only yours: you are locked in, see "the lock" below.)
 type VoiceChat = { id: string; private?: boolean; starter: string; invited?: string[]; people: Person[]; link?: boolean; linked?: boolean; lock?: boolean };
-type Settings = { mic: string; level: number; speaker: string; outVol: number; filter: 'dfn3' | 'rnnoise' | 'off'; sensitivity: number; echo: boolean; gain: boolean; sfx: boolean; sfxVol: number };
+// (pttKey: KeyboardEvent.code, '' for none yet.) The rest of the microphone's are MicSettings.
+type Settings = MicSettings & { mic: string; speaker: string; outVol: number; sfx: boolean; sfxVol: number; pttKey: string };
 
 let info: { enabled: boolean; url: string; max: number; full: boolean; chats: VoiceChat[] } = { enabled: false, url: '', max: 3, full: false, chats: [] };
 let cur: { id: string; room: LK.Room; chain: Chain; track: LK.LocalAudioTrack } | null = null;
@@ -44,18 +42,42 @@ let muted = false;
 let deafened = false;
 const audioBox = h('div', { hidden: true }); // remote voices' <audio> elements (not Web Audio, so echo cancelling can hear them)
 
-const defaults: Settings = { mic: '', level: 0, speaker: '', outVol: 100, filter: 'dfn3', sensitivity: 50, echo: false, gain: true, sfx: true, sfxVol: 70 };
+const defaults: Settings = { ...DEFAULT_SETTINGS, mic: '', speaker: '', outVol: 100, sfx: true, sfxVol: 70, pttKey: '' };
 let settings: Settings = { ...defaults, ...JSON.parse(load('mt-voice') ?? '{}') };
 const saveSettings = () => store('mt-voice', JSON.stringify(settings));
-// Mic level went back to +0 dB once, for everyone, when Automatic level arrived: a boost set
-// for a quiet microphone before it would now be added on top of the browser's own.
-if (load('mt-voice-level-reset') !== '1') {
-  settings.level = 0;
+// When the game's chain arrived, the old filter, gate, level and echo settings went, and
+// everyone's microphone settings started again at the defaults; devices and volumes stayed.
+if (load('mt-voice-svc') !== '1') {
+  const { mic, speaker, outVol, sfx, sfxVol } = settings;
+  settings = { ...defaults, mic, speaker, outVol, sfx, sfxVol };
   saveSettings();
-  store('mt-voice-level-reset', '1');
+  store('mt-voice-svc', '1');
 }
-// Sensitivity 0..100 is the speech gate's threshold 0.9..0.1 (higher: opens more easily).
-const threshold = () => 0.9 - settings.sensitivity * 0.008;
+const micSettings = (): MicSettings => {
+  const { agc, gainDb, denoise, ptt, vad, thresholdDb, keyboardGate } = settings;
+  return { agc, gainDb, denoise, ptt, vad, thresholdDb, keyboardGate };
+};
+
+// Every microphone chain running (a voice chat's, a mic test's) hears about settings and states.
+const chains = new Set<Chain>();
+const tell = (m: { settings?: MicSettings; muted?: boolean; pttDown?: boolean; testing?: boolean }) => {
+  for (const c of chains) c.node.port.postMessage(m);
+};
+
+// Push to Talk: the key, while the hub's page has the keyboard (a browser sees no keys while
+// you're in another window).
+let pttDown = false;
+const setPtt = (down: boolean) => {
+  if (pttDown === down) return;
+  pttDown = down;
+  tell({ pttDown });
+};
+const pttKey = (e: KeyboardEvent, down: boolean) => {
+  if (settings.ptt && settings.pttKey && e.code === settings.pttKey && !e.repeat) setPtt(down);
+};
+document.addEventListener('keydown', (e) => pttKey(e, true), true);
+document.addEventListener('keyup', (e) => pttKey(e, false), true);
+window.addEventListener('blur', () => setPtt(false));
 
 // The speaker chosen in Voice Settings, for the voices, their boost, the voice chat sounds
 // and the mic test. Browsers without setSinkId (Safari; Firefox for Web Audio) play them on
@@ -386,7 +408,8 @@ async function connect(id: string, url: string, token: string) {
   try {
     await room.connect(url, token);
     const track = new LocalAudioTrack(chain.out, undefined, true);
-    await room.localParticipant.publishTrack(track, { source: Track.Source.Microphone, dtx: true, red: true, forceStereo: false, audioPreset: { maxBitrate: 32000 } });
+    // 51 kbit/s: what Opus picks by itself for 20 ms mono at 48 kHz, as in Simple Voice Chat.
+    await room.localParticipant.publishTrack(track, { source: Track.Source.Microphone, dtx: true, red: true, forceStereo: false, audioPreset: { maxBitrate: 51000 } });
     cur = { id, room, chain, track };
     joinedAt = Date.now();
     setTimeout(renderBar, BLOCKED_AFTER + 100);
@@ -684,6 +707,7 @@ let mutedBeforeDeafen = false;
 async function setMuted(m: boolean, quiet = false) {
   if (!quiet && m !== muted) sfx(m ? 'mute' : 'unmute');
   muted = m;
+  tell({ muted });
   if (!m && deafened) {
     deafened = false;
     applyAll();
@@ -771,57 +795,31 @@ export const voiceSounds = {
 
 // ---- the microphone chain -------------------------------------------------------------
 
-type Chain = { mic: MediaStreamTrack; out: MediaStreamTrack; ctx: AudioContext; level: GainNode; meter: (fn: ((peak: number) => void) | null) => void; stop: () => void };
+type Chain = { mic: MediaStreamTrack; out: MediaStreamTrack; ctx: AudioContext; node: AudioWorkletNode; meter: (fn: ((peak: number) => void) | null) => void; stop: () => void };
 
-// The filters' files load once, on first use.
-let filesLoaded: Promise<{ rnnoise: ArrayBuffer; dfn: DeepFilterNet3Core }> | null = null;
-const loadFiles = () => (filesLoaded ??= (async () => {
-  const dfn = new DeepFilterNet3Core({ sampleRate: RATE, noiseReductionLevel: 100, assetConfig: { cdnUrl: BASE + 'dfn3' } });
-  const [rnnoise] = await Promise.all([loadRnnoise({ url: BASE + 'rnnoise.wasm', simdUrl: BASE + 'rnnoise_simd.wasm' }), dfn.initialize()]);
-  return { rnnoise, dfn };
+// The chain's wasm (svc-mic.wasm: RNNoise, Speex, Silero) loads once, on first use.
+let wasmLoaded: Promise<ArrayBuffer> | null = null;
+const loadWasm = () => (wasmLoaded ??= (async () => {
+  const r = await fetch(BASE + 'svc-mic.wasm');
+  if (!r.ok) throw new Error(`svc-mic.wasm: HTTP ${r.status}`);
+  return r.arrayBuffer();
 })().catch((e) => {
-  filesLoaded = null;
+  wasmLoaded = null;
   throw e;
 }));
 
-// The gate's worklet: passes nothing on; downsamples to 16 kHz in 512-sample frames for the
-// worker (over the port it's given), and reports the level for the settings meter.
-const GATE_WORKLET = `
-class VoiceTap extends AudioWorkletProcessor {
-  constructor() {
-    super();
-    this.frame = new Float32Array(512); this.n = 0; this.acc = 0; this.k = 0; this.peak = 0; this.t = 0;
-    this.port.onmessage = (e) => { this.out = e.data; };
-  }
-  process(inputs) {
-    const x = inputs[0] && inputs[0][0];
-    if (!x) return true;
-    for (let i = 0; i < x.length; i++) {
-      this.peak = Math.max(this.peak, Math.abs(x[i]));
-      this.acc += x[i];
-      if (++this.k === 3) {
-        this.frame[this.n++] = this.acc / 3; this.acc = 0; this.k = 0;
-        if (this.n === 512) { if (this.out) this.out.postMessage(this.frame.slice()); this.n = 0; }
-      }
-    }
-    if (currentTime - this.t > 0.05) { this.port.postMessage(this.peak); this.peak = 0; this.t = currentTime; }
-    return true;
-  }
-}
-registerProcessor('voice-tap', VoiceTap);
-`;
-
+// Raw, as Simple Voice Chat reads a microphone: the browser's own processing is all off.
 const micConstraints = () => ({
-  audio: { ...(settings.mic ? { deviceId: { exact: settings.mic } } : {}), channelCount: 1, echoCancellation: settings.echo, noiseSuppression: false, autoGainControl: settings.gain },
+  audio: { ...(settings.mic ? { deviceId: { exact: settings.mic } } : {}), channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false },
 });
 
-// buildChain is the microphone's way out: level, noise filter, speech gate. For #voice-link
-// (forLink) it runs on the held microphone when there is one (the lock), unless fresh (new
-// settings), and one it asks for while you are locked becomes the held one. Any other voice
-// chat, and the Mic test, get a microphone of their own. Stopping it lets a held microphone
-// go quiet (disabled) instead of ending it.
+// buildChain is the microphone's way out: the game's chain in a worklet (svcmic.worklet.ts).
+// For #voice-link (forLink) it runs on the held microphone when there is one (the lock),
+// unless fresh (a new microphone), and one it asks for while you are locked becomes the held
+// one. Any other voice chat, and the Mic test, get a microphone of their own. Stopping it lets
+// a held microphone go quiet (disabled) instead of ending it.
 async function buildChain(fresh = false, forLink = false): Promise<Chain> {
-  const files = await loadFiles();
+  const wasm = await loadWasm();
   let track: MediaStreamTrack;
   if (forLink && !fresh && held?.readyState === 'live') {
     track = held;
@@ -837,78 +835,52 @@ async function buildChain(fresh = false, forLink = false): Promise<Chain> {
   const mic = new MediaStream([track]);
   const ctx = new AudioContext({ sampleRate: RATE, latencyHint: 'interactive' });
   ctx.onstatechange = () => renderBar();
+  let chain: Chain | undefined;
   const stopAll = () => {
+    if (chain) chains.delete(chain);
     if (track === held) {
       track.enabled = false;
       heldInUse = false;
     } else track.stop();
-    worker?.terminate();
     void ctx.close();
   };
-  let worker: Worker | undefined;
   try {
-    await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([GATE_WORKLET], { type: 'text/javascript' })));
+    await ctx.audioWorklet.addModule(BASE + 'svc-mic.worklet.js');
     const src = ctx.createMediaStreamSource(mic);
-    const level = ctx.createGain();
-    level.gain.value = 10 ** (settings.level / 20);
-    src.connect(level);
-    let filtered: AudioNode = level;
-    if (settings.filter === 'dfn3') {
-      filtered = await files.dfn.createAudioWorkletNode(ctx);
-      level.connect(filtered);
-    } else if (settings.filter === 'rnnoise') {
-      await ctx.audioWorklet.addModule(BASE + 'rnnoise-worklet.js');
-      filtered = new RnnoiseWorkletNode(ctx, { maxChannels: 1, wasmBinary: files.rnnoise });
-      level.connect(filtered);
-    }
-    const hold = ctx.createDelay(1);
-    hold.delayTime.value = HOLD_BACK;
-    const gate = ctx.createGain();
-    gate.gain.value = 0;
+    const node = new AudioWorkletNode(ctx, 'svc-mic', {
+      numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], channelCount: 1, channelCountMode: 'explicit',
+      processorOptions: { wasm, settings: micSettings() },
+    });
+    node.onprocessorerror = () => toastError('Your microphone stopped in the hub. Reload the page to get it back.');
+    node.port.postMessage({ muted, pttDown });
     // One channel from the start. (Made with two and set to one afterwards, its track now and
     // then still said two when it was published, and the voice went out as stereo Opus: seen
     // once in 38 runs of a lab that checks every packet.)
     const out = new MediaStreamAudioDestinationNode(ctx, { channelCount: 1 });
-    filtered.connect(hold).connect(gate).connect(out);
-
-    const tap = new AudioWorkletNode(ctx, 'voice-tap', { numberOfOutputs: 0 });
-    filtered.connect(tap);
-    worker = new Worker(BASE + 'vad.worker.js');
-    const ch = new MessageChannel();
-    tap.port.postMessage(ch.port1, [ch.port1]);
+    src.connect(node).connect(out);
+    const outTrack = out.stream.getAudioTracks()[0];
+    outTrack.contentHint = 'speech';
     let onLevel: ((peak: number) => void) | null = null;
-    tap.port.onmessage = (e) => onLevel?.(e.data as number);
-    await new Promise<void>((ok, fail) => {
-      worker!.onmessage = (e) => {
-        if (e.data.type === 'ready') ok();
-        else if (e.data.type === 'gate') gate.gain.setTargetAtTime(e.data.open ? 1 : 0, ctx.currentTime, e.data.open ? 0.005 : 0.03);
-        else if (e.data.type === 'error') console.error('speech gate:', e.data.message);
-      };
-      worker!.onerror = (e) => fail(new Error(`the speech gate didn't start (${e.message})`));
-      worker!.postMessage({ type: 'init', base: new URL(BASE, location.href).href, port: ch.port2 }, [ch.port2]);
-    });
-    worker.postMessage({ type: 'threshold', value: threshold() });
-    const w = worker;
-    gateWorker = w;
-    return {
-      mic: track,
-      out: out.stream.getAudioTracks()[0],
-      ctx,
-      level,
-      meter: (fn) => (onLevel = fn),
-      stop: () => {
-        if (gateWorker === w) gateWorker = null;
-        stopAll();
-      },
+    // (The level is also left where the browser tests read it: what the chain lets out.)
+    node.port.onmessage = (e) => {
+      (window as unknown as { __micPeak: number }).__micPeak = e.data as number;
+      onLevel?.(e.data as number);
     };
+    chain = { mic: track, out: outTrack, ctx, node, meter: (fn) => (onLevel = fn), stop: stopAll };
+    chains.add(chain);
+    return chain;
   } catch (e) {
     stopAll();
     throw e;
   }
 }
-let gateWorker: Worker | null = null;
 
 // ---- settings ---------------------------------------------------------------------------
+
+// A setting moved off its default in a way that makes you sound worse to others is shown in red
+// with a line saying why, as Simple Voice Chat does (Paul; style guide 3.3).
+const GAIN_WARN = 10; // dB of Microphone Gain
+const THRESHOLD_WARN = -10; // dB of Voice Activation Threshold
 
 export async function openSettings() {
   // Before the page may use a microphone, browsers list devices without ids or names (and
@@ -925,6 +897,8 @@ export async function openSettings() {
   }
   const pick = (kind: MediaDeviceKind, chosen: string, unnamed: string) => h('select', {}, h('option', { value: '' }, 'Default'),
     ...all.filter((d) => d.kind === kind).map((d) => h('option', { value: d.deviceId, selected: d.deviceId === chosen }, d.label.trim() || unnamed)));
+  const choice = <T extends string>(now: T, opts: [T, string][]) =>
+    h('select', {}, ...opts.map(([v, l]) => h('option', { value: v, selected: v === now }, l))) as HTMLSelectElement;
   const mic = pick('audioinput', settings.mic, 'Microphone');
   const speaker = pick('audiooutput', settings.speaker, 'Speaker');
   speaker.onchange = () => {
@@ -946,41 +920,118 @@ export async function openSettings() {
   };
   const outTick = h('span', { class: 'tick', title: 'Default (100%)' });
   outTick.style.setProperty('--at', '.5');
-  const level = h('input', { type: 'range', min: '0', max: '24', step: '1', value: String(settings.level) });
-  const levelVal = readout();
   const meter = h('div', { class: 'voice-meter' }, h('div', {}));
-  const filter = h('select', {},
-    ...([['dfn3', 'DeepFilterNet3'], ['rnnoise', 'RNNoise'], ['off', 'Off']] as const)
-      .map(([v, l]) => h('option', { value: v, selected: settings.filter === v }, l)));
-  const sens = h('input', { type: 'range', min: '0', max: '100', step: '5', value: String(settings.sensitivity) });
-  const sensVal = readout();
-  const showSens = () => (sensVal.textContent = `${sens.value}%`);
-  showSens();
-  const echo = toggle(settings.echo, 'Echo cancelling', (on) => {
-    settings.echo = on;
-    void rebuild();
-  });
-  const gain = toggle(settings.gain, 'Automatic level', (on) => {
-    settings.gain = on;
-    void rebuild();
-  });
-  const show = () => (levelVal.textContent = `+${level.value} dB`);
-  show();
-  level.oninput = () => {
-    settings.level = Number(level.value);
+
+  // The microphone's settings apply at once, to every chain running.
+  const changed = () => {
+    saveSettings();
+    tell({ settings: micSettings() });
     show();
-    const c = cur?.chain ?? test?.chain;
-    if (c) c.level.gain.value = 10 ** (settings.level / 20);
-    saveSettings();
   };
-  sens.oninput = () => {
-    settings.sensitivity = Number(sens.value);
-    showSens();
-    gateWorker?.postMessage({ type: 'threshold', value: threshold() });
-    saveSettings();
+  const gain = choice(settings.agc ? 'auto' : 'manual', [['auto', 'Auto'], ['manual', 'Manual']]);
+  gain.onchange = () => {
+    settings.agc = gain.value === 'auto';
+    changed();
   };
-  // Mic test: hear yourself as the others would, after the level, the filter and the gate
-  // (in a voice chat: your live microphone; otherwise one built just for the test).
+  const gainDb = h('input', { type: 'range', min: '-40', max: '24', step: '1', value: String(settings.gainDb) });
+  gainDb.setAttribute('aria-label', 'Microphone gain');
+  const gainVal = readout();
+  gainDb.oninput = () => {
+    settings.gainDb = Number(gainDb.value);
+    changed();
+  };
+  const denoise = toggle(settings.denoise, 'Noise suppression', (on) => {
+    settings.denoise = on;
+    changed();
+  });
+  const method = choice(settings.ptt ? 'ptt' : 'voice', [['voice', 'Voice'], ['ptt', 'Push to Talk']]);
+  // A new Activation method starts the chain afresh, as Simple Voice Chat makes a new
+  // microphone processor for it (no tail carried over, the gain from its start).
+  method.onchange = () => {
+    settings.ptt = method.value === 'ptt';
+    setPtt(false);
+    changed();
+    void rebuild();
+    if (settings.ptt && !settings.pttKey) listenForKey();
+  };
+  const keyBtn = h('button', { type: 'button' }) as HTMLButtonElement;
+  let listening = false;
+  const keyName = (code: string) => code.replace(/^Key|^Digit/, '').replace(/^Arrow/, '') || code;
+  const listenForKey = () => {
+    listening = true;
+    keyBtn.textContent = 'Press a key…';
+    keyBtn.focus();
+  };
+  keyBtn.onclick = () => listenForKey();
+  keyBtn.onkeydown = (e) => {
+    if (!listening) return;
+    e.preventDefault();
+    e.stopPropagation();
+    listening = false;
+    if (e.code !== 'Escape') settings.pttKey = e.code;
+    changed();
+  };
+  keyBtn.onblur = () => {
+    if (!listening) return;
+    listening = false;
+    show();
+  };
+  const vad = choice(settings.vad ? 'auto' : 'manual', [['auto', 'Auto'], ['manual', 'Manual']]);
+  vad.onchange = () => {
+    settings.vad = vad.value === 'auto';
+    changed();
+  };
+  const threshold = h('input', { type: 'range', min: '-127', max: '0', step: '1', value: String(settings.thresholdDb) });
+  threshold.setAttribute('aria-label', 'Voice activation threshold');
+  const thresholdVal = readout();
+  threshold.oninput = () => {
+    settings.thresholdDb = Number(threshold.value);
+    changed();
+  };
+  const keyboardGate = toggle(settings.keyboardGate, 'Keyboard noise gate', (on) => {
+    settings.keyboardGate = on;
+    changed();
+  });
+
+  const gainRow = row('Gain', null, [gain]);
+  const gainDbRow = row('Microphone gain', null, [gainDb, gainVal]);
+  const keyRow = row('Push to Talk key', 'Only while the hub is in front.', [keyBtn]);
+  const vadRow = row('Voice activation', null, [vad]);
+  const thresholdRow = row('Voice activation threshold', null, [threshold, thresholdVal]);
+  const gateRow = row('Keyboard noise gate', 'Keeps typing and mouse clicks from opening your microphone. Others hear you 60 ms later.', [keyboardGate]);
+  // warn marks a row's title red and puts the reason under it (or takes both away).
+  const warn = (r: HTMLElement, why: string | null) => {
+    r.querySelector('.set-title')!.classList.toggle('off-default', !!why);
+    let sub = r.querySelector<HTMLElement>('.set-warn');
+    if (!why) return sub?.remove();
+    if (!sub) {
+      sub = h('div', { class: 'set-sub set-warn' });
+      r.querySelector('.set-text')!.append(sub);
+    }
+    sub.textContent = why;
+  };
+  const show = () => {
+    const s = settings;
+    warn(gainRow, s.agc ? null : 'Leave this on Auto so everyone hears you at a steady level.');
+    gainDbRow.hidden = s.agc;
+    gainVal.textContent = `${s.gainDb > 0 ? '+' : ''}${s.gainDb} dB`;
+    gainVal.classList.toggle('off-default', s.gainDb > GAIN_WARN);
+    warn(gainDbRow, s.gainDb > GAIN_WARN ? `More than +${GAIN_WARN} dB can distort your voice.` : null);
+    keyRow.hidden = !s.ptt;
+    if (!listening) keyBtn.textContent = s.pttKey ? keyName(s.pttKey) : 'Set a key';
+    vadRow.hidden = s.ptt;
+    thresholdRow.hidden = s.ptt || s.vad;
+    thresholdVal.textContent = `${s.thresholdDb} dB`;
+    thresholdVal.classList.toggle('off-default', s.thresholdDb >= THRESHOLD_WARN);
+    warn(thresholdRow, s.thresholdDb >= 0 ? 'At 0 dB your microphone never opens.' : null);
+    thresholdRow.querySelector('.set-title')!.classList.toggle('off-default', s.thresholdDb >= THRESHOLD_WARN);
+    gateRow.hidden = s.ptt;
+  };
+  show();
+
+  // Mic test: hear yourself as the others would, after the whole chain (in a voice chat: your
+  // live microphone; otherwise one built just for the test). Push to Talk sends without the key
+  // while it runs, as in the game.
   let test: { chain: Chain; own: boolean; el: HTMLAudioElement } | null = null;
   const testBtn = h('button', { type: 'button', class: 'mic-test' }, 'Test');
   const stopTest = () => {
@@ -989,6 +1040,7 @@ export async function openSettings() {
     test.el.srcObject = null;
     if (test.own) test.chain.stop();
     else test.chain.meter(null);
+    test.chain.node.port.postMessage({ testing: false });
     test = null;
     testBtn.textContent = 'Test';
     (meter.firstElementChild as HTMLElement).style.width = '0';
@@ -998,6 +1050,7 @@ export async function openSettings() {
     try {
       const own = !cur;
       const chain = cur ? cur.chain : await buildChain();
+      chain.node.port.postMessage({ testing: true });
       const el = new Audio();
       toSpeaker(el);
       el.srcObject = new MediaStream([chain.out]);
@@ -1012,7 +1065,7 @@ export async function openSettings() {
     }
   };
   testBtn.onclick = () => (test ? stopTest() : void startTest());
-  // A new microphone, filter, echo or automatic level setting needs the chain built again.
+  // A new microphone, or Activation method, needs the chain built again.
   const rebuild = async () => {
     saveSettings();
     // Stepped back for the game, locked: hold a microphone on the new settings (the dialog is
@@ -1032,6 +1085,7 @@ export async function openSettings() {
       chain.meter(setMeter);
       if (test) {
         test.chain = chain;
+        chain.node.port.postMessage({ testing: true });
         test.el.srcObject = new MediaStream([chain.out]);
         void test.el.play();
       }
@@ -1043,25 +1097,24 @@ export async function openSettings() {
     settings.mic = mic.value;
     void rebuild();
   };
-  filter.onchange = () => {
-    settings.filter = filter.value as Settings['filter'];
-    void rebuild();
-  };
   const setMeter = (peak: number) => ((meter.firstElementChild as HTMLElement).style.width = `${Math.min(100, Math.sqrt(peak) * 100)}%`);
   cur?.chain.meter(setMeter);
   settingsDialog('Voice settings', [
     group('Input',
       row('Microphone', null, [mic]),
-      row('Automatic level', 'Your browser keeps your voice at an even level, so a quiet microphone is heard.', [gain]),
-      row('Mic level', 'Extra, on top. Raise it if others still say you’re quiet.', [level, levelVal]),
+      gainRow,
+      gainDbRow,
+      row('Noise suppression', null, [denoise]),
       row('Mic test', 'Hear yourself as others will. Use headphones.', [testBtn], meter)),
+    group('Activation',
+      row('Activation method', null, [method]),
+      keyRow,
+      vadRow,
+      thresholdRow,
+      gateRow),
     group('Output',
       ...(canPickSpeaker ? [row('Speaker', null, [speaker])] : []),
       row('Output volume', 'Everyone’s voices. Each person’s own volume is in their right-click menu.', [h('div', { class: 'slider' }, outVol, outTick), outVal])),
-    group('Processing',
-      row('Noise filter', 'DeepFilterNet3 is best; RNNoise is lighter, for slow computers.', [filter]),
-      row('Voice gate sensitivity', 'The gate opens only when you speak, so typing alone isn’t heard. Turn it up if your first words get cut off.', [sens, sensVal]),
-      row('Echo cancelling', 'Only on speakers. On headphones it chops up your voice.', [echo])),
   ], () => {
     stopTest();
     cur?.chain.meter(null);

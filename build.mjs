@@ -2,7 +2,6 @@
 // `node build.mjs --watch` rebuilds on change (refresh the page; no Go restart needed with -dev).
 import * as esbuild from 'esbuild';
 import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { createHash } from 'node:crypto';
 
 const watch = process.argv.includes('--watch');
 const out = 'web/dist';
@@ -70,52 +69,12 @@ cpSync(twemoji, `${out}/emoji`, { recursive: true, filter: (f) => !f.endsWith('.
   writeFileSync(`${out}/emoji/data.json`, JSON.stringify(rows));
 }
 
-// Voice: the noise filters and speech gate for voice chats (voice.ts) and the voice lab
-// (/voice-lab/, the test page they were chosen on), in voice/. Served by the hub itself, never
-// from someone else's server; a page fetches them only when it starts voice.
-//   - RNNoise and GTCRN: worklets and wasm from @sapphi-red/web-noise-suppressor (MIT).
-//   - DeepFilterNet3 (MIT/Apache): the wrapper's wasm build and the upstream model aren't on
-//     npm, so they're downloaded once into fetched/ (not in git) and checked against these hashes.
-//   - Silero VAD v6 (MIT) through onnxruntime-web (MIT), for the speech gate.
-{
-  mkdirSync(`${out}/voice-lab`, { recursive: true });
-  copyFileSync('web/src/voicelab.html', `${out}/voice-lab/index.html`);
-  const lab = `${out}/voice`;
-  mkdirSync(lab, { recursive: true });
-  const wns = 'node_modules/@sapphi-red/web-noise-suppressor/dist';
-  for (const f of ['rnnoise.wasm', 'rnnoise_simd.wasm', 'gtcrn.wasm']) copyFileSync(`${wns}/${f}`, `${lab}/${f}`);
-  copyFileSync(`${wns}/rnnoise/workletProcessor.js`, `${lab}/rnnoise-worklet.js`);
-  copyFileSync(`${wns}/gtcrn/workletProcessor.js`, `${lab}/gtcrn-worklet.js`);
-  copyFileSync('node_modules/@ricky0123/vad-web/dist/silero_vad_v6.onnx', `${lab}/silero_vad_v6.onnx`);
-  for (const f of ['ort-wasm-simd-threaded.wasm', 'ort-wasm-simd-threaded.mjs']) copyFileSync(`node_modules/onnxruntime-web/dist/${f}`, `${lab}/${f}`);
-  const cdn = 'https://cdn.mezon.ai/AI/models/datas/noise_suppression/deepfilternet3';
-  const dfn = [
-    ['v3/pkg/df_bg.wasm', '440b5d12b6ea7d95008736f844221d7874ee15de5cb10d3015002470fdba0432'],
-    // Identical to github.com/Rikorose/DeepFilterNet models/DeepFilterNet3_onnx.tar.gz.
-    ['v3/models/DeepFilterNet3_onnx.tar.gz', 'c94d91f70911001c946e0fabb4aa9adc37045f45a03b56008cb0c8244cb63616'],
-  ];
-  for (const [path, sum] of dfn) {
-    const local = `fetched/dfn3/${path}`;
-    if (!existsSync(local)) {
-      const url = `${cdn}/${path}`;
-      console.log(`downloading ${path} from ${new URL(url).host} (needed once; saved in fetched/)`);
-      let body;
-      try {
-        const r = await fetch(url, { signal: AbortSignal.timeout(120000) });
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        body = Buffer.from(await r.arrayBuffer());
-      } catch (e) {
-        throw new Error(`could not download ${path} from ${new URL(url).host} (${e.cause?.code ?? e.message}; a download gives up after 120 s): check the network, or put the file at ${local} yourself (it is checked against a pinned SHA-256)`);
-      }
-      mkdirSync(local.slice(0, local.lastIndexOf('/')), { recursive: true });
-      writeFileSync(local, body);
-    }
-    const got = createHash('sha256').update(readFileSync(local)).digest('hex');
-    if (got !== sum) throw new Error(`${local}: sha256 ${got}, expected ${sum} (delete it to fetch again)`);
-    mkdirSync(`${lab}/dfn3/${path.slice(0, path.lastIndexOf('/'))}`, { recursive: true });
-    copyFileSync(local, `${lab}/dfn3/${path}`);
-  }
-}
+// Voice: the microphone chain for voice chats (voice.ts, svcmic.ts), in voice/: svc-mic.wasm
+// (RNNoise, SpeexDSP and Silero, built by native/svc-mic/build.sh and committed) and the audio
+// worklet that runs it. Served by the hub itself; a page fetches them only when it starts voice.
+mkdirSync(`${out}/voice`, { recursive: true });
+copyFileSync('web/src/svc-mic.wasm', `${out}/voice/svc-mic.wasm`);
+cpSync('native/svc-mic/licenses', `${out}/voice/licenses`, { recursive: true });
 
 const common = {
   bundle: true,
@@ -129,7 +88,7 @@ const common = {
 const builds = [
   // The editor and LiveKit are their own files, loaded on first use (monaco.ts, livekit.ts).
   { ...common, entryPoints: { app: 'web/src/main.ts', monaco: 'web/src/monaco.ts', livekit: 'web/src/livekit.ts' } },
-  { ...common, entryPoints: { 'voice-lab/lab': 'web/src/voicelab.ts', 'voice/vad.worker': 'web/src/vad.worker.ts' } },
+  { ...common, entryPoints: { 'voice/svc-mic.worklet': 'web/src/svcmic.worklet.ts' } },
   {
     ...common,
     entryPoints: {

@@ -32,9 +32,6 @@ for a test hub so it does not touch a real one. For page work, run `npm run watc
   it needs.
 - **Node.js with npm**: a current release (the scripts use `import.meta.dirname`, so Node 20.11
   or newer; the hub is developed on Node 26). `make` runs `npm ci` for the packages.
-- **Network on the first build.** `build.mjs` downloads two DeepFilterNet3 model files from
-  `cdn.mezon.ai` into `fetched/` (not in git) and checks them against pinned SHA-256 hashes.
-  The download gives up after two minutes and names the file and host.
 - **For the browser tests:** `chromium` on the PATH, and for the `voice` and `stream` suites a
   Linux x86-64 machine with `curl`, `tar` and `sha256sum` (they download a LiveKit server).
   The `relay` suite needs the same and `ffmpeg` (with libx264 and libopus) on the PATH; it

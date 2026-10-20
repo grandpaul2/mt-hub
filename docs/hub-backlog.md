@@ -11,10 +11,6 @@ Any of these is fair game, and so is something not listed.
 
 ### Voice
 
-- **Firefox and DeepFilterNet3: a quarter second late.** In Firefox the audio thread stalls
-  once as that filter starts (about 280 ms) and the voice then runs about 260 ms behind for the
-  session: 5 of 5 measured runs with the filter, none without it, none in Chromium. The sound
-  is not harmed. Found 2026-10-13 (`voice/README.md`, the automatic gain finding).
 - **voice-link hardening left out of the 2026-10-14 fixes** (found by a review, judged too
   unlikely to be worth it now): repairing participants' `mc` attribute in the 20 s check; the
   bridge capping a game server's roster and accepting a player's audio only from that player's
@@ -77,9 +73,6 @@ chat and voice. The style guide records the decision.
 - **Voice:**
   - A TURN relay on 443 for players on networks that block UDP and port 7881. It clashes with
     a reverse proxy on the same port, so it is left out until someone cannot connect.
-  - Auto levelling for quiet microphones.
-  - A fallback to RNNoise when DeepFilterNet3 overloads the CPU.
-  - The voice lab's DeepFilterNet3 drawing quirk.
   - A wireless headset that garbles the first sound after a silence while it wakes up. A quiet
     lead-in and a constant hum did not fix it reliably. It is the headset, not the hub; only
     worth chasing if others hear it too.

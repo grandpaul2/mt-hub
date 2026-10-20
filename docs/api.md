@@ -85,7 +85,6 @@ instead of a login) are marked.
 | GET | `/api/streams` | also `relay`: `[{name, started, viewers}]`, the live relay streams, and `relayDelay` (ms the page holds them back); `relayOn`: relay streams are set up |
 | POST | `/api/relay/<name>/watch` | `{sdp}` (a WebRTC offer): passed to the stream relay with the hub's account; returns `{id, sdp}` (the answer). 404 when that person isn't streaming |
 | DELETE | `/api/relay/sessions/<id>` | ends your own watching session on the relay |
-| POST | `/api/voice-lab/log` | a line from the voice lab test page, appended to `voice-lab.jsonl` (size-limited) |
 | GET | `/api/events` | SSE: `message`, `edit` (also reactions and pins: the whole message), `delete`, `channel`, `files`, `users`, `voice`, `stream` |
 
 Every call except `/api/login` and the signed LiveKit webhook answers 401 without a session

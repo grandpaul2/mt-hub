@@ -188,6 +188,10 @@ Red means "this destroys something" or "this went wrong", and nothing else.
   click.
 - **Text:** destructive menu items (Ban, Delete in Admin's "⋯").
 - **Hover:** danger icons (trash).
+- **Text:** a voice setting moved off its default in a way that makes you sound worse to
+  others (Gain: Manual, a high Microphone gain or Voice activation threshold), with a line
+  saying why, as Simple Voice Chat marks the same settings in game (Paul, 2026-10-20). It
+  warns that something goes wrong for the people hearing you.
 - **The NEW line:** Discord draws it red, but by the rule above that
   would make it read as an error. So it's drawn in `--mention` blurple instead. It's still
   unmistakable, and it keeps red's meaning.

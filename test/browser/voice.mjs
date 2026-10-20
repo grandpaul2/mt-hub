@@ -72,21 +72,24 @@ await alex.send('Page.navigate', { url: HUB });
 await until('both pages', async () => (await ev(`!!document.getElementById('channels').children.length`)) && (await alex.ev(`!!document.getElementById('channels').children.length`)));
 await settle(500);
 
-// Mic level went back to +0 dB once, for everyone, after Automatic level arrived (a boost set
-// before it would be added on top). A level chosen after that is kept.
+// When the game's microphone chain arrived, the old filter, gate, level and echo settings went
+// and the microphone's settings started again at Simple Voice Chat's defaults, once; devices
+// and volumes stayed. A setting chosen after that is kept.
 const reload = async (q) => { await send('Page.navigate', { url: `${HUB}/?${q}` }); await until('the page again', () => ev(`!!document.getElementById('channels')?.children.length`)); };
-const saved = () => ev(`[JSON.parse(localStorage.getItem('mt-voice') ?? '{}').level, localStorage.getItem('mt-voice-level-reset')]`);
-await ev(`localStorage.setItem('mt-voice', JSON.stringify({ level: 12 })); localStorage.removeItem('mt-voice-level-reset')`);
-await reload('old-level');
-check('a mic level from before is back at +0 dB, once', await saved(), [0, '1']);
-await ev(`localStorage.setItem('mt-voice', JSON.stringify({ level: 6 }))`);
-await reload('new-level');
-check('a mic level chosen since is kept', await saved(), [6, '1']);
+const saved = () => ev(`(() => { const s = JSON.parse(localStorage.getItem('mt-voice') ?? '{}'); return [s.level, s.filter, s.echo, s.outVol, s.agc, s.keyboardGate, localStorage.getItem('mt-voice-svc')]; })()`);
+await ev(`localStorage.setItem('mt-voice', JSON.stringify({ level: 12, filter: 'off', echo: true, gain: false, outVol: 150 })); localStorage.removeItem('mt-voice-svc')`);
+await reload('old-settings');
+check('old settings gone, volumes kept, the rest at the defaults, once', await saved(), [undefined, undefined, undefined, 150, true, true, '1']);
+await ev(`localStorage.setItem('mt-voice', JSON.stringify({ agc: false }))`);
+await reload('new-settings');
+check('a setting chosen since is kept', (await saved())[4], false);
 await ev(`localStorage.removeItem('mt-voice')`);
 await reload('clean');
 await settle(500);
 
-// Voice Settings from the menu on your name, before joining: Mic test plays you back.
+// Voice Settings from the menu on your name, before joining: Mic test plays you back. (The
+// page's microphones are watched from here on: what each was asked for.)
+await ev(`(() => { window.mics = []; const gum = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices); navigator.mediaDevices.getUserMedia = async (c) => { window.mics.push(c?.audio); return gum(c); }; })()`);
 const testBtn = (evaluate) => evaluate(`document.querySelector('#dialog .mic-test')?.textContent`);
 await ev(`document.getElementById('user').click()`);
 await settle(150);
@@ -96,31 +99,46 @@ check('Mic test button', await testBtn(ev), 'Test');
 await ev(`document.querySelector('#dialog .mic-test').click()`);
 await until('test running', async () => (await testBtn(ev)) === 'Stop test', 20000);
 check('Mic test runs (Test turns to Stop test, still grey)', [await testBtn(ev), await ev(`document.querySelector('#dialog .mic-test').classList.contains('danger')`)], ['Stop test', false]);
+const asked = await ev(`window.mics.at(-1)`);
+check('the microphone is asked for raw, as the game reads it', [asked?.echoCancellation, asked?.noiseSuppression, asked?.autoGainControl, asked?.channelCount], [false, false, false, 1]);
 await ev(`document.querySelector('#dialog .mic-test').click()`);
 check('Stop test stops it', await testBtn(ev), 'Test');
-await ev(`document.querySelector('#dialog .mic-test').click()`);
-await until('test running again', async () => (await testBtn(ev)) === 'Stop test', 20000);
-// Echo cancelling is a switch, saved as it flips.
-const ECHO = `document.querySelector('#dialog .switch[aria-label="Echo cancelling"]')`;
-const GAIN = `document.querySelector('#dialog .switch[aria-label="Automatic level"]')`;
-await ev(`${ECHO}.click()`);
-await settle(200);
-check('echo switch on, saved', [await ev(`${ECHO}.getAttribute('aria-checked')`), await ev(`JSON.parse(localStorage.getItem('mt-voice')).echo`)], ['true', true]);
-await ev(`${ECHO}.click()`);
-await settle(200);
-check('and off again', await ev(`JSON.parse(localStorage.getItem('mt-voice')).echo`), false);
-// (Each switch restarts the mic test; the next one waits for it, or it would find no test to restart.)
-await until('the test running after the echo switch', async () => (await testBtn(ev)) === 'Stop test', 20000);
-// Automatic level: on unless switched off, and it is what the microphone is asked for. (The
-// page's microphones are watched from here on: what each was asked for and what it reports.)
-await ev(`(() => { window.mics = []; const gum = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices); navigator.mediaDevices.getUserMedia = async (c) => { const s = await gum(c); window.mics.push({ asked: c?.audio?.autoGainControl, reports: s.getAudioTracks()[0]?.getSettings().autoGainControl }); return s; }; })()`);
-check('automatic level is on by default', [await ev(`${GAIN}.getAttribute('aria-checked')`), await ev(`JSON.parse(localStorage.getItem('mt-voice')).gain`)], ['true', true]);
-await ev(`${GAIN}.click()`);
-await until('the microphone opened again without it', async () => (await ev(`window.mics.length >= 1`)) && (await testBtn(ev)) === 'Stop test', 20000);
-check('switched off: saved, and the microphone is opened without it', [await ev(`${GAIN}.getAttribute('aria-checked')`), await ev(`JSON.parse(localStorage.getItem('mt-voice')).gain`), await ev(`window.mics.at(-1)`)], ['false', false, { asked: false, reports: false }]);
-await ev(`${GAIN}.click()`);
-await until('the microphone opened again with it', async () => (await ev(`window.mics.length >= 2`)) && (await testBtn(ev)) === 'Stop test', 20000);
-check('switched on again: the microphone is opened with it', [await ev(`JSON.parse(localStorage.getItem('mt-voice')).gain`), await ev(`window.mics.at(-1)`)], [true, { asked: true, reports: true }]);
+
+// The settings are Simple Voice Chat's; a change that makes you sound worse turns red and says why.
+const titles = () => ev(`[...document.querySelectorAll('#dialog .set-group')].map((g) => [g.querySelector('h3').textContent, ...[...g.querySelectorAll('.set-row')].filter((r) => !r.hidden).map((r) => r.querySelector('.set-title').textContent)])`);
+const rowOf = (t) => `[...document.querySelectorAll('#dialog .set-row')].find((r) => r.querySelector('.set-title').textContent === '${t}')`;
+const red = (t) => ev(`(() => { const r = ${rowOf(t)}; return [r.querySelector('.set-title').classList.contains('off-default'), r.querySelector('.set-warn')?.textContent ?? null]; })()`);
+const pickIn = (t, v) => ev(`(() => { const s = ${rowOf(t)}.querySelector('select'); s.value = '${v}'; s.dispatchEvent(new Event('change')); })()`);
+const slide = (t, v) => ev(`(() => { const s = ${rowOf(t)}.querySelector('input[type=range]'); s.value = '${v}'; s.dispatchEvent(new Event('input')); })()`);
+const mine = () => ev(`JSON.parse(localStorage.getItem('mt-voice') ?? '{}')`);
+check('the rows at the defaults', await titles(),
+  [['Input', 'Microphone', 'Gain', 'Noise suppression', 'Mic test'], ['Activation', 'Activation method', 'Voice activation', 'Keyboard noise gate'], ['Output', 'Speaker', 'Output volume']]);
+check('nothing red at the defaults', await ev(`document.querySelectorAll('#dialog .off-default, #dialog .set-warn').length`), 0);
+await pickIn('Gain', 'manual');
+check('Gain: Manual is red, says why, and shows Microphone gain', [await red('Gain'), (await titles())[0], (await mine()).agc],
+  [[true, 'Leave this on Auto so everyone hears you at a steady level.'], ['Input', 'Microphone', 'Gain', 'Microphone gain', 'Noise suppression', 'Mic test'], false]);
+await slide('Microphone gain', 12);
+check('Microphone gain above +10 dB is red and says why', [await red('Microphone gain'), await ev(`${rowOf('Microphone gain')}.querySelector('.readout').textContent`), (await mine()).gainDb],
+  [[true, 'More than +10 dB can distort your voice.'], '+12 dB', 12]);
+await slide('Microphone gain', 6);
+check('+6 dB is not', (await red('Microphone gain'))[0], false);
+await pickIn('Gain', 'auto');
+await pickIn('Voice activation', 'manual');
+check('Voice activation: Manual shows the threshold at -50 dB', [(await titles())[1], await ev(`${rowOf('Voice activation threshold')}.querySelector('.readout').textContent`)],
+  [['Activation', 'Activation method', 'Voice activation', 'Voice activation threshold', 'Keyboard noise gate'], '-50 dB']);
+await slide('Voice activation threshold', -5);
+check('a threshold of -10 dB or more is red', (await red('Voice activation threshold'))[0], true);
+await slide('Voice activation threshold', 0);
+check('and 0 dB says the microphone never opens', (await red('Voice activation threshold'))[1], 'At 0 dB your microphone never opens.');
+await slide('Voice activation threshold', -50);
+await pickIn('Voice activation', 'auto');
+await pickIn('Activation method', 'ptt');
+check('Push to Talk: asks for its key, says where it works, hides the voice rows', [(await titles())[1], await ev(`${rowOf('Push to Talk key')}.querySelector('button').textContent`), await ev(`${rowOf('Push to Talk key')}.querySelector('.set-sub').textContent`)],
+  [['Activation', 'Activation method', 'Push to Talk key'], 'Press a key…', 'Only while the hub is in front.']);
+await ev(`${rowOf('Push to Talk key')}.querySelector('button').dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyV', key: 'v', bubbles: true }))`);
+check('the key pressed is the key', [await ev(`${rowOf('Push to Talk key')}.querySelector('button').textContent`), (await mine()).pttKey, (await mine()).ptt], ['V', 'KeyV', true]);
+await pickIn('Activation method', 'voice');
+check('back at the defaults, nothing is red', await ev(`document.querySelectorAll('#dialog .off-default, #dialog .set-warn').length`), 0);
 await ev(`document.querySelector('#dialog .dialog-x').click()`);
 check('the X closes it (and ends the test)', await ev(`document.getElementById('overlay').hidden`), true);
 
@@ -186,17 +204,53 @@ check('sounds: deafen, undeafen, mute, unmute', (await sfx(ev)).slice(-4), ['dea
 await ev(`document.querySelector('#voice-bar button[title="Voice settings"]').click()`);
 await until('settings', () => ev(`document.querySelector('#dialog h2')?.textContent === 'Voice settings'`));
 check('voice sounds aren’t here (they’re in Sound Settings)', await ev(`[...document.querySelectorAll('#dialog .set-title')].some((t) => /sound/i.test(t.textContent))`), false);
-check('settings: groups, rows, the meter under Mic test, echo off, readouts', [
-  await ev(`[...document.querySelectorAll('#dialog .set-group')].map((g) => [g.querySelector('h3').textContent, ...[...g.querySelectorAll('.set-title')].map((t) => t.textContent)])`),
-  await ev(`!!document.querySelector('#dialog .set-row .voice-meter')`), await ev(`document.querySelector('#dialog .switch[aria-label="Echo cancelling"]').getAttribute('aria-checked')`),
-  await ev(`[...document.querySelectorAll('#dialog .readout')].map((r) => r.textContent)`)],
-  [[['Input', 'Microphone', 'Automatic level', 'Mic level', 'Mic test'], ['Output', 'Speaker', 'Output volume'], ['Processing', 'Noise filter', 'Voice gate sensitivity', 'Echo cancelling']], true, 'false', ['+0 dB', '100%', '50%']]);
+check('settings: the meter under Mic test, readouts', [
+  await ev(`!!document.querySelector('#dialog .set-row .voice-meter')`),
+  await ev(`[...document.querySelectorAll('#dialog .set-row:not([hidden]) .readout')].map((r) => r.textContent)`)],
+  [true, ['100%']]);
 // In a voice chat, Mic test plays back the live microphone.
 await ev(`document.querySelector('#dialog .mic-test').click()`);
 await until('test in a call', async () => (await testBtn(ev)) === 'Stop test', 20000);
 check('Mic test in a voice chat', await testBtn(ev), 'Stop test');
 await ev(`document.querySelector('#dialog .dialog-x').click()`);
 check('still connected after the test', await ev(`!document.getElementById('voice-bar').hidden`), true);
+
+// The game's chain runs in the page (svc-mic.wasm in its worklet). Chromium's fake microphone
+// is a beep. With Push to Talk it goes out only while the key is down; with Voice activation:
+// Manual at -127 dB and the keyboard gate off, always. (Whether the defaults let a beep out is
+// Silero's call on a tone, borderline either way; test/unit/svcmic/ checks the defaults.) loudest: the loudest the chain let out (__micPeak, per 50 ms) over 1.2 s
+// of real time, which always holds a beep, starting 0.6 s from now, once what came before (a
+// tail, the frame queue) is out. (settle() won't do here: it returns when the page is idle.)
+const loudest = () => ev(`new Promise((r) => setTimeout(() => { let m = 0; const t0 = performance.now(); window.__micPeak = 0;
+  const iv = setInterval(() => { m = Math.max(m, window.__micPeak ?? 0); if (performance.now() - t0 > 1200) { clearInterval(iv); r(m); } }, 20); }, 600))`);
+const quiet = async (what) => check(what, await loudest(), 0);
+const heard = async (what) => { const m = await loudest(); check(what, m > 0.01 ? 'out' : `nothing (${m})`, 'out'); };
+const settingsOpen = async () => {
+  await ev(`document.querySelector('#voice-bar button[title="Voice settings"]').click()`);
+  await until('settings', () => ev(`document.querySelector('#dialog h2')?.textContent === 'Voice settings'`));
+};
+const closeSettings = () => ev(`document.querySelector('#dialog .dialog-x').click()`);
+await settingsOpen();
+await pickIn('Activation method', 'ptt');
+await closeSettings();
+await quiet('Push to Talk without the key: nothing goes out');
+await ev(`document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyV', key: 'v', bubbles: true }))`);
+await heard('with the key down, it goes out');
+await ev(`document.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyV', key: 'v', bubbles: true }))`);
+await quiet('and stops when the key comes up');
+await settingsOpen();
+await pickIn('Activation method', 'voice');
+await pickIn('Voice activation', 'manual');
+await slide('Voice activation threshold', -127);
+await ev(`${rowOf('Keyboard noise gate')}.querySelector('.switch').click()`);
+await closeSettings();
+await heard('Voice activation: Manual at -127 dB lets the beep out');
+await settingsOpen();
+await slide('Voice activation threshold', -50);
+await pickIn('Voice activation', 'auto');
+await ev(`${rowOf('Keyboard noise gate')}.querySelector('.switch').click()`);
+check('back at the defaults', await ev(`(({ agc, denoise, ptt, vad, thresholdDb, keyboardGate }) => [agc, denoise, ptt, vad, thresholdDb, keyboardGate])(JSON.parse(localStorage.getItem('mt-voice')))`), [true, true, false, true, -50, true]);
+await closeSettings();
 
 // Right-click someone in your voice chat (Discord's menu): Message, User Volume, Mute; and,
 // for an admin on someone below them, Mute for Everyone and Disconnect.

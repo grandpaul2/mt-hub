@@ -125,7 +125,6 @@ func New(us *auth.Store, ws *workspace.Workspace, cs *chat.Store, ls *preview.St
 
 	s.mux.HandleFunc("GET /api/schematics", s.listSchematics)
 	s.mux.HandleFunc("GET /api/search", s.search)
-	s.mux.HandleFunc("POST /api/voice-lab/log", s.voiceLabLog)
 
 	s.mux.HandleFunc("GET /api/preview", s.linkPreview)
 	s.mux.HandleFunc("GET /api/preview/img/{id}", s.previewImage)
