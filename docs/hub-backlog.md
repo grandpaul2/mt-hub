@@ -51,6 +51,11 @@ chat and voice. The style guide records the decision.
 
 ### Other ideas
 
+- **Regroup the style guide:** section 7 holds chat messages, voice and LIVE, Trash,
+  selection and cut/paste; move them into Chat, Files and a new Voice and Live section, and
+  fold section 14 into the others. About 100–150 lines shorter with no rule lost, but every
+  section number after 7 changes, and the code's comments cite them ("style guide 6.8"), so
+  those are updated with it. A whole-guide review lists what goes where.
 - **Notifications, presence, status:** unread pings, online dots, typing. Maybe never. A
   new-message sound exists (a new message from someone else, unless a focused tab shows that
   chat; at most once in 3 s across tabs; Sound Settings in the name menu). A browser plays
