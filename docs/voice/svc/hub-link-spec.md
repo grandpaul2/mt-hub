@@ -26,8 +26,9 @@ The lab below checked that byte for byte.
   the settings-tab cleanup already queued for that mod.
 - **One cross-server room.** Each server's own SVC room stays in game; every other hub voice
   chat stays in the hub.
-- **Someone in both** (the group in game and #voice-link in the hub) is left alone, unless
-  they are locked ([`lock-spec.md`](lock-spec.md)): then the hub's page steps back while they are in game.
+- **Nobody is in both** (the group in game and #voice-link in the hub): one place with two ways
+  in, one way at a time, the old way shut before the new one opens ([`lock-spec.md`](lock-spec.md)
+  → One place at a time). (Until 2026-10-22 someone unlocked could be in both, and heard twice.)
 
 ## What people see
 

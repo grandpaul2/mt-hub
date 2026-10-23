@@ -363,6 +363,10 @@ func TestVoiceLockFixes(t *testing.T) {
 	if c, b := ask(server, `["alexmc","SteveMC","BannedMC","Nobody"]`); c != 200 || b != `{"locked":["SteveMC","alexmc"]}` {
 		t.Errorf("the route: %d %s", c, b)
 	}
+	// Named, Alex was cut from the hub first (handover spec): off the list, going into the game.
+	if hub, game := s.whereIs("Alex"); hub || !game {
+		t.Errorf("Alex after the answer: in the hub %v (want false), going into the game %v (want true)", hub, game)
+	}
 	if _, b := ask(server, `["SteveMC"]`); b != `{"locked":["SteveMC"]}` {
 		t.Errorf("asked only for Steve: %s", b)
 	}
@@ -390,7 +394,11 @@ func TestVoiceLockFixes(t *testing.T) {
 	}
 
 	// H2. Alex opens a second tab: LiveKit replaces the session; the first one's leave comes
-	// after, and Alex stays listed. A leave for the session listed takes him off.
+	// after, and Alex stays listed. A leave for the session listed takes him off. (The hand-over
+	// from H1 is long over.)
+	s.voice.mu.Lock()
+	clear(s.voice.cut)
+	s.voice.mu.Unlock()
 	s.voicePart(LinkVoiceID, "Alex", true, time.Now(), "PA_2")
 	s.voicePart(LinkVoiceID, "Alex", false, time.Time{}, "PA_1")
 	if hub, _ := s.whereIs("Alex"); !hub {
@@ -485,5 +493,223 @@ func TestLookAlikeNames(t *testing.T) {
 	us.SetMC("Steve", "Herobrine")
 	if _, err := us.Add("HEROBRINE", false); err != auth.ErrMCIsName {
 		t.Errorf("an account named as Steve's player: %v", err)
+	}
+}
+
+// One place at a time (macrotech-ops tech-notes/voice-link-handover-spec.md): the hub cuts an
+// account from #voice-link's room before it names its player as locked, and before a server
+// lets a player join the group by hand; while the player is in the group (or going in), the
+// hub has nothing to join; anyone found in both is cut; joining by hand turns the lock on.
+func TestVoiceLinkHandover(t *testing.T) {
+	dir := t.TempDir()
+	us, _ := auth.Open(dir)
+	for _, n := range []string{"Alex", "Carl", "Dana", "Erin", "Fay"} {
+		us.SetPassword(n, n+"-password")
+		us.SetMC(n, n+"MC")
+	}
+	var mu sync.Mutex
+	removed := []string{}
+	failFor := ""
+	lk := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct{ Room, Identity string }
+		json.NewDecoder(r.Body).Decode(&req)
+		mu.Lock()
+		defer mu.Unlock()
+		switch r.URL.Path {
+		case "/twirp/livekit.RoomService/ListParticipants":
+			w.Write([]byte(`{"participants":[]}`))
+		case "/twirp/livekit.RoomService/RemoveParticipant":
+			if req.Identity == failFor {
+				http.Error(w, "boom", http.StatusInternalServerError)
+				return
+			}
+			removed = append(removed, req.Identity)
+			w.Write([]byte(`{}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer lk.Close()
+	os.WriteFile(filepath.Join(dir, "voice.json"), []byte(`{"url":"wss://lk.example","api":"`+lk.URL+`","key":"k","secret":"s3cret","link_voice":true}`), 0o600)
+	s := &Server{users: us, voice: loadVoice(dir), bus: newBroker()}
+	s.voiceCheckOnce()
+	call := func(a account, h http.HandlerFunc, id, body string) (int, string) {
+		r := httptest.NewRequest("POST", "/", strings.NewReader(body))
+		r.SetPathValue("id", id)
+		r = r.WithContext(context.WithValue(r.Context(), userKey{}, a))
+		w := httptest.NewRecorder()
+		h(w, r)
+		return w.Code, strings.TrimSpace(w.Body.String())
+	}
+	took := func() string {
+		mu.Lock()
+		defer mu.Unlock()
+		out := strings.Join(removed, ",")
+		removed = removed[:0]
+		return out
+	}
+	where := func(name string) (bool, bool) {
+		s.voice.mu.Lock()
+		defer s.voice.mu.Unlock()
+		return s.whereIs(name)
+	}
+	locked := func(name string) bool {
+		s.voice.mu.Lock()
+		defer s.voice.mu.Unlock()
+		return s.voice.locked(name)
+	}
+	forget := func() { // the hand-overs so far are long over
+		s.voice.mu.Lock()
+		clear(s.voice.cut)
+		s.voice.mu.Unlock()
+	}
+	server := account{Name: "Survival", Token: auth.KindServer}
+	ask := func(players string) string {
+		_, b := call(server, s.voiceLinkLocked, "", `{"players":`+players+`}`)
+		return b
+	}
+	join := func(name, body string) int {
+		c, _ := call(account{Name: name}, s.voiceJoin, LinkVoiceID, body)
+		return c
+	}
+	handover := func(name string) bool {
+		r := httptest.NewRequest("GET", "/api/voice", nil)
+		r = r.WithContext(context.WithValue(r.Context(), userKey{}, account{Name: name}))
+		w := httptest.NewRecorder()
+		s.voiceList(w, r)
+		var out struct{ Chats []voiceChat }
+		json.NewDecoder(w.Body).Decode(&out)
+		for _, c := range out.Chats {
+			if c.Link {
+				return c.Handover
+			}
+		}
+		return false
+	}
+
+	// Joining by hand turns the lock on once LiveKit says you're in; a take-over ({"lock":
+	// false}) doesn't, nor does a token never used.
+	if c := join("Alex", ""); c != http.StatusOK || locked("Alex") {
+		t.Fatalf("Alex's join: %d, locked before he was in %v", c, locked("Alex"))
+	}
+	s.voicePart(LinkVoiceID, "Alex", true, time.Now(), "")
+	if !locked("Alex") {
+		t.Fatal("joining #voice-link by hand did not turn the lock on")
+	}
+	join("Fay", `{"lock":false}`)
+	s.voicePart(LinkVoiceID, "Fay", true, time.Now(), "")
+	if locked("Fay") {
+		t.Error(`a join with {"lock":false} turned the lock on`)
+	}
+
+	// A server asks about Alex: he is cut from the room before he is named; his page reads
+	// why; he counts as going into the game, so the hub has nothing for him to join.
+	if b := ask(`["alexmc"]`); b != `{"locked":["alexmc"]}` || took() != "Alex" {
+		t.Fatalf("the question about Alex: %s", b)
+	}
+	if hub, game := where("Alex"); hub || !game || !handover("Alex") || handover("Fay") {
+		t.Errorf("Alex after the cut: hub %v game %v handover %v (Fay sees %v)", hub, game, handover("Alex"), handover("Fay"))
+	}
+	if c := join("Alex", ""); c != http.StatusConflict {
+		t.Errorf("Alex could join the hub while going into the game: %d", c)
+	}
+	// A page that connects after the cut anyway (a token from before) is cut at once.
+	s.voicePart(LinkVoiceID, "Alex", true, time.Now(), "")
+	if hub, _ := where("Alex"); hub || took() != "Alex" {
+		t.Error("Alex connecting after the cut was not cut again")
+	}
+	// His player appears in game: the hand-over is done; he is in the game by his player; the
+	// hub still has nothing to join (any case of the name).
+	s.voicePart(LinkVoiceID, "link:survival:alexMC", true, time.Now(), "")
+	s.voice.mu.Lock()
+	_, marked := s.voice.cut["Alex"]
+	s.voice.mu.Unlock()
+	if marked || handover("Alex") {
+		t.Error("the hand-over mark outlived Alex's player appearing")
+	}
+	if c := join("Alex", ""); c != http.StatusConflict {
+		t.Errorf("Alex could join the hub while his player is in the group: %d", c)
+	}
+	// He leaves the game: the page's take-over may join.
+	s.voicePart(LinkVoiceID, "link:survival:alexMC", false, time.Time{}, "")
+	if c := join("Alex", `{"lock":false}`); c != http.StatusOK {
+		t.Errorf("the take-over after Alex left the game: %d", c)
+	}
+
+	// A failed cut leaves the player out of the answer. A cut is made even when the hub's list
+	// doesn't show the account (it lags LiveKit).
+	s.voicePart(LinkVoiceID, "Carl", true, time.Now(), "")
+	call(account{Name: "Carl"}, s.voiceLock, LinkVoiceID, `{"on":true}`)
+	mu.Lock()
+	failFor = "Carl"
+	mu.Unlock()
+	if b := ask(`["CarlMC"]`); b != `{"locked":[]}` {
+		t.Errorf("Carl named after a failed cut: %s", b)
+	}
+	if hub, _ := where("Carl"); !hub {
+		t.Error("Carl was taken off the list though LiveKit didn't cut him")
+	}
+	mu.Lock()
+	failFor = ""
+	mu.Unlock()
+	if b := ask(`["CarlMC"]`); b != `{"locked":["CarlMC"]}` {
+		t.Errorf("Carl's second question: %s", b)
+	}
+	took()
+	if b := ask(`["CarlMC"]`); b != `{"locked":["CarlMC"]}` || took() != "Carl" {
+		t.Errorf("Carl, going into the game and off the list, was not cut again: %s", b)
+	}
+	forget()
+
+	// A join of the group by hand: only for game servers; the hub cuts first; a name with no
+	// account has nothing to cut; a failed cut is a 503.
+	s.voicePart(LinkVoiceID, "Dana", true, time.Now(), "")
+	joining := func(a account, player string) int {
+		c, _ := call(a, s.voiceLinkJoining, "", `{"player":"`+player+`"}`)
+		return c
+	}
+	if c := joining(account{Name: "Dana"}, "DanaMC"); c != http.StatusForbidden {
+		t.Errorf("a member asked /joining: %d", c)
+	}
+	if c := joining(server, "Nobody"); c != http.StatusNoContent || took() != "" {
+		t.Errorf("a name with no account: %d", c)
+	}
+	mu.Lock()
+	failFor = "Dana"
+	mu.Unlock()
+	if c := joining(server, "danamc"); c != http.StatusServiceUnavailable {
+		t.Errorf("a failed cut: %d", c)
+	}
+	mu.Lock()
+	failFor = ""
+	mu.Unlock()
+	if c := joining(server, "danamc"); c != http.StatusNoContent || took() != "Dana" {
+		t.Errorf("Dana's join by hand: %d", c)
+	}
+	if hub, game := where("Dana"); hub || !game {
+		t.Errorf("Dana after the cut: hub %v game %v", hub, game)
+	}
+	if !tokenAllowed(httptest.NewRequest("POST", "/api/voice-link/joining", nil), auth.KindServer) || tokenAllowed(httptest.NewRequest("POST", "/api/voice-link/joining", nil), auth.KindRelease) {
+		t.Error("tokens.go: /joining is for game servers' tokens only")
+	}
+	forget()
+
+	// Found in both, either way round (a bridge that came back; a page that got in): cut.
+	s.voicePart(LinkVoiceID, "Erin", true, time.Now(), "")
+	took()
+	s.voicePart(LinkVoiceID, "link:creative:ERINMC", true, time.Now(), "")
+	if hub, _ := where("Erin"); hub || took() != "Erin" {
+		t.Error("Erin's player arrived while Erin was in the hub: not cut")
+	}
+	s.voicePart(LinkVoiceID, "Erin", true, time.Now(), "")
+	if hub, _ := where("Erin"); hub || took() != "Erin" {
+		t.Error("Erin came into the hub while her player was in the group: not cut")
+	}
+	// Someone else's player doesn't cut Fay.
+	if hub, _ := where("Fay"); !hub {
+		t.Error("Fay was cut for someone else's player")
+	}
+	if b, _ := os.ReadFile(filepath.Join(dir, "voice-chats.json")); strings.Contains(string(b), "handover") {
+		t.Errorf("voice-chats.json carries a hand-over: %s", b)
 	}
 }

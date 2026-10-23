@@ -6,12 +6,14 @@ in **#voice-link** ([`hub-link-spec.md`](hub-link-spec.md)), whose account has a
 
 ## What it does
 
-You are in voice-link, in the hub's #voice-link or in the group in game. With the hub open in a
-browser, you click the lock beside your name in #voice-link. From then on:
+You are in voice-link, in the hub's #voice-link or in the group in game. Joining #voice-link in
+the hub turns the lock on by itself (once you're in); you can also click the lock beside your
+name, to turn it on or off. While it is on:
 
-- **You join a game server:** the server puts you in the voice-link group, and the hub's page
-  stops its own voice. In game you are only in Simple Voice Chat, so proximity chat works as
-  usual and nobody hears you twice.
+- **You join a game server:** the hub cuts its own side first, then the server puts you in the
+  voice-link group (one place at a time, below). In game you are only in Simple Voice Chat, so
+  proximity chat works as usual and nobody hears you twice. You're moved into the game's
+  voice-link this way even if you join #voice-link in the hub while already playing.
 - **You leave the game server:** the hub's page takes over again, by itself.
 - **You go from one server to another:** the hub holds you in between.
 
@@ -24,7 +26,36 @@ neither place. Closing or reloading the hub's page is not leaving, and nor is jo
 somewhere else."). The 30 seconds don't count while the hub can't ask LiveKit who is where (a
 hub that just started, or LiveKit not answering).
 
-Nobody else sees whether you are locked. Without the lock, everything is as before.
+Nobody else sees whether you are locked.
+
+## One place at a time
+
+voice-link is one place with two ways in, and you are in it one way at a time: the old way is
+shut before the new one opens, so a switch is a short silence and never two copies of anyone.
+
+- **Into the game by the lock:** before the hub names you to a game server as locked, it removes
+  you from #voice-link's room with LiveKit (`RemoveParticipant`, which cuts a participant off at
+  the server whatever their page does). If LiveKit doesn't do it, you're left out of the answer,
+  and the server asks again two seconds later.
+- **Into the game by hand** (the group screen in game, or its command): MT Utils holds the join
+  and asks the hub to cut your hub side first (`POST /api/voice-link/joining`); if the hub
+  doesn't answer, the join is refused with a line in chat.
+- **In through the game, the hub has nothing to join:** while your player is in the group, or
+  you were just cut for the game, #voice-link offers you no Join and the hub refuses a token
+  (409 "Your player is in voice-link in Minecraft."). Leave the group in game to come back to the
+  hub (with the lock on, the page takes over by itself).
+- **Found in both, cut:** if your account is ever in the room while your player is in the group
+  (a page that connected after a cut, the bridge coming back after a restart), the hub cuts the
+  account at once.
+- **The page, cut:** a page removed this way hangs up quietly, keeping the lock and the held
+  microphone (`GET /api/voice` says `handover: true` for you for ten seconds, or until your
+  player appears). If your player doesn't appear in game within 15 seconds, it takes over once
+  and turns the lock off, so a put that keeps failing can't send you back and forth. Without the
+  lock it says "You're in voice-link in Minecraft."
+
+Why: before this, the hub's page stepped back only when it saw your player in game, about two
+seconds after the server had put you in, and for that time everyone heard you twice and you
+heard yourself.
 
 ## Why the page holds your microphone
 
@@ -50,14 +81,18 @@ until it has one.
 - **The hub** keeps the locked accounts, each with the Minecraft name it was locked for
   (`voice-locks.json`: `{"account": "Minecraft name"}`). `POST /api/voice/voice-link/lock`
   `{"on"}` locks you, if your account has a Minecraft name and you are in voice-link (in the
-  hub, or your player in the group in game); unlocking is always allowed. `GET /api/voice` has
-  `lock: true` on #voice-link for the account asking, and for nobody else.
+  hub, or your player in the group in game); unlocking is always allowed. Joining by hand
+  (`POST /api/voice/voice-link/join`; the page's own take-overs send `{"lock": false}`) locks you
+  once LiveKit says you're in. `GET /api/voice` has `lock: true` on #voice-link for the account
+  asking, and for nobody else.
 - **A game server asks the hub** which of its players are locked:
   `POST /api/voice-link/locked` `{"players": [...]}` → `{"locked": [...]}` (game server tokens
   only; at most 100 Minecraft names; the answer keeps the names as asked). A player is locked
   while their account (not banned) holds a lock for that Minecraft name and is in #voice-link
-  right now, in the hub or in the group in game. MT Utils 2.5.2 asks about its players who are
-  in voice chat and in no group, when one connects and every two seconds.
+  right now, in the hub or in the group in game (or was just cut for the game). The hub cuts
+  each one from the room before it names them. MT Utils asks about its players who are in voice
+  chat and in no group, when one connects and every two seconds; since 2.6.1 it puts a player
+  in only on an answer asked after their voice connected, and uses each answer once.
 - **Nobody in the room can see a lock.** #voice-link's token carries only the participant
   attribute `mc` (the Minecraft name; an admin's change of it reaches LiveKit at once), and
   the bridge's roster carries `mc` and no lock. (Before 2026-10-14 the lock went to the game
@@ -84,7 +119,7 @@ until it has one.
 
 ## What it doesn't do
 
-- Start a session: the lock can only be clicked by someone already in voice-link.
+- Start a session: the lock comes on only for someone already in voice-link.
 - Work with the hub closed, or in a page that hasn't held your microphone since it loaded.
 - A browser that discards background tabs (Chrome's Memory Saver) ends it as a closed page would.
 - Phones are not considered.
@@ -93,7 +128,8 @@ until it has one.
 
 `internal/server/voice_lock_test.go` (who may lock; who is told; what takes it off; the report
 and the question for game servers only; a replaced session; checks failing; a changed
-Minecraft name; the old lock file), `internal/voicebridge` `TestRosters` (no `lock` in the roster;
+Minecraft name; the old lock file; `TestVoiceLinkHandover`: the cut before the answer, a failed
+cut, `/joining`, nothing to join while in game, found in both, the lock on a join by hand), `internal/voicebridge` `TestRosters` (no `lock` in the roster;
 it is sent again when a Minecraft name changes), `TestOneRosterAtATime`, `TestListenerFollowsRelay`,
 `test/browser/voice-lock.mjs` (end to end with a local LiveKit, relay and bridge and a stand-in
 game server; Chromium's fake microphone; Chromium's autoplay rule forced by a stub), and the lock views in `test/firefox/check.mjs`.

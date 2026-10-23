@@ -24,6 +24,23 @@ import (
 	"github.com/grandpaul2/mt-hub/internal/auth"
 )
 
+// One place at a time (macrotech-ops tech-notes/voice-link-handover-spec.md): #voice-link is
+// one place with two ways in, the hub and the group in game, and a person is in it one way at
+// a time. The hub shuts its own side before the game's opens: before it names a player as
+// locked to a game server (which then puts them in the group), and before a server lets a
+// player join the group by hand (POST /api/voice-link/joining), it removes their account from
+// the room with LiveKit (cutForGame). Anyone found in the room while their player is in the
+// group in game is cut at once (bothPlaces): a page that connected after the cut, a bridge
+// that came back. While your player is in the group, the hub has nothing to join.
+
+// handoverFor: after a cut, the account counts as in the game this long, or until its
+// player's participant appears: so the answer keeps naming it, the 30 s count doesn't start,
+// and the hub has nothing for it to join.
+const handoverFor = 10 * time.Second
+
+// cutDeadline bounds one round of cuts: a game server's question gives up after 3 s.
+const cutDeadline = 2 * time.Second
+
 // lockNowhereFor is how long a locked account may be in neither place (the hub's voice chat,
 // the group in game) before its lock goes off: room for the hand-over itself and for reloading
 // the page.
@@ -40,6 +57,7 @@ func (s *Server) voiceLockRoutes() {
 	s.mux.HandleFunc("POST /api/voice/{id}/lock", s.voiceLock)
 	s.mux.HandleFunc("POST /api/voice-link/left", s.voiceLinkLeft)
 	s.mux.HandleFunc("POST /api/voice-link/locked", s.voiceLinkLocked)
+	s.mux.HandleFunc("POST /api/voice-link/joining", s.voiceLinkJoining)
 	go func() {
 		for {
 			time.Sleep(5 * time.Second)
@@ -88,17 +106,99 @@ func (v *voice) locked(name string) bool {
 }
 
 // whereIs says whether an account is in #voice-link in the hub, and whether its player (its
-// Minecraft name, whatever the case) is in the group in game. Called with mu held.
+// Minecraft name, whatever the case) is in the group in game, or is going in (cut for it a
+// moment ago). Called with mu held.
 func (s *Server) whereIs(name string) (hub, game bool) {
 	vc := s.voice.chats[LinkVoiceID]
 	if vc == nil || !vc.Link {
 		return false, false
 	}
 	hub = vc.has(name)
-	if u, ok := s.users.Get(name); ok && u.MC != "" {
-		game = slices.ContainsFunc(vc.People, func(p voicePerson) bool { return p.Show != "" && strings.EqualFold(p.Show, u.MC) })
+	return hub, s.playerIn(vc, name) || s.voice.cutLately(name, time.Now())
+}
+
+// playerIn says whether an account's player is in the group in game (the bridge's participant
+// for it is in the room). Called with mu held.
+func (s *Server) playerIn(vc *voiceChat, name string) bool {
+	u, ok := s.users.Get(name)
+	return ok && u.MC != "" && slices.ContainsFunc(vc.People, func(p voicePerson) bool { return p.Show != "" && strings.EqualFold(p.Show, u.MC) })
+}
+
+// cutLately says whether an account was cut for the game less than handoverFor ago (and its
+// player hasn't appeared since). Called with mu held.
+func (v *voice) cutLately(name string, now time.Time) bool {
+	t, ok := v.cut[name]
+	return ok && now.Sub(t) < handoverFor
+}
+
+// bothPlaces lists the accounts in #voice-link's room whose player is in the group in game,
+// or that were cut for the game a moment ago. Called with mu held.
+func (s *Server) bothPlaces(now time.Time) []string {
+	vc := s.voice.chats[LinkVoiceID]
+	if vc == nil || !vc.Link {
+		return nil
 	}
-	return hub, game
+	var out []string
+	for _, p := range vc.People {
+		if p.Show == "" && (s.playerIn(vc, p.Name) || s.voice.cutLately(p.Name, now)) {
+			out = append(out, p.Name)
+		}
+	}
+	return out
+}
+
+// cutForGame removes accounts from #voice-link's room, all at once and within cutDeadline, and
+// says which are out: those LiveKit removed, or didn't have (its 404; also what a wrong
+// address would answer, which the 20 s check reports). Each is marked as going into the game
+// (its page reads that it was handed over, not disconnected by an admin; the mark goes when
+// its player's participant comes or goes), taken off the list and every page told. Never
+// called with mu held.
+func (s *Server) cutForGame(accounts []string, why string) map[string]bool {
+	out := map[string]bool{}
+	conf := s.voice.config()
+	if conf == nil || len(accounts) == 0 {
+		return out
+	}
+	type result struct {
+		name string
+		err  error
+	}
+	done := make(chan result, len(accounts))
+	for _, a := range accounts {
+		go func() {
+			_, err := conf.twirp("RemoveParticipant", LinkVoiceID, map[string]string{"room": LinkVoiceID, "identity": a})
+			done <- result{a, err}
+		}()
+	}
+	deadline := time.After(cutDeadline)
+wait:
+	for range accounts {
+		select {
+		case r := <-done:
+			if r.err != nil {
+				log.Printf("voice-link: cutting %s for the game: %v", r.name, r.err)
+				continue
+			}
+			out[r.name] = true
+		case <-deadline:
+			log.Printf("voice-link: cutting for the game: LiveKit took over %s", cutDeadline)
+			break wait
+		}
+	}
+	now := time.Now()
+	s.voice.mu.Lock()
+	for a := range out {
+		s.voice.cut[a] = now
+	}
+	s.voice.mu.Unlock()
+	for a := range out {
+		log.Printf("voice-link: cut %s from the hub (%s)", a, why)
+		s.voicePart(LinkVoiceID, a, false, time.Time{}, "")
+	}
+	if len(out) > 0 {
+		s.voiceChanged() // (the cut account's page reads why: GET /api/voice says handover)
+	}
+	return out
 }
 
 // voiceLock: {"on": bool}, for yourself, in #voice-link only. Locking needs a Minecraft name
@@ -186,6 +286,10 @@ func (s *Server) voiceLinkLeft(w http.ResponseWriter, r *http.Request) {
 // in the hub or in the group in game; the 30 s a lock outlives being in neither place is for
 // the page, not for this. The server asks about its players who are in voice chat and in no
 // group, when one connects and every 2 seconds.
+//
+// The server puts each player it is told about in the group at once, so the hub first cuts
+// their account from the room (cutForGame): a player is named only once their hub side is
+// shut, and one whose cut failed is left out (the server asks again in 2 s).
 func (s *Server) voiceLinkLocked(w http.ResponseWriter, r *http.Request) {
 	if who(r).Token != auth.KindServer {
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "for game servers"})
@@ -209,7 +313,7 @@ func (s *Server) voiceLinkLocked(w http.ResponseWriter, r *http.Request) {
 		}
 		asked[strings.ToLower(p)] = p
 	}
-	out := []string{}
+	player := map[string]string{} // account → the name as asked
 	s.voice.mu.Lock()
 	for name, l := range s.voice.locks {
 		u, ok := s.users.Get(name)
@@ -221,12 +325,47 @@ func (s *Server) voiceLinkLocked(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		if hub, game := s.whereIs(name); hub || game {
-			out = append(out, p)
+			player[name] = p
 		}
 	}
 	s.voice.mu.Unlock()
+	accounts := make([]string, 0, len(player))
+	for name := range player {
+		accounts = append(accounts, name)
+	}
+	out := []string{}
+	for name := range s.cutForGame(accounts, "locked, going into the group on "+who(r).Name) {
+		out = append(out, player[name])
+	}
 	slices.Sort(out)
 	writeJSON(w, http.StatusOK, map[string][]string{"locked": out})
+}
+
+// voiceLinkJoining: a game server is holding a player's join of the group by hand, and asks
+// the hub to shut their hub side first: {"player": "<Minecraft name>"}. 204 once it is shut
+// (or the name has no account: nothing to shut); 503 if LiveKit didn't do it, and the server
+// refuses the join.
+func (s *Server) voiceLinkJoining(w http.ResponseWriter, r *http.Request) {
+	if who(r).Token != auth.KindServer {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "for game servers"})
+		return
+	}
+	var req struct {
+		Player string `json:"player"`
+	}
+	if !readJSON(w, r, &req) {
+		return
+	}
+	if !auth.MCNameRE.MatchString(req.Player) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "not a Minecraft name: " + req.Player})
+		return
+	}
+	name, ok := s.users.ByMC(req.Player)
+	if ok && !s.cutForGame([]string{name}, "joining the group by hand on "+who(r).Name)[name] {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "the voice server didn't answer"})
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // mcChanged: an admin set or took away an account's Minecraft name. LiveKit is told at once
@@ -258,6 +397,16 @@ func (s *Server) mcChanged(name string) {
 func (s *Server) voiceLockSweep(now time.Time) {
 	var off []string
 	s.voice.mu.Lock()
+	for name, t := range s.voice.cut {
+		if now.Sub(t) >= handoverFor {
+			delete(s.voice.cut, name)
+		}
+	}
+	for name, t := range s.voice.lockOnJoin {
+		if now.Sub(t) >= time.Minute {
+			delete(s.voice.lockOnJoin, name)
+		}
+	}
 	for name, l := range s.voice.locks {
 		u, ok := s.users.Get(name)
 		if l.mc == "" && ok {
