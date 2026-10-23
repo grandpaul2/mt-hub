@@ -30,7 +30,9 @@ const RATE = 48000;
 type Person = { name: string; since: string; show?: string; via?: string; game?: string };
 // (link: #voice-link, always there; linked: the bridge to the game servers is in it.)
 // (lock: #voice-link only, and only yours: you are locked in, see "the lock" below.)
-type VoiceChat = { id: string; private?: boolean; starter: string; invited?: string[]; people: Person[]; link?: boolean; linked?: boolean; lock?: boolean };
+// (handover: #voice-link only, and only yours: the hub just cut you from it because your player
+// is going into the group in game.)
+type VoiceChat = { id: string; private?: boolean; starter: string; invited?: string[]; people: Person[]; link?: boolean; linked?: boolean; lock?: boolean; handover?: boolean };
 // (pttKey: KeyboardEvent.code, '' for none yet.) The rest of the microphone's are MicSettings.
 type Settings = MicSettings & { mic: string; speaker: string; outVol: number; sfx: boolean; sfxVol: number; pttKey: string };
 
@@ -154,9 +156,10 @@ function voiceRows(): HTMLElement[] {
 // with their server's tag. They hear each other.
 function linkRows(c: VoiceChat): HTMLElement[] {
   const here = cur?.id === c.id;
-  // Locked and your player in game: the hub can't take you out of the room, or into it.
+  // Your player in the group in game: you are in voice-link already, so there is nothing to
+  // join here (the hub refuses it too), locked or not.
   const mine = myPlayer(c);
-  const away = !!c.lock && !!mine;
+  const away = !!mine;
   const enter = away ? () => {} : () => void join(c.id);
   const menu = (e: MouseEvent, more: MenuItem[] = []) => {
     e.preventDefault();
@@ -319,9 +322,11 @@ async function start(priv: boolean, invite: string[]) {
   await connect(b.id, b.url, b.token);
 }
 
-async function join(id: string) {
+// join joins a voice chat. Joining #voice-link by hand turns the lock on (the hub does, once
+// you're in); the page's own take-overs say lock false.
+async function join(id: string, lock = true) {
   if (cur?.id === id || joining) return;
-  const r = await req('POST', `/api/voice/${id}/join`);
+  const r = await req('POST', `/api/voice/${id}/join`, lock ? undefined : JSON.stringify({ lock: false }));
   const b = await r.json().catch(() => ({}));
   if (!r.ok) {
     toastError(b.error ?? 'Couldn’t join that voice chat.');
@@ -399,8 +404,8 @@ async function connect(id: string, url: string, token: string) {
       toast('You joined this voice chat somewhere else.', 6000);
       return void leave(false);
     }
-    if (reason === DisconnectReason.PARTICIPANT_REMOVED) toast('An admin disconnected you from the voice chat.', 6000);
-    else toastError('Voice chat disconnected.');
+    if (reason === DisconnectReason.PARTICIPANT_REMOVED) return void removed(id);
+    toastError('Voice chat disconnected.');
     void leave(true);
   });
   // Sound blocked (Chromium, no click on the page since it loaded): the bar says so.
@@ -428,6 +433,22 @@ async function connect(id: string, url: string, token: string) {
   }
   joining = '';
   sfx('join');
+  await loadVoice();
+}
+
+// removed: LiveKit took this page out of a voice chat. In #voice-link that is usually the hub
+// handing you over to the game (voice_lock.go: your player is going into the group in game):
+// hang up quietly, without telling the hub (that would take your lock off), keeping the held
+// microphone. Otherwise an admin disconnected you.
+async function removed(id: string) {
+  const r = id === linkChat()?.id ? await req('GET', '/api/voice') : null;
+  const c = r?.ok ? ((await r.json()) as typeof info).chats.find((x) => x.id === id) : undefined;
+  if (!c?.handover) {
+    toast('An admin disconnected you from the voice chat.', 6000);
+    return void leave(true);
+  }
+  await leave(false, true);
+  handedOver(!!c.lock);
   await loadVoice();
 }
 
@@ -526,8 +547,11 @@ function lockStep() {
     sawMeInGame = false;
     return;
   }
+  // Locked while in the call (a click, or joining by hand): the lock holds the call's microphone.
+  if (c.lock && cur?.id === c.id && !held) setHeld(cur.chain.mic, true);
   if (myPlayer(c)) {
     sawMeInGame = true;
+    clearTimeout(handoverTimer);
     if (c.lock && cur?.id === c.id) void leave(false, true); // the chain's stop keeps the held microphone
   } else if (sawMeInGame) {
     sawMeInGame = false;
@@ -567,6 +591,29 @@ function cantRejoin() {
   renderBar();
 }
 
+// handedOver: the hub cut this page for the game. Locked, the page waits for your player in
+// game, as when it steps back; if your player hasn't come within handoverWait (the put
+// failed, the game didn't get that far), it takes over once and the lock goes off, so a put
+// that keeps failing can't send you back and forth. Not locked (you joined the group by hand
+// in game): it says where you are.
+const handoverWait = (window as unknown as { __handoverWait?: number }).__handoverWait ?? 15000;
+let handoverTimer = 0;
+function handedOver(locked: boolean) {
+  clearTimeout(handoverTimer);
+  if (!locked) return toast('You’re in voice-link in Minecraft.', 6000);
+  handoverTimer = window.setTimeout(() => void handoverFallback(), handoverWait);
+}
+async function handoverFallback() {
+  const c = linkChat();
+  if (!c?.lock || cur || joining || sawMeInGame || myPlayer(c)) return;
+  if (!heldLive()) return cantRejoin();
+  await takeOver(c.id);
+  if ((cur as { id: string } | null)?.id === c.id) { // (joined: cur was set meanwhile)
+    await req('POST', `/api/voice/${c.id}/lock`, JSON.stringify({ on: false }));
+    await loadVoice();
+  }
+}
+
 // takeOver joins #voice-link on the held microphone, in one tab only: two hub tabs both see the
 // player go, and the account can be in the room once.
 async function takeOver(id: string) {
@@ -576,7 +623,7 @@ async function takeOver(id: string) {
     const r = await req('GET', '/api/voice');
     const now = r.ok ? ((await r.json()) as typeof info).chats.find((c) => c.id === id) : undefined;
     if (!now?.lock || now.people.some((p) => p.name === user.name)) return; // the other tab did, or the lock went
-    await join(id);
+    await join(id, false);
   };
   if (navigator.locks) await navigator.locks.request('mthub-voice-take-over', { ifAvailable: true }, async (l) => (l ? go() : undefined));
   else await go();

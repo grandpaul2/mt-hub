@@ -87,6 +87,9 @@ type voiceChat struct {
 	Link    bool          `json:"link,omitempty"`   // #voice-link
 	Linked  bool          `json:"linked,omitempty"` // and the bridge is in it: the game servers hear it
 	Lock    bool          `json:"lock,omitempty"`   // #voice-link, in GET /api/voice only: the person asking is locked (voice_lock.go)
+	// #voice-link, in GET /api/voice only: the person asking was just cut from the room because
+	// their player is going into the group in game (voice_lock.go, cutForGame).
+	Handover bool `json:"handover,omitempty"`
 }
 
 // linkView is #voice-link as one person sees it: your own lock, and nobody else's; and on the
@@ -96,6 +99,7 @@ type voiceChat struct {
 func (s *Server) linkView(vc *voiceChat, me string) *voiceChat {
 	c := *vc
 	c.Lock = s.voice.locked(me)
+	c.Handover = s.voice.cutLately(me, time.Now())
 	c.People = make([]voicePerson, len(vc.People))
 	for i, p := range vc.People {
 		if p.Via != "" {
@@ -167,6 +171,12 @@ type voice struct {
 	// The locked accounts (voice_lock.go), kept in voice-locks.json. Under mu.
 	locksFile string
 	locks     map[string]voiceLockEntry
+	// The hand-over to the game (voice_lock.go, cutForGame): when each account was last cut
+	// from #voice-link because its player is going into the group in game. Under mu.
+	cut map[string]time.Time
+	// Accounts handed a #voice-link token to join by hand (not a take-over): the lock comes on
+	// when LiveKit says they are in. Under mu.
+	lockOnJoin map[string]time.Time
 	// checked: the last check with LiveKit (voiceCheckOnce) answered for every voice chat, so
 	// the lists say who is where. Under mu.
 	checked bool
@@ -174,7 +184,7 @@ type voice struct {
 
 func loadVoice(dir string) *voice {
 	v := &voice{confFile: filepath.Join(dir, "voice.json"), file: filepath.Join(dir, "voice-chats.json"), chats: map[string]*voiceChat{},
-		locksFile: filepath.Join(dir, "voice-locks.json")}
+		locksFile: filepath.Join(dir, "voice-locks.json"), cut: map[string]time.Time{}, lockOnJoin: map[string]time.Time{}}
 	v.loadLocks()
 	if b, err := os.ReadFile(v.file); err == nil {
 		var list []*voiceChat
@@ -333,6 +343,27 @@ func (s *Server) voiceJoin(w http.ResponseWriter, r *http.Request) {
 	}
 	if id != LinkVoiceID {
 		s.unlock(me, "joined another voice chat")
+		s.voiceToken(w, id, me)
+		return
+	}
+	// #voice-link is one place with two ways in (voice_lock.go): while your player is in it in
+	// game, there is nothing to join here. A join by hand turns the lock on once LiveKit says
+	// you're in; the page's take-over and its fallback say {"lock": false}.
+	var req struct {
+		Lock *bool `json:"lock"`
+	}
+	if r.ContentLength != 0 {
+		json.NewDecoder(io.LimitReader(r.Body, 1<<10)).Decode(&req)
+	}
+	s.voice.mu.Lock()
+	_, game := s.whereIs(me)
+	if !game && (req.Lock == nil || *req.Lock) {
+		s.voice.lockOnJoin[me] = time.Now()
+	}
+	s.voice.mu.Unlock()
+	if game {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "Your player is in voice-link in Minecraft."})
+		return
 	}
 	s.voiceToken(w, id, me)
 }
@@ -489,20 +520,42 @@ func (s *Server) voicePart(id, name string, in bool, since time.Time, sid string
 			changed = changed || vc.Linked != in
 			vc.Linked = in
 		case in && !vc.has(name):
-			vc.People = append(vc.People, voicePersonFor(name, since))
+			p := voicePersonFor(name, since)
+			vc.People = append(vc.People, p)
 			changed = true
+			// The player arrived in game: the hand-over's cut has done its work.
+			if acct, ok := s.users.ByMC(p.Show); ok {
+				delete(s.voice.cut, acct)
+			}
 		case !in && vc.has(name):
 			vc.People = slices.DeleteFunc(vc.People, func(p voicePerson) bool { return p.Name == name })
 			changed = true
+			// The player left the game: a take-over may join at once.
+			if acct, ok := s.users.ByMC(voicePersonFor(name, time.Time{}).Show); ok {
+				delete(s.voice.cut, acct)
+			}
 		}
 		if changed {
 			s.voice.save()
 		}
+		both := s.bothPlaces(time.Now())
 		s.voice.mu.Unlock()
 		if changed {
 			s.voiceChanged()
 		}
+		s.cutForGame(both, "found in the hub and in game")
 		return
+	}
+	lockedNow := false
+	if id == LinkVoiceID && in {
+		if t, ok := s.voice.lockOnJoin[name]; ok {
+			delete(s.voice.lockOnJoin, name)
+			if u, ok := s.users.Get(name); ok && u.MC != "" && time.Since(t) < time.Minute && !s.voice.locked(name) {
+				s.voice.locks[name] = voiceLockEntry{mc: u.MC}
+				s.voice.saveLocks()
+				lockedNow = true
+			}
+		}
 	}
 	for cid, vc := range s.voice.chats {
 		if cid == id && in {
@@ -530,10 +583,18 @@ func (s *Server) voicePart(id, name string, in bool, since time.Time, sid string
 	if changed {
 		s.voice.save()
 	}
+	var both []string
+	if id == LinkVoiceID && in {
+		both = s.bothPlaces(time.Now())
+	}
 	s.voice.mu.Unlock()
-	if changed {
+	if lockedNow {
+		log.Printf("voice-link: %s locked (joined in the hub)", name)
+	}
+	if changed || lockedNow {
 		s.voiceChanged()
 	}
+	s.cutForGame(both, "found in the hub and in game")
 }
 
 // ---- LiveKit ----------------------------------------------------------------------------
@@ -776,10 +837,15 @@ func (s *Server) voiceSync(id string, live []voicePerson) {
 	if changed {
 		s.voice.save()
 	}
+	var both []string
+	if vc.Link {
+		both = s.bothPlaces(time.Now())
+	}
 	s.voice.mu.Unlock()
 	if changed {
 		s.voiceChanged()
 	}
+	s.cutForGame(both, "found in the hub and in game")
 }
 
 // twirp calls LiveKit's room API as an admin of room; a missing room is (nil, nil).

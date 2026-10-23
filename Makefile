@@ -18,7 +18,7 @@ node_modules: package.json package-lock.json
 # The Go code embeds web/dist, so vet and test need the page built first.
 check: web
 	npx tsc
-	node --test test/unit/
+	node --test "test/unit/**/*.test.mjs"
 	go vet ./...
 	go test ./...
 
