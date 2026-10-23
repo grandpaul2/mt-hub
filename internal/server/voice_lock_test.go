@@ -713,3 +713,120 @@ func TestVoiceLinkHandover(t *testing.T) {
 		t.Errorf("voice-chats.json carries a hand-over: %s", b)
 	}
 }
+
+// The code review of the hand-over (macrotech-ops tech-notes/voice-link-handover-code-review.md):
+// the mark is there before LiveKit is asked to cut (a page cut at once reads it); questions
+// every 2 s about a player whose put keeps failing don't keep it fresh for ever; a refused cut
+// leaves no mark; a join that doesn't lock drops an earlier one's that never got in.
+func TestVoiceLinkHandoverMarks(t *testing.T) {
+	dir := t.TempDir()
+	us, _ := auth.Open(dir)
+	for _, n := range []string{"Alex", "Carl", "Fay"} {
+		us.SetPassword(n, n+"-password")
+		us.SetMC(n, n+"MC")
+	}
+	var s *Server
+	var mu sync.Mutex
+	markedWhenCut := map[string]bool{}
+	failFor := ""
+	lk := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct{ Room, Identity string }
+		json.NewDecoder(r.Body).Decode(&req)
+		switch r.URL.Path {
+		case "/twirp/livekit.RoomService/ListParticipants":
+			w.Write([]byte(`{"participants":[]}`))
+		case "/twirp/livekit.RoomService/RemoveParticipant":
+			s.voice.mu.Lock()
+			marked := s.voice.cutLately(req.Identity, time.Now())
+			s.voice.mu.Unlock()
+			mu.Lock()
+			markedWhenCut[req.Identity] = marked
+			fail := req.Identity == failFor
+			mu.Unlock()
+			if fail {
+				http.Error(w, "boom", http.StatusInternalServerError)
+				return
+			}
+			w.Write([]byte(`{}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer lk.Close()
+	os.WriteFile(filepath.Join(dir, "voice.json"), []byte(`{"url":"wss://lk.example","api":"`+lk.URL+`","key":"k","secret":"s3cret","link_voice":true}`), 0o600)
+	s = &Server{users: us, voice: loadVoice(dir), bus: newBroker()}
+	s.voiceCheckOnce()
+	call := func(a account, h http.HandlerFunc, id, body string) (int, string) {
+		r := httptest.NewRequest("POST", "/", strings.NewReader(body))
+		r.SetPathValue("id", id)
+		r = r.WithContext(context.WithValue(r.Context(), userKey{}, a))
+		w := httptest.NewRecorder()
+		h(w, r)
+		return w.Code, strings.TrimSpace(w.Body.String())
+	}
+	server := account{Name: "Survival", Token: auth.KindServer}
+	ask := func(players string) string {
+		_, b := call(server, s.voiceLinkLocked, "", `{"players":`+players+`}`)
+		return b
+	}
+	mark := func(name string) (time.Time, bool) {
+		s.voice.mu.Lock()
+		defer s.voice.mu.Unlock()
+		t, ok := s.voice.cut[name]
+		return t, ok
+	}
+
+	// Alex in the hub and locked; the question cuts him: the mark was there before LiveKit was asked.
+	s.voicePart(LinkVoiceID, "Alex", true, time.Now(), "")
+	call(account{Name: "Alex"}, s.voiceLock, LinkVoiceID, `{"on":true}`)
+	if b := ask(`["AlexMC"]`); b != `{"locked":["AlexMC"]}` {
+		t.Fatalf("the question: %s", b)
+	}
+	mu.Lock()
+	before := markedWhenCut["Alex"]
+	mu.Unlock()
+	if !before {
+		t.Error("the mark came after LiveKit was asked to cut: a page cut at once reads an admin's Disconnect")
+	}
+	// His put keeps failing: the server asks again every 2 s. The mark is not made fresh again,
+	// so it runs out and the page's take-over may join.
+	old := time.Now().Add(-9 * time.Second)
+	s.voice.mu.Lock()
+	s.voice.cut["Alex"] = old
+	s.voice.mu.Unlock()
+	ask(`["AlexMC"]`)
+	if got, _ := mark("Alex"); !got.Equal(old) {
+		t.Errorf("a question 9 s after the cut made the mark fresh again (%v, want %v)", got, old)
+	}
+	s.voice.mu.Lock()
+	s.voice.cut["Alex"] = time.Now().Add(-11 * time.Second)
+	s.voice.mu.Unlock()
+	if c, _ := call(account{Name: "Alex"}, s.voiceJoin, LinkVoiceID, `{"lock":false}`); c != http.StatusOK {
+		t.Errorf("the page's take-over after the mark ran out: %d", c)
+	}
+
+	// LiveKit refuses Carl's cut: no mark left behind, not named.
+	s.voicePart(LinkVoiceID, "Carl", true, time.Now(), "")
+	call(account{Name: "Carl"}, s.voiceLock, LinkVoiceID, `{"on":true}`)
+	mu.Lock()
+	failFor = "Carl"
+	mu.Unlock()
+	if b := ask(`["CarlMC"]`); b != `{"locked":[]}` {
+		t.Errorf("Carl after a refused cut: %s", b)
+	}
+	if _, ok := mark("Carl"); ok {
+		t.Error("a refused cut left a mark")
+	}
+
+	// Fay's join by hand never got in; her next join is a take-over ({"lock": false}): when
+	// that one is in, the lock doesn't come on.
+	call(account{Name: "Fay"}, s.voiceJoin, LinkVoiceID, "")
+	call(account{Name: "Fay"}, s.voiceJoin, LinkVoiceID, `{"lock":false}`)
+	s.voicePart(LinkVoiceID, "Fay", true, time.Now(), "")
+	s.voice.mu.Lock()
+	locked := s.voice.locked("Fay")
+	s.voice.mu.Unlock()
+	if locked {
+		t.Error("an earlier join's lock came on with a join that doesn't lock")
+	}
+}

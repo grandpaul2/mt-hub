@@ -357,8 +357,11 @@ func (s *Server) voiceJoin(w http.ResponseWriter, r *http.Request) {
 	}
 	s.voice.mu.Lock()
 	_, game := s.whereIs(me)
+	// (A join that doesn't lock, or is refused, drops an earlier one's that never got in.)
 	if !game && (req.Lock == nil || *req.Lock) {
 		s.voice.lockOnJoin[me] = time.Now()
+	} else {
+		delete(s.voice.lockOnJoin, me)
 	}
 	s.voice.mu.Unlock()
 	if game {

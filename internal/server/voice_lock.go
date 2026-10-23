@@ -159,6 +159,19 @@ func (s *Server) cutForGame(accounts []string, why string) map[string]bool {
 	if conf == nil || len(accounts) == 0 {
 		return out
 	}
+	// The marks first, so a page cut a moment from now already reads that it was handed over
+	// (code review, finding 2). A fresh one is kept as it is: a question every 2 s about a
+	// player whose put keeps failing must not keep it fresh for ever (finding 1).
+	now := time.Now()
+	marked := map[string]bool{}
+	s.voice.mu.Lock()
+	for _, a := range accounts {
+		if !s.voice.cutLately(a, now) {
+			s.voice.cut[a] = now
+			marked[a] = true
+		}
+	}
+	s.voice.mu.Unlock()
 	type result struct {
 		name string
 		err  error
@@ -171,24 +184,29 @@ func (s *Server) cutForGame(accounts []string, why string) map[string]bool {
 		}()
 	}
 	deadline := time.After(cutDeadline)
+	var failed []string
 wait:
 	for range accounts {
 		select {
 		case r := <-done:
 			if r.err != nil {
 				log.Printf("voice-link: cutting %s for the game: %v", r.name, r.err)
+				failed = append(failed, r.name)
 				continue
 			}
 			out[r.name] = true
 		case <-deadline:
+			// (A call still out may yet cut its account: its mark stays, and runs out by itself.)
 			log.Printf("voice-link: cutting for the game: LiveKit took over %s", cutDeadline)
 			break wait
 		}
 	}
-	now := time.Now()
+	// LiveKit refused these: still in the room, not going anywhere.
 	s.voice.mu.Lock()
-	for a := range out {
-		s.voice.cut[a] = now
+	for _, a := range failed {
+		if marked[a] {
+			delete(s.voice.cut, a)
+		}
 	}
 	s.voice.mu.Unlock()
 	for a := range out {
