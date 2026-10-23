@@ -24,6 +24,20 @@ Any of these is fair game, and so is something not listed.
   a separate thread for the leave report. On the page: a failed Voice Settings rebuild leaving
   its half-built chain running, and the moment between publishing and muting when a muted
   joiner's microphone is live.
+- **One-place-at-a-time leftovers (#55, #56; MT Utils 2.6.2)**, judged low by the 2026-10-22
+  reviews: a few frames of hub voice in flight reaching the game just after a put; an answer to a
+  question asked before an SVC reconnect still used once; a late cut on a refused join by hand
+  leaving a hand-over mark; two cuts of one account at once, one failing, deleting the other's
+  mark (a three-line fix: delete only a mark with the time this call set); a join of voice-link
+  while already in it cutting the hub side anyway. No test yet for a batch of cuts or a cut past
+  the 2 s deadline.
+
+### Tests on a new machine
+
+- **`reveal.mjs` fails on Fedora 44's Chromium 155** (`run.map is not a function`: its
+  `frames()` helper gets no array back), on `master` too.
+- **`relay.mjs` needs an ffmpeg with libx264**; Fedora's `ffmpeg-free` has none. RPM Fusion's
+  ffmpeg would do, but OBS on Paul's desktop uses the same libraries (the dotfiles agent's).
 
 ### From the stocktake
 
