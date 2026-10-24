@@ -11,6 +11,15 @@ Any of these is fair game, and so is something not listed.
 
 ### Voice
 
+- **voice-link transition matrix, the rest** (macrotech-ops `tech-notes/voice-link-transition-matrix.md`,
+  2026-10-24): suspects still open: S9 (a hub member who is online in game but in no group is
+  audible there with no list entry, head or slider: a decision on which is wanted), S10 (a put
+  player's first 1-2 s of speech don't reach the hub), S7/S8/S16/S17 (low). Untested cells ranked
+  in its section (b); the proposed instrument for them is a listener probe (a real SVC client
+  reporting played frames) per cell, then a scripted day of play on the scratch system
+  (`~/mc-debug/voice-bridge-lab/`). The specs it found out of date: `docs/voice/svc/link-spec.md`
+  (channel ids are the player's own uuid since 2.4.0) and `hub-link-spec.md` (both places is no
+  longer allowed since the hand-over).
 - **voice-link hardening left out of the 2026-10-14 fixes** (found by a review, judged too
   unlikely to be worth it now): repairing participants' `mc` attribute in the 20 s check; the
   bridge capping a game server's roster and accepting a player's audio only from that player's
@@ -38,6 +47,9 @@ Any of these is fair game, and so is something not listed.
   `frames()` helper gets no array back), on `master` too.
 - **`relay.mjs` needs an ffmpeg with libx264**; Fedora's `ffmpeg-free` has none. RPM Fusion's
   ffmpeg would do, but OBS on Paul's desktop uses the same libraries (the dotfiles agent's).
+- **`chat-scroll.mjs` fails under load** (its "the bottom message holds its place on every
+  frame" check, to a whole pixel) when something heavy runs beside the suites, as a game test
+  did on 2026-10-24; alone it passes on this machine.
 
 ### From the stocktake
 
