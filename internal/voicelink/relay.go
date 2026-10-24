@@ -76,6 +76,8 @@ func loadTokens(path string) (map[string]string, error) {
 
 type relay struct {
 	tokens map[string]string
+	logf   func(format string, a ...any)
+	story  *story
 
 	mu      sync.Mutex
 	conns   map[string]*conn  // by server name; a reconnect replaces the old one
@@ -94,7 +96,12 @@ func (c *conn) close() {
 }
 
 func newRelay(tokens map[string]string) *relay {
-	return &relay{tokens: tokens, conns: map[string]*conn{}, rosters: map[string][]byte{}}
+	return newRelayLog(tokens, log.Printf)
+}
+
+// newRelayLog is newRelay with the journal going to logf (tests capture it).
+func newRelayLog(tokens map[string]string, logf func(format string, a ...any)) *relay {
+	return &relay{tokens: tokens, logf: logf, story: newStory(logf), conns: map[string]*conn{}, rosters: map[string][]byte{}}
 }
 
 // server returns the server name for the request's token, or "".
@@ -124,20 +131,25 @@ func (r *relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	ws.SetReadLimit(maxMessage)
 	c := &conn{name: name, out: make(chan []byte, queueLen), done: make(chan struct{})}
-	r.join(c)
-	log.Printf("%s connected from %s", name, req.Header.Get("X-Forwarded-For"))
+	if r.join(c) {
+		r.story.replaced(name)
+	}
+	r.logf("%s connected from %s", name, req.Header.Get("X-Forwarded-For"))
 
 	ctx, cancel := context.WithCancel(req.Context())
 	go func() {
 		r.write(ctx, ws, c)
 		cancel()
 	}()
+	go r.story.sweeper(ctx.Done())
 	err = r.read(ctx, ws, c)
 	cancel()
 	c.close()
-	r.leave(c)
+	if r.leave(c) {
+		r.story.gone(name)
+	}
 	ws.CloseNow()
-	log.Printf("%s disconnected: %v", name, err)
+	r.logf("%s disconnected: %v", name, err)
 }
 
 func (r *relay) read(ctx context.Context, ws *websocket.Conn, c *conn) error {
@@ -151,11 +163,13 @@ func (r *relay) read(ctx context.Context, ws *websocket.Conn, c *conn) error {
 		}
 		switch b[0] {
 		case msgAudio:
-			if len(b) >= 17 {
-				r.forward(c, msgAudio, b[1:], false)
+			if len(b) >= 17 && r.forward(c, msgAudio, b[1:], false) {
+				r.story.audio(c.name, [16]byte(b[1:17]), len(b) == 17)
 			}
 		case msgRoster:
-			r.forward(c, msgRoster, b[1:], true)
+			if r.forward(c, msgRoster, b[1:], true) {
+				r.story.roster(c.name, b[1:])
+			}
 		}
 	}
 }
@@ -199,12 +213,13 @@ func tagged(typ byte, name string, body []byte) []byte {
 // forward sends a message from c to every other server. Control messages (keep) are also
 // remembered for servers that connect later; a server too slow to take one is disconnected.
 // Audio for a slow server is dropped instead.
-func (r *relay) forward(from *conn, typ byte, body []byte, keep bool) {
+// It reports false when from has been replaced by a newer connection and nothing was sent.
+func (r *relay) forward(from *conn, typ byte, body []byte, keep bool) bool {
 	msg := tagged(typ, from.name, body)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.conns[from.name] != from {
-		return // replaced by a newer connection
+		return false
 	}
 	if keep {
 		r.rosters[from.name] = msg
@@ -214,6 +229,7 @@ func (r *relay) forward(from *conn, typ byte, body []byte, keep bool) {
 			r.send(c, msg, keep)
 		}
 	}
+	return true
 }
 
 // send queues msg for c. Callers hold r.mu.
@@ -227,11 +243,14 @@ func (r *relay) send(c *conn, msg []byte, control bool) {
 	}
 }
 
-func (r *relay) join(c *conn) {
+// join adds c, replacing an older connection of the same server (reported as true).
+func (r *relay) join(c *conn) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	replaced := false
 	if old := r.conns[c.name]; old != nil {
 		old.close()
+		replaced = true
 	}
 	r.conns[c.name] = c
 	delete(r.rosters, c.name)
@@ -241,17 +260,20 @@ func (r *relay) join(c *conn) {
 		}
 	}
 	r.status()
+	return replaced
 }
 
-func (r *relay) leave(c *conn) {
+// leave forgets c. It reports false when c had already been replaced by a newer connection.
+func (r *relay) leave(c *conn) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.conns[c.name] != c {
-		return
+		return false
 	}
 	delete(r.conns, c.name)
 	delete(r.rosters, c.name)
 	r.status()
+	return true
 }
 
 // status tells every server who is connected. Callers hold r.mu.
