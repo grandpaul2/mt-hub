@@ -324,18 +324,23 @@ async function start(priv: boolean, invite: string[]) {
 
 // join joins a voice chat. Joining #voice-link by hand turns the lock on (the hub does, once
 // you're in); the page's own take-overs say lock false.
-async function join(id: string, lock = true) {
-  if (cur?.id === id || joining) return;
+// join asks the hub for a token and connects; it answers with the hub's status (0 when nothing
+// was asked: already in, or joining). quiet keeps a refusal or a failed connection off the
+// toasts (rejoin tries again by itself).
+async function join(id: string, lock = true, quiet = false): Promise<number> {
+  if (cur?.id === id || joining) return 0;
   const r = await req('POST', `/api/voice/${id}/join`, lock ? undefined : JSON.stringify({ lock: false }));
   const b = await r.json().catch(() => ({}));
   if (!r.ok) {
-    toastError(b.error ?? 'Couldn’t join that voice chat.');
-    return loadVoice();
+    if (!quiet) toastError(b.error ?? 'Couldn’t join that voice chat.');
+    await loadVoice();
+    return r.status;
   }
-  await connect(id, b.url, b.token);
+  await connect(id, b.url, b.token, quiet);
+  return r.status;
 }
 
-async function connect(id: string, url: string, token: string) {
+async function connect(id: string, url: string, token: string, quiet = false) {
   joining = id;
   renderList();
   if (cur) await leave(false, true);
@@ -347,7 +352,8 @@ async function connect(id: string, url: string, token: string) {
   } catch (e) {
     joining = '';
     renderList();
-    return toastError(`Couldn’t use your microphone: ${(e as Error).message}`);
+    if (!quiet) toastError(`Couldn’t use your microphone: ${(e as Error).message}`);
+    return;
   }
   let Room, RoomEvent, Track, LocalAudioTrack, DisconnectReason;
   try {
@@ -356,7 +362,8 @@ async function connect(id: string, url: string, token: string) {
     chain.stop();
     joining = '';
     renderList();
-    return toastError(`Couldn’t join: ${(e as Error).message}`);
+    if (!quiet) toastError(`Couldn’t join: ${(e as Error).message}`);
+    return;
   }
   const room = new Room({ disconnectOnPageLeave: true, webAudioMix: false, adaptiveStream: false, dynacast: false });
   room.on(RoomEvent.TrackSubscribed, (track: LK.RemoteTrack, _pub: unknown, who: LK.RemoteParticipant) => {
@@ -405,6 +412,17 @@ async function connect(id: string, url: string, token: string) {
       return void leave(false);
     }
     if (reason === DisconnectReason.PARTICIPANT_REMOVED) return void removed(id);
+    // LiveKit dropped the connection (its own retries, about 45 s of them, have failed: a long
+    // LiveKit outage, or a bad line). Locked in #voice-link, that is not leaving: the lock and
+    // the held microphone stay, and the page joins again by itself as soon as it can
+    // (macrotech-ops tech-notes/voice-link-lock-outages-spec.md R2).
+    const lc = linkChat();
+    if (lc?.id === id && lc.lock) {
+      toast('Voice chat dropped, rejoining…', 6000);
+      void leave(false, true);
+      void rejoin(id);
+      return;
+    }
     toastError('Voice chat disconnected.');
     void leave(true);
   });
@@ -429,7 +447,8 @@ async function connect(id: string, url: string, token: string) {
     room.disconnect();
     joining = '';
     renderList();
-    return toastError(`Couldn’t connect to the voice chat: ${(e as Error).message}`);
+    if (!quiet) toastError(`Couldn’t connect to the voice chat: ${(e as Error).message}`);
+    return;
   }
   joining = '';
   sfx('join');
@@ -505,8 +524,45 @@ function pageStays() {
   droppedGoing = '';
   if (!id || cur || joining) return;
   const c = linkChat();
-  if (c?.lock && c.id === id && held?.readyState === 'live') void takeOver(id);
+  if (c?.lock && c.id === id && held?.readyState === 'live') void rejoin(id);
   else toastError('You were disconnected from the voice chat.');
+}
+
+// rejoin joins #voice-link again by itself after a drop, while locked: every 2 s, until joined,
+// until the hub says the lock is off, or until your player is in game (a put meanwhile:
+// lockStep's take-over owns it from there). While the hub doesn't answer it keeps asking. (A
+// tab in the background has its timers slowed by the browser, so its rejoin can be late.) Not through takeOver: its guard refuses while the hub still lists you,
+// and after a drop the hub lists you until LiveKit's webhook or its next 20 s check, while a
+// join by the same identity replaces the stale session. One attempt at a time (a join against
+// a dead LiveKit can take 15 s to fail), its toasts off; a refusal (409: your player is in
+// game, or a hand-over mark is fresh) ends it quietly.
+let rejoining = '';
+async function rejoin(id: string) {
+  if (rejoining) return;
+  rejoining = id;
+  clearTimeout(handoverTimer); // (a fallback left from an earlier cut must not unlock mid-rejoin)
+  try {
+    for (;;) {
+      if (cur || joining) return;
+      const pause = () => new Promise((ok) => setTimeout(ok, 2000));
+      const r = await req('GET', '/api/voice');
+      // No answer (the hub down with LiveKit: the same VPS): nothing is known, so keep asking.
+      if (!r.ok) {
+        await pause();
+        continue;
+      }
+      const c = ((await r.json()) as typeof info).chats.find((x) => x.id === id);
+      if (!c?.lock || myPlayer(c)) return;
+      if (!heldLive()) return cantRejoin();
+      if (cur || joining) return; // (joined something by hand while the hub was asked)
+      const tryJoin = () => join(id, false, true);
+      const status = navigator.locks ? await navigator.locks.request('mthub-voice-take-over', { ifAvailable: true }, async (l) => (l ? tryJoin() : 0)) : await tryJoin();
+      if ((cur as { id: string } | null)?.id === id || status === 409) return; // (joined: cur was set meanwhile)
+      await pause();
+    }
+  } finally {
+    rejoining = '';
+  }
 }
 // A page you look at again may ask for the microphone again (after a refusal, or one it never
 // asked for because it was in the background). Visible is enough: Firefox itself holds a
@@ -605,7 +661,7 @@ function handedOver(locked: boolean) {
 }
 async function handoverFallback() {
   const c = linkChat();
-  if (!c?.lock || cur || joining || sawMeInGame || myPlayer(c)) return;
+  if (!c?.lock || cur || joining || rejoining || sawMeInGame || myPlayer(c)) return;
   if (!heldLive()) return cantRejoin();
   await takeOver(c.id);
   if ((cur as { id: string } | null)?.id === c.id) { // (joined: cur was set meanwhile)

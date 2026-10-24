@@ -23,8 +23,20 @@ off when an admin disconnects you from #voice-link, when the account's Minecraft
 away or changed (the lock was for the old player), when it is banned, and after 30 seconds in
 neither place. Closing or reloading the hub's page is not leaving, and nor is joining
 #voice-link from another tab or device (the first one says "You joined this voice chat
-somewhere else."). The 30 seconds don't count while the hub can't ask LiveKit who is where (a
-hub that just started, or LiveKit not answering).
+somewhere else."). The 30 seconds don't count while the hub can't tell who is where: while it
+can't ask LiveKit (a hub that just started, or LiveKit not answering), and while the bridge is
+out of #voice-link's room (the bridge or the relay down, or restarting: the players in game
+vanish from the room then, not from the game). The lock waits for the bridge, however long,
+and the 30 seconds start again from its return. (With link voice switched off altogether there
+is nothing to wait for and nothing to count: a lock left behind stays until its account leaves,
+is banned or changes its name.)
+
+A dropped voice connection is not leaving either. When LiveKit drops the hub's page while you
+are locked (its own reconnecting, about 45 seconds of it, has failed: a long LiveKit outage, or
+a bad line), the page keeps the lock and the microphone it holds, says "Voice chat dropped,
+rejoining…", and joins again by itself as soon as it can, every two seconds until it is in,
+until the lock is off, or until your player is in game. Not locked, a drop is a disconnect as
+before.
 
 Nobody else sees whether you are locked.
 
