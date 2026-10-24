@@ -693,8 +693,11 @@ img.emoji { width: 1.3em; height: 1.3em; margin: 0 .05em; vertical-align: -.3em;
 .ref-card:hover { background: var(--select); }
 .ref-title { font-weight: 600; color: var(--chat-name); }
 .ref-file { font-family: var(--mono); font-size: 12px; color: var(--chat-text); }
-/* Chat media: a video or sound player under the message. */
-.ref-video video { display: block; max-width: min(400px, 100%); max-height: 300px; border-radius: 6px; background: var(--media-bg); }
+/* Chat media: a video or sound player under the message. A video is at least 260 px tall,
+   letterboxed: Firefox puts its Picture-in-Picture button on the right at 70% of the height,
+   and on a shorter video it sits just above the fullscreen button (the gap is 30% of the
+   height less 40 px: 27 px at 225, 38 px at 260). */
+.ref-video video { display: block; max-width: min(400px, 100%); min-height: 260px; max-height: 300px; border-radius: 6px; background: var(--media-bg); }
 .ref-audio { padding: 8px 10px; background: var(--panel-2); border-radius: 6px; }
 .ref-audio audio { display: block; max-width: 100%; margin-top: 4px; }
 /* Any other file posted in chat: a card with its icon, name (a download link), size and a
