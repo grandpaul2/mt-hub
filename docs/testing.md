@@ -49,8 +49,17 @@ main view compares the real screen pixels with Firefox's own capture. It caught 
 pixel row of g/p/y going missing in file-tree names (text cut short with "…" whose box edge sat
 on a half pixel).
 
-It is run by the maintainer, by hand, before a styling change is released; it needs the X
-display, i3 and maim, so most contributors cannot run it. A contributor, or their agent, says
-in the pull request that a styling change needs it. Native sliders are left out (GTK draws
-their thumb a few pixels differently in the capture). `--software` runs it with software
-rendering, for comparison.
+It is run by the maintainer before a styling change is released. On i3 with X11 the window
+is on the real screen (i3-msg and maim). On a Wayland desktop it runs in a headless KWin of
+its own (`test/firefox/headless-kwin.sh`, needs `kwin_wayland`, `dbus-run-session` and
+python3-dbus): nothing shows on the screen and the desktop's mouse and focus play no part;
+the window is grabbed through that KWin's screenshot interface. The two are different GPU
+paths, and the verdict says which ran. A contributor, or their agent, says in the pull
+request that a styling change needs it. Left out of the compare: native sliders (GTK draws
+their thumb a few pixels differently in the capture), the 10 px down the right of each
+scrolling area (a scrollbar thumb between pixels is crisp on screen and blurred in the
+capture), and on Wayland the window's rounded bottom corners. Scroll positions are snapped to
+whole pixels first: at 254.85 the screen and the capture round part of the area differently.
+On Wayland the window never has keyboard focus (the headless KWin has no keyboard), so the
+voice-link views are drawn unfocused and say so. `--software` runs it with software
+rendering, for comparison; `--views=<name>,…` runs only those views.

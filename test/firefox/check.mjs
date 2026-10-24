@@ -1,14 +1,24 @@
 // make firefox-check: does a real screen show what Firefox meant to draw?
 //
-// Opens a visible Firefox window (about a minute; needs the X display and i3) with a
-// throwaway profile using Paul's graphics settings (GPU WebRender over EGL/DMA-BUF), against a
-// throwaway hub. For each main view it compares the real screen pixels (maim) with Firefox's
-// own capture of the same page. Those differ only where the GPU path drew something other
-// than the page: the bug that cut the bottom row off g/p/y in file-tree names. Headless
-// browsers, including the browser tests, can't see this.
+// Runs a real Firefox (about a minute and a half) with a throwaway profile using Paul's
+// graphics settings (GPU WebRender over EGL/DMA-BUF), against a throwaway hub. For each main
+// view it compares the real screen pixels with Firefox's own capture of the same page. Those
+// differ only where the GPU path drew something other than the page: the bug that cut the
+// bottom row off g/p/y in file-tree names. Headless browsers, including the browser tests,
+// can't see this.
 //
-//   node test/firefox/check.mjs [--software]   (software WebRender, for comparison)
-import { execFileSync, spawn } from 'node:child_process';
+// Two ways: on i3 with X11 the window is on the real screen (i3-msg places it, maim grabs the
+// screen). On a Wayland desktop it runs in a headless KWin of its own (headless-kwin.sh: no
+// window on the real screens; mouse and focus play no part): a throwaway KWin script sizes the
+// window, KWin's screenshot interface grabs it, and the page is its bottom innerWidth ×
+// innerHeight (Firefox on Wayland doesn't know where its window is). The two are different GPU
+// paths (X11 EGL to the screen vs Wayland EGL to a headless KWin); the verdict says which.
+//
+//   node test/firefox/check.mjs [--software] [--views=<name>,…] [--shift=<px>]
+//   --software  software WebRender, for comparison
+//   --views     only these views (setup runs)
+//   --shift     Wayland: crop the screen grab this many pixels higher, to see the compare fail
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -20,12 +30,32 @@ const root = join(import.meta.dirname, '..', '..');
 const BIN = join(root, 'bin', 'mthub');
 const OUT = join(root, 'test', 'firefox', 'out');
 const SOFTWARE = process.argv.includes('--software');
+const arg = (name) => process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
+const ONLY = arg('views')?.split(',');
+const SHIFT = Number(arg('shift') ?? 0);
 const X = { ...process.env, DISPLAY: process.env.DISPLAY || ':0', XAUTHORITY: process.env.XAUTHORITY || `${process.env.HOME}/.Xauthority` };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const freePort = () => new Promise((r) => { const s = createServer().listen(0, '127.0.0.1', () => { const { port } = s.address(); s.close(() => r(port)); }); });
+const works = (cmd, args) => { try { execFileSync(cmd, args, { stdio: 'ignore', env: X }); return true; } catch { return false; } };
+
+// Which desktop, and its tools, before anything starts. On Wayland the check runs in a
+// headless KWin of its own (headless-kwin.sh): the desktop's screens, mouse and focus play no part.
+const WAYLAND = process.env.XDG_SESSION_TYPE === 'wayland' || process.env.MTHUB_KWIN_INNER === '1';
+const missing = (WAYLAND ? [['kwin_wayland', ['--version']], ['dbus-run-session', ['--version']], ['python3', ['-c', 'import dbus']]] : [['i3-msg', ['-t', 'get_version']], ['maim', ['--version']]])
+  .concat([['python3', ['-c', 'import PIL']]]).filter(([c, a]) => !works(c, a)).map(([c, a]) => c === 'python3' ? `python3 with ${a[1].slice(7)}` : c);
+if (missing.length) { console.log(`FAIL needs ${missing.join(', ')} (${WAYLAND ? 'Wayland: a headless KWin' : 'i3 on X11'})`); process.exit(2); }
+if (WAYLAND && process.env.MTHUB_KWIN_INNER !== '1') {
+  const r = spawnSync(join(import.meta.dirname, 'headless-kwin.sh'), [process.execPath, ...process.argv.slice(1)], { stdio: 'inherit' });
+  process.exit(r.status ?? 2);
+}
+const KWIN = WAYLAND;
+
 const tmp = mkdtempSync(join(tmpdir(), 'mthub-firefox-'));
 let ff, hub;
-process.on('exit', () => { ff?.kill(); hub?.kill(); rmSync(tmp, { recursive: true, force: true }); });
+process.on('exit', () => {
+  ff?.kill(); hub?.kill();
+  rmSync(tmp, { recursive: true, force: true });
+});
 setTimeout(() => { console.log('timed out'); process.exit(2); }, 180000);
 
 function png(w, h, [r, g, b]) {
@@ -114,11 +144,17 @@ writeFileSync(join(prof, 'user.js'), [...gfx.map((k) => `user_pref("${k}", true)
   'user_pref("extensions.installDistroAddons", false);', 'user_pref("extensions.enabledScopes", 1);', 'user_pref("extensions.autoDisableScopes", 15);',
   'user_pref("startup.homepage_welcome_url", "");', 'user_pref("browser.startup.homepage_override.mstone", "ignore");',
   'user_pref("browser.shell.checkDefaultBrowser", false);',
+  // Fedora's Firefox opens start.fedoraproject.org and its first-run pages over the page.
+  'user_pref("browser.startup.homepage", "about:blank");', 'user_pref("browser.startup.page", 0);', 'user_pref("browser.aboutwelcome.enabled", false);',
+  'user_pref("datareporting.policy.dataSubmissionPolicyBypassNotification", true);', 'user_pref("toolkit.telemetry.reportingpolicy.firstRun", false);',
   // Voice settings asks for the microphone (to list devices), and a locked page holds one: no
   // prompt over the page, and Firefox's own fake microphone, never this PC's.
   'user_pref("media.navigator.permission.disabled", true);', 'user_pref("media.navigator.streams.fake", true);', 'user_pref("datareporting.policy.firstRunURL", "");'].join('\n'));
 const bidi = await freePort();
-ff = spawn('firefox', ['--no-remote', '--profile', prof, `--remote-debugging-port=${bidi}`, '--class=MTHubCheck', '--width=1280', '--height=800'], { stdio: 'ignore', env: X });
+// On Wayland the window's app id comes from MOZ_APP_REMOTINGNAME (Fedora's launcher sets
+// org.mozilla.firefox unless it is given), not --class; KWin finds the window by its pid.
+ff = spawn('firefox', ['--no-remote', '--profile', prof, `--remote-debugging-port=${bidi}`, '--class=MTHubCheck', '--width=1280', '--height=800'],
+  { stdio: 'ignore', env: KWIN ? { ...process.env, MOZ_APP_REMOTINGNAME: 'MTHubCheck' } : X });
 let ws;
 for (let i = 0; i < 60 && !ws; i++) { await sleep(300); try { const w = new WebSocket(`ws://127.0.0.1:${bidi}/session`); await new Promise((ok, no) => { w.onopen = ok; w.onerror = no; }); ws = w; } catch {} }
 if (!ws) throw new Error('Firefox did not start');
@@ -173,7 +209,33 @@ const tabs = (await cmd('browsingContext.getTree', {})).result.contexts;
 const ctx = tabs[0].context;
 for (const t of tabs.slice(1)) await cmd('browsingContext.close', { context: t.context });
 await cmd('storage.setCookie', { cookie: { name: 'mt_session', value: { type: 'string', value: paul.split('=')[1] }, domain: '127.0.0.1', path: '/' } });
-execFileSync('i3-msg', ['[class="MTHubCheck"] floating enable, resize set 1280 800, move position 20 20, focus'], { env: X, stdio: 'ignore' });
+// KWin (the check's own headless one, so nothing else is on it): a throwaway script focuses
+// and sizes the window, found by Firefox's pid. It can't report back; the page's size says
+// whether it worked.
+const bus = (...a) => execFileSync('busctl', ['--user', 'call', ...a]).toString().trim();
+const kwinScript = (body) => {
+  const file = join(tmp, 'kwin.js');
+  writeFileSync(file, `const all = workspace.windowList ? workspace.windowList() : workspace.windows;\nconst w = all.find((w) => w.pid === ${ff.pid} || w.resourceClass.toLowerCase() === 'mthubcheck');\nif (w) { ${body} }\n`);
+  works('busctl', ['--user', 'call', 'org.kde.KWin', '/Scripting', 'org.kde.kwin.Scripting', 'unloadScript', 's', 'mthub-check']);
+  const id = Number(bus('org.kde.KWin', '/Scripting', 'org.kde.kwin.Scripting', 'loadScript', 'ss', file, 'mthub-check').split(' ')[1]);
+  if (!(id >= 0)) throw new Error(`KWin refused the script (${id})`);
+  bus('org.kde.KWin', `/Scripting/Script${id}`, 'org.kde.kwin.Script', 'run');
+  bus('org.kde.KWin', '/Scripting', 'org.kde.kwin.Scripting', 'unloadScript', 's', 'mthub-check');
+};
+const focus = async () => {
+  if (!KWIN) return execFileSync('i3-msg', ['[class="MTHubCheck"] focus'], { env: X, stdio: 'ignore' });
+  kwinScript('workspace.activeWindow = w;');
+  await cmd('browsingContext.activate', { context: ctx });
+};
+if (KWIN) {
+  kwinScript('w.frameGeometry = { x: 20, y: 20, width: 1280, height: 800 };');
+  await focus();
+  await sleep(600);
+  const [iw, ih, dpr] = JSON.parse(await js('JSON.stringify([innerWidth, innerHeight, devicePixelRatio])'));
+  if (dpr !== 1) throw new Error(`devicePixelRatio is ${dpr}: the screen and the capture would differ in scale`);
+  if (iw < 1240 || iw > 1280 || ih < 600 || ih > 800) throw new Error(`the page is ${iw}×${ih}: KWin didn't size the window to 1280×800`);
+  console.log(`window: page ${iw}×${ih}`);
+} else execFileSync('i3-msg', ['[class="MTHubCheck"] floating enable, resize set 1280 800, move position 20 20, focus'], { env: X, stdio: 'ignore' });
 await sleep(800);
 
 // Each view: the screen and Firefox's capture, compared pixel by pixel.
@@ -182,11 +244,14 @@ const VIEWS = [['tree and chat', 'gyp'], ['file', 'boards/Playground juggling gl
   ['chat (main panel)', 'chan=general'], ['search', 'gyp'], ['mention popup', 'chan=general'], ['command popup', 'chan=general'], ['server status', 'chan=general'], ['emoji picker', 'chan=general'],
   ['new line and jump', 'chan=piggy-jig'], ['save to files', 'chan=general'], ['chat files', 'chan=general'], ['private chat', 'chan=jig-staff'], ['server link', 'chan=text-link'], ['delete question', 'gyp'], ['delete message question', 'chan=general'], ['rows selected', 'gyp'], ['rows cut', 'gyp'], ['trash', 'gyp'], ['tiles picked and the box', 'folder=screenshots'],
   ['minecraft name', 'gyp'], ['message edit', 'chan=general'], ['file tray', 'chan=general'], ['sending and failed', 'chan=general'], ['sound settings', 'gyp'], ['voice settings', 'gyp'], ['voice settings warned', 'gyp'], ['voice-link lock', 'gyp'], ['voice-link locked', 'gyp'], ['voice-link no microphone', 'gyp'], ['admin', 'gyp']];
+const unknown = (ONLY ?? []).filter((n) => !VIEWS.some(([v]) => v === n));
+if (unknown.length) throw new Error(`no such view: ${unknown.join(', ')}`);
 mkdirSync(OUT, { recursive: true });
 const T = {}; let t0 = Date.now();
 const lap = (k) => { const n = Date.now(); T[k] = (T[k] ?? 0) + n - t0; t0 = n; };
 console.log(`TIMING startup ${Math.round(process.uptime() * 1000)} ms`);
 for (const [name, hash] of VIEWS) {
+  if (ONLY && !ONLY.includes(name)) continue;
   t0 = Date.now();
   if (name === 'new line and jump') await js(`localStorage.setItem('mt-read', JSON.stringify({ 'piggy-jig': '${readTo}' }))`);
   if (name === 'voice-link lock' || name === 'voice-link locked') await setLock(name === 'voice-link locked');
@@ -197,7 +262,7 @@ for (const [name, hash] of VIEWS) {
   if (name === 'voice-link lock') await js(`localStorage.removeItem('mt-voice')`);
   // A locked page takes the microphone by itself only in a focused window (as Firefox gives it
   // only then): focus it again, in case a click elsewhere took it during the check.
-  if (name.startsWith('voice-link')) execFileSync('i3-msg', ['[class="MTHubCheck"] focus'], { env: X, stdio: 'ignore' });
+  if (name.startsWith('voice-link')) await focus();
   await cmd('browsingContext.navigate', { context: ctx, url: `${HUB}/?r=${Math.random()}#${encodeURI(hash)}`, wait: 'complete' });
   lap('load');
   await idle(1800);
@@ -372,18 +437,53 @@ for (const [name, hash] of VIEWS) {
   else await js('document.activeElement?.blur(); document.fonts.ready.then(() => 1)');
   await cmd('browsingContext.activate', { context: ctx });
   lap('blur + activate');
+  // A scroll position between pixels (the chat at the bottom can be at 254.85) is rounded one
+  // way on screen and another in Firefox's capture, for part of the area: whole pixels only.
+  await js(`for (const e of document.querySelectorAll('*')) if (e.scrollTop % 1) e.scrollTop = Math.floor(e.scrollTop)`);
   await sleep(900);
   lap('pause before screenshot');
   if (await js('document.visibilityState') !== 'visible') throw new Error(`${name}: the hub tab isn't the one on screen`);
-  const tree = JSON.parse(execFileSync('i3-msg', ['-t', 'get_tree'], { env: X }).toString());
-  const win = (function find(n) { return n.window_properties?.class === 'MTHubCheck' ? n : [...(n.nodes ?? []), ...(n.floating_nodes ?? [])].map(find).find(Boolean); })(tree);
   const [cx, cy, w, h] = JSON.parse(await js('JSON.stringify([mozInnerScreenX - screenX, mozInnerScreenY - screenY, innerWidth, innerHeight])'));
   // Native sliders are drawn by GTK, which places the thumb a few pixels differently in the
   // capture than on screen: not ours to fix, so they're left out of the comparison.
   const skip = JSON.parse(await js(`JSON.stringify([...document.querySelectorAll('input[type=range]')].filter((e) => e.checkVisibility()).map((e) => { const r = e.getBoundingClientRect(); return [Math.floor(r.left) - 2, Math.floor(r.top) - 2, Math.ceil(r.right) + 2, Math.ceil(r.bottom) + 2]; }))`));
+  // Scrollbars, likewise: a thumb at a position between pixels is drawn crisp on screen and
+  // half a pixel blurred in the capture (and an overlay one shows on screen for a moment
+  // after the whole-pixel snap above). The 10 px down the right of each scrolling area.
+  skip.push(...JSON.parse(await js(`JSON.stringify([...document.querySelectorAll('*')].filter((e) => e.scrollHeight > e.clientHeight && /auto|scroll/.test(getComputedStyle(e).overflowY) && e.checkVisibility()).map((e) => { const r = e.getBoundingClientRect(); return [Math.floor(r.right) - 10, Math.floor(r.top), Math.ceil(r.right), Math.ceil(r.bottom)]; }))`)));
+  // KWin rounds the window's bottom corners: not the page's pixels.
+  if (KWIN) skip.push([0, h - 8, 8, h], [w - 8, h - 8, w, h]);
   const slug = name.replace(/\W+/g, '-');
   const scr = join(OUT, `${slug}-screen.png`), cap = join(OUT, `${slug}-firefox.png`);
-  execFileSync('maim', ['--hidecursor', '-g', `${w}x${h}+${win.rect.x + cx}+${win.rect.y + cy}`, scr], { env: X });
+  if (KWIN) {
+    // The active window (the only one) through KWin's screenshot interface, without frame or
+    // shadow; the page is its bottom w × h. Any other size stops the check.
+    const got = execFileSync('python3', ['-c', `
+import os, sys, dbus
+from PIL import Image
+w,h,shift=map(int,sys.argv[2:5])
+iface=dbus.Interface(dbus.SessionBus().get_object('org.kde.KWin','/org/kde/KWin/ScreenShot2'),'org.kde.KWin.ScreenShot2')
+r,wfd=os.pipe(); fd=dbus.types.UnixFd(wfd); os.close(wfd)
+at=iface.CaptureActiveWindow({'include-decoration':False,'include-shadow':False,'include-cursor':False,'native-resolution':True},fd)
+W,H,stride=int(at['width']),int(at['height']),int(at['stride'])
+if int(at['format']) not in (4,5,6): print('format', at['format']); sys.exit()
+data=b''
+with os.fdopen(r,'rb') as f:
+    while len(data)<stride*H:
+        c=f.read(stride*H-len(data))
+        if not c: break
+        data+=c
+a=Image.frombuffer('RGBA',(W,H),data,'raw','BGRA',stride,1).convert('RGB')
+ox=(W-w)//2; oy=H-h
+if not (0<=W-w<=4 and 30<=oy<=250): print('bad', W, H); sys.exit()
+a.crop((ox,oy-shift,ox+w,oy-shift+h)).save(sys.argv[1])
+print('ok', W, H)`, scr, String(w), String(h), String(SHIFT)]).toString().trim().split(' ');
+    if (got[0] !== 'ok') throw new Error(`${name}: KWin's grab of the active window is ${got.slice(1).join('×')}, not the check's (page ${w}×${h})`);
+  } else {
+    const tree = JSON.parse(execFileSync('i3-msg', ['-t', 'get_tree'], { env: X }).toString());
+    const win = (function find(n) { return n.window_properties?.class === 'MTHubCheck' ? n : [...(n.nodes ?? []), ...(n.floating_nodes ?? [])].map(find).find(Boolean); })(tree);
+    execFileSync('maim', ['--hidecursor', '-g', `${w}x${h}+${win.rect.x + cx}+${win.rect.y + cy}`, scr], { env: X });
+  }
   const shot = await cmd('browsingContext.captureScreenshot', { context: ctx, clip: { type: 'box', x: 0, y: 0, width: w, height: h } });
   writeFileSync(cap, Buffer.from(shot.result.data, 'base64'));
   lap('screen grab + capture');
@@ -404,9 +504,11 @@ else:
   if (diff[0]) {
     failed++;
     console.log(`FAIL ${name}: ${diff[0]} pixels differ, in x ${diff[1]}-${diff[3]}, y ${diff[2]}-${diff[4]} (see ${slug}-screen.png vs ${slug}-firefox.png in test/firefox/out)`);
-  } else console.log(`ok   ${name}${skip.length ? ` (${skip.length} native slider${skip.length > 1 ? 's' : ''} not compared)` : ''}`);
+  } else console.log(`ok   ${name}${skip.length ? ` (${skip.length} area${skip.length > 1 ? 's' : ''} not compared: sliders, scrollbars${KWIN ? ', window corners' : ''})` : ''}`);
 }
-console.log(failed ? `${failed} view(s) differ on screen` : `all ${VIEWS.length} views match on screen (${SOFTWARE ? 'software' : 'GPU'} rendering)`);
+const ran = ONLY ? VIEWS.filter(([n]) => ONLY.includes(n)).length : VIEWS.length;
+const desk = KWIN ? 'Wayland, in a headless KWin' : 'i3 on X11, on the screen';
+console.log(failed ? `${failed} view(s) differ on screen (${desk})` : `all ${ran} views match on screen (${SOFTWARE ? 'software' : 'GPU'} rendering, ${desk})`);
 console.log('TIMING ' + Object.entries(T).map(([k, v]) => `${k} ${(v / 1000).toFixed(1)} s`).join(' | '));
 if (Object.keys(full).length) console.log('TIMING waits that ran their full time, by what they waited for: ' + Object.entries(full).map(([k, n]) => `${k} ${n}`).join(', '));
 process.exitCode = failed ? 1 : 0;
