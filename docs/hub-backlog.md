@@ -50,6 +50,8 @@ Any of these is fair game, and so is something not listed.
 - **`chat-scroll.mjs` fails under load** (its "the bottom message holds its place on every
   frame" check, to a whole pixel) when something heavy runs beside the suites, as a game test
   did on 2026-10-24; alone it passes on this machine.
+- **`make firefox-check` needs i3 on X11**: it places its window with `i3-msg`, so on a
+  Wayland desktop with another window manager it stops before the first view (2026-10-24).
 
 ### From the stocktake
 
