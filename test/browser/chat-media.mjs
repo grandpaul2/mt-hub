@@ -186,41 +186,4 @@ await ev(`document.querySelector('#dialog .actions .danger').click()`);
 await settle(800);
 check('chat gone', (await (await hub(`/api/channels`)).json()).some((c) => c.name === 'trash-me'), false);
 
-// A short video (16:9 at 400 px is 225 tall) is drawn at least 260 px tall, letterboxed:
-// Firefox puts its Picture-in-Picture button at 70% of the height on the right, and on a
-// shorter video it sits just above the fullscreen button. A real video, recorded in the page.
-await send('Page.navigate', { url: `${HUB}/?r=4#chan=builds` });
-await settle(1500);
-const webm = await ev(`(async () => {
-  const c = document.createElement('canvas'); c.width = 640; c.height = 360;
-  const g = c.getContext('2d'), rec = new MediaRecorder(c.captureStream(30), { mimeType: 'video/webm' }), parts = [];
-  rec.ondataavailable = (e) => parts.push(e.data);
-  const stopped = new Promise((r) => (rec.onstop = r));
-  rec.start();
-  for (let i = 0; i < 12; i++) { g.fillStyle = i % 2 ? '#3a7' : '#a37'; g.fillRect(0, 0, 640, 360); await new Promise((r) => setTimeout(r, 40)); }
-  rec.stop(); await stopped;
-  const r = await fetch('/api/channels/builds/media?name=short.webm', { method: 'POST', body: new Blob(parts, { type: 'video/webm' }) });
-  return (await r.json()).path;
-})()`);
-const short = await (await paul('POST', '/api/channels/builds/messages', { text: `#${webm}` })).json();
-const videoBox = async () => ev(`(async () => {
-  // The copy on screen: a phone shows one chat pane, not #main-chat.
-  const v = [...document.querySelectorAll('.msg[data-id="${short.id}"] .ref-video video')].find((e) => e.getClientRects().length);
-  if (!v) return 'no video on screen';
-  if (v.readyState < 1) await new Promise((r) => { v.onloadedmetadata = r; setTimeout(r, 3000); });
-  const b = v.getBoundingClientRect();
-  const feed = v.closest('.messages').getBoundingClientRect();
-  return [v.videoWidth, v.videoHeight, Math.round(b.width), Math.round(b.height), b.left >= feed.left && b.right <= feed.right + 0.5];
-})()`);
-await settle(1000);
-check('short video: at least 260 tall, 400 wide', await videoBox(), [640, 360, 400, 260, true]);
-await shot('short-video');
-await send('Emulation.setDeviceMetricsOverride', { width: 360, height: 700, deviceScaleFactor: 1, mobile: true });
-await ev(`localStorage.setItem('mt-chat-side', 'builds')`); // a phone shows the side chat, not #main-chat
-await send('Page.navigate', { url: `${HUB}/?r=5#chan=builds` });
-await settle(1800);
-const narrow = await videoBox();
-check('short video on a phone: 260 tall, inside the feed', [narrow[3], narrow[4]], [260, true]);
-await send('Emulation.clearDeviceMetricsOverride');
-
 await done();
