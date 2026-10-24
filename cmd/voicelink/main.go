@@ -19,6 +19,7 @@ func main() {
 	addr := flag.String("addr", "127.0.0.1:7890", "listen address")
 	config := flag.String("config", "/etc/voicelink.json", "config file")
 	flag.Parse()
+	log.SetFlags(log.LstdFlags | log.Lmicroseconds) // the journal lines up with the servers' logs (they print milliseconds)
 
 	tokens, err := voicelink.LoadTokens(*config)
 	if err != nil {

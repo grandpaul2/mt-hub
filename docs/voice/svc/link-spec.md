@@ -115,7 +115,13 @@ The relay adds the source server name to everything it forwards. Each speaker's 
 3. The relay holds no state beyond the open connections and the last roster from each server.
    A restart only drops speech for the second it takes to reconnect.
 4. The plugin reconnects with backoff (1 s, doubling to 30 s) and resends its roster.
-5. It logs connects and disconnects only, never audio.
+5. It never logs or looks at audio bytes. Its journal is the story of the link: connects and
+   disconnects, each roster change (who came and went, the list now, a hub member's Minecraft
+   name), and one line per talk spurt when it ends (who, from which source, start time to the
+   millisecond, how long, how many frames, and whether it ended with the speaker's stop packet
+   or by a second of silence). Every roster and frame passes the relay, so this one journal
+   says who was where and who talked when; `journalctl -u voicelink` is the first place to look
+   when someone was not heard.
 
 ## Config (`config/mthub.json` of the MT Hub Server mod)
 
