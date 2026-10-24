@@ -48,8 +48,8 @@ PATH (`CHROMIUM=google-chrome` uses another browser).
 - **Always build the page before Go.** `web/dist` is generated, and the Go code embeds it. On a
   fresh clone `go vet` or `go test` alone fails with `pattern dist: no matching files found`;
   run `make` or `make check` first.
-- **Do not run `make firefox-check`.** It opens a real Firefox window on a desktop for a
-  minute and needs i3 and maim. Only the maintainer runs it. If your change touches styling,
+- **Do not run `make firefox-check`.** It runs a real Firefox for a minute and a half (on an
+  i3/X11 desktop, a window on the screen). Only the maintainer runs it. If your change touches styling,
   say in the pull request that it needs the Firefox check.
 - **A hub started to try a change is a throwaway.** Give it its own `-data` directory and
   `-addr`, never the default `./data` or port 8484 if something real may be running:
