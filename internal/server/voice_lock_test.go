@@ -50,7 +50,8 @@ func TestVoiceLock(t *testing.T) {
 			mu.Unlock()
 			w.Write([]byte(`{}`))
 		case "/twirp/livekit.RoomService/ListParticipants":
-			w.Write([]byte(`{"participants":[]}`))
+			// The bridge's listener is in the room (the game servers are linked): nobody else.
+			w.Write([]byte(`{"participants":[{"identity":"link:listener","sid":"PL_1"}]}`))
 		default:
 			http.NotFound(w, r)
 		}
@@ -58,7 +59,7 @@ func TestVoiceLock(t *testing.T) {
 	defer lk.Close()
 	os.WriteFile(filepath.Join(dir, "voice.json"), []byte(`{"url":"wss://lk.example","api":"`+lk.URL+`","key":"k","secret":"s3cret","link_voice":true}`), 0o600)
 	s := &Server{users: us, voice: loadVoice(dir), bus: newBroker()}
-	s.voiceCheckOnce() // (makes #voice-link; LiveKit's list is empty: nobody)
+	s.voiceCheckOnce() // (makes #voice-link; LiveKit's list has the bridge's listener and nobody else)
 
 	call := func(a account, h http.HandlerFunc, id, body string) int {
 		r := httptest.NewRequest("POST", "/", strings.NewReader(body))
@@ -259,6 +260,31 @@ func TestVoiceLock(t *testing.T) {
 		t.Error("30 s in neither place did not take the lock off")
 	}
 
+	// The bridge's listener out of the room (the bridge or the relay down): the players in game
+	// are not in the room either, and the hub can't tell where anyone is. The count stands
+	// still, however long; it starts from the listener's return.
+	s.voicePart(LinkVoiceID, "link:survival:AlexMC", true, time.Now(), "")
+	lock("Alex", true)
+	s.voicePart(LinkVoiceID, "link:listener", false, time.Time{}, "")
+	s.voicePart(LinkVoiceID, "link:survival:AlexMC", false, time.Time{}, "")
+	t1 := time.Now()
+	for i := 0; i <= 12; i++ {
+		s.voiceLockSweep(t1.Add(time.Duration(i*5) * time.Second))
+	}
+	if !locked("Alex") {
+		t.Fatal("the lock went while the bridge's listener was out of the room")
+	}
+	s.voicePart(LinkVoiceID, "link:listener", true, time.Now(), "")
+	s.voiceLockSweep(t1.Add(65 * time.Second))
+	s.voiceLockSweep(t1.Add(94 * time.Second))
+	if !locked("Alex") {
+		t.Fatal("the count did not start from the listener's return")
+	}
+	s.voiceLockSweep(t1.Add(95 * time.Second))
+	if locked("Alex") {
+		t.Fatal("30 s in neither place with the listener back kept the lock")
+	}
+
 	// An unlinked Minecraft name, and a ban, take it off at the next sweep.
 	s.voicePart(LinkVoiceID, "Alex", true, time.Now(), "")
 	lock("Alex", true)
@@ -302,7 +328,7 @@ func TestVoiceLockFixes(t *testing.T) {
 				http.NotFound(w, r) // (a wrong address: LiveKit itself answers an empty list)
 				return
 			}
-			w.Write([]byte(`{"participants":[]}`))
+			w.Write([]byte(`{"participants":[{"identity":"link:listener","sid":"PL_1"}]}`)) // (the bridge's listener: linked)
 		case "/twirp/livekit.RoomService/UpdateParticipant":
 			keys := []string{}
 			for k, v := range req.Attributes {
@@ -517,7 +543,7 @@ func TestVoiceLinkHandover(t *testing.T) {
 		defer mu.Unlock()
 		switch r.URL.Path {
 		case "/twirp/livekit.RoomService/ListParticipants":
-			w.Write([]byte(`{"participants":[]}`))
+			w.Write([]byte(`{"participants":[{"identity":"link:listener","sid":"PL_1"}]}`)) // (the bridge's listener: linked)
 		case "/twirp/livekit.RoomService/RemoveParticipant":
 			if req.Identity == failFor {
 				http.Error(w, "boom", http.StatusInternalServerError)
@@ -734,7 +760,7 @@ func TestVoiceLinkHandoverMarks(t *testing.T) {
 		json.NewDecoder(r.Body).Decode(&req)
 		switch r.URL.Path {
 		case "/twirp/livekit.RoomService/ListParticipants":
-			w.Write([]byte(`{"participants":[]}`))
+			w.Write([]byte(`{"participants":[{"identity":"link:listener","sid":"PL_1"}]}`)) // (the bridge's listener: linked)
 		case "/twirp/livekit.RoomService/RemoveParticipant":
 			s.voice.mu.Lock()
 			marked := s.voice.cutLately(req.Identity, time.Now())

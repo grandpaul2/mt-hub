@@ -13,6 +13,7 @@
 // (Firefox's rule that makes the page hold the microphone was tested on Paul's own Firefox:
 // the spec's Step 0).
 import { execFileSync, spawn } from 'node:child_process';
+import { createHmac } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { join } from 'node:path';
@@ -311,6 +312,51 @@ const listed = (await (await api('GET', '/api/voice', undefined, 'Paul')).json()
 check('joined elsewhere: still locked, the second tab listed 3 s later, the first not in voice', [await apiLock('Paul'), listed, await inVoice(second), await inVoice(first)], [true, true, true, false]);
 await raw('Target.closeTarget', { targetId });
 await until('the remaining page in voice-link', async () => { if (!(await inVoice())) await ev(`document.querySelector('#voice-list .row.voice.link').click()`); return inVoice(); }, 20000);
+
+// LiveKit drops the page while locked (macrotech-ops tech-notes/voice-link-lock-outages-spec.md
+// R2): the lock and the held microphone stay, and the page joins again by itself. The drop here
+// is LiveKit deleting the room (the page gets ROOM_DELETED; the hub's room_finished empties the
+// list and "linked"; the bridge's listener joins again by itself), a stand-in for a dead
+// connection: livekit-client would need LiveKit gone for 45 s before it gives up. Not locked,
+// the same drop is a disconnect as before.
+const adminJwt = () => {
+  const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const now = Math.floor(Date.now() / 1000);
+  const body = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ iss: 'mthub', sub: 'mthub', nbf: now - 10, exp: now + 600, video: { roomAdmin: true, roomCreate: true, room: 'voice-link' } })}`;
+  return `${body}.${createHmac('sha256', SECRET).update(body).digest('base64url')}`;
+};
+const deleteRoom = () => fetch(`http://127.0.0.1:${port}/twirp/livekit.RoomService/DeleteRoom`, { method: 'POST', headers: { Authorization: `Bearer ${adminJwt()}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ room: 'voice-link' }) });
+await until('his row, locked', async () => (await rows()).includes('  Paul* (locked)'));
+await until('locked', async () => apiLock('Paul'));
+const micBefore = (await gum()).tracks.length;
+await ev(`document.getElementById('toast').hidden = true; window.__lockSeen = []`);
+let lockOff = false;
+const watch = setInterval(async () => { if (!(await apiLock('Paul'))) lockOff = true; }, 300);
+check('LiveKit deletes the room', (await deleteRoom()).status, 200);
+check('the page out after the drop', await until('the page out', async () => !(await inVoice()), 15000), true);
+const dropToast = await ev(`document.getElementById('toast').hidden ? '' : document.getElementById('toast').textContent`);
+// (The room gone, the hub's list says the game servers aren't connected until the bridge's
+// listener is back in: that note is what proves the drop reached the hub.)
+check('the room gone: the hub says the game servers aren\'t connected', await until('the note', () => ev(`!!document.querySelector('#voice-list .voice-note')`), 10000), true);
+check('the bridge back in #voice-link by itself', await until('the bridge back in #voice-link', async () => !(await ev(`!!document.querySelector('#voice-list .voice-note')`)), 30000), true);
+const tBack = Date.now();
+await until('the page back by itself', () => inVoice(), 15000);
+clearInterval(watch);
+await until('Paul listed again, locked', async () => (await rows()).includes('  Paul* (locked)'), 10000);
+check('dropped while locked: said so, rejoined by itself, the lock never off, on the held microphone', [dropToast, await inVoice(), lockOff, await apiLock('Paul'), (await gum()).tracks.length === micBefore && (await gum()).tracks.at(-1)], ['Voice chat dropped, rejoining…', true, false, true, 'live']);
+console.log(`  (back in the room ${Date.now() - tBack} ms after the bridge)`);
+// Not locked: the same drop is a disconnect, as before.
+await clickLock();
+await until('unlocked', async () => !(await apiLock('Paul')));
+await ev(`document.getElementById('toast').hidden = true`);
+check('LiveKit deletes the room again', (await deleteRoom()).status, 200);
+await until('the page out', async () => !(await inVoice()), 15000);
+await until('the bridge back in #voice-link', async () => !(await ev(`!!document.querySelector('#voice-list .voice-note')`)), 30000);
+await settle(3000);
+check('dropped while not locked: out, told, not back', [await inVoice(), await ev(`document.getElementById('toast').textContent`)], [false, 'Voice chat disconnected.']);
+await ev(`document.querySelector('#voice-list .row.voice.link').click()`);
+await until('Paul in again', () => inVoice(), 20000);
+await until('his row, locked by the join', async () => (await rows()).includes('  Paul* (locked)'));
 
 // Unlocking in the voice chat keeps the microphone in use; Leave then lets it go.
 await until('his row', async () => (await rows()).includes('  Paul* (locked)'));

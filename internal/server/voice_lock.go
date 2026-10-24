@@ -10,7 +10,10 @@ package server
 // A lock goes off when its account leaves on purpose (Leave in the hub, another voice chat,
 // leaving the group in game, which the server reports, or an admin's Disconnect), loses or
 // changes its Minecraft name, is banned or deleted, or has been in neither place for
-// lockNowhereFor. That clock stands still while the hub can't ask LiveKit who is where.
+// lockNowhereFor. That clock stands still while the hub can't tell who is where: while it
+// can't ask LiveKit, and while the bridge's listener is out of the room (the bridge or the
+// relay down: the in-game players vanish from the room then, not from the game; macrotech-ops
+// tech-notes/voice-link-lock-outages-spec.md R1).
 
 import (
 	"encoding/json"
@@ -410,11 +413,16 @@ func (s *Server) mcChanged(name string) {
 // voiceLockSweep takes off the locks that should go: accounts gone, banned, without a
 // Minecraft name or with another one than the lock's, and accounts in neither place for
 // lockNowhereFor (counted from the sweep that first saw them nowhere, every 5 seconds). While
-// the hub's last check with LiveKit failed, or none has been made since it started, who is
-// where isn't known: the count starts again once it is.
+// the hub's last check with LiveKit failed, or none has been made since it started, or the
+// bridge's listener is not in the room (so the players in game are not represented in it),
+// who is where isn't known: the count starts again once it is.
 func (s *Server) voiceLockSweep(now time.Time) {
 	var off []string
 	s.voice.mu.Lock()
+	// (With link voice switched off there is no chat: nothing is known, and a lock left behind
+	// stays until its account leaves, is banned or changes its name.)
+	vc := s.voice.chats[LinkVoiceID]
+	known := s.voice.checked && vc != nil && vc.Linked
 	for name, t := range s.voice.cut {
 		if now.Sub(t) >= handoverFor {
 			delete(s.voice.cut, name)
@@ -436,7 +444,7 @@ func (s *Server) voiceLockSweep(now time.Time) {
 		}
 		hub, game := s.whereIs(name)
 		switch {
-		case hub || game || !s.voice.checked:
+		case hub || game || !known:
 			l.since = time.Time{}
 		case l.since.IsZero():
 			l.since = now
