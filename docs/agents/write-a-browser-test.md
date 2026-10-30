@@ -37,7 +37,8 @@ from `./lib.mjs`, drives the page, calls `check(label, got, want)` and ends with
 
     node test/browser/run.mjs mysuite             # just this one (the rest are listed as skipped)
     node test/browser/run.mjs mysuite other       # several
-    make browser-test                             # all, about 30 s on a fast machine
+    make browser-test                             # all, about two minutes
+    make browser-test SKIP=voice,stream,relay     # all but those, where they can't run
 
 A failed suite keeps its data and the hub's log in `/tmp/mthub-<suite>-*` and prints where.
 `run.mjs` builds the page and the server first, so a page change shows up without a separate

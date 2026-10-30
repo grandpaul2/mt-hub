@@ -6,16 +6,16 @@ screen sharing. It is one Go binary with the page built in, and it runs behind y
 reverse proxy.
 
 MacroTech's own copy is at `https://macrotechmc.com`. No releases are published: members use
-that copy, and anyone else builds the hub from source (below). Its game-server side is the MT Hub
-Server mod in [`mthub-mod`](https://github.com/grandpaul2/mthub-mod); other MacroTech projects
-are [`mt-utils`](https://github.com/grandpaul2/mt-utils) and
+that copy, and anyone else builds the hub from source (below). Its game-server side is MacroTech's
+own mod, MT Utils, private to the group; it uses only the token routes in
+[`docs/api.md`](docs/api.md). Another MacroTech project is
 [`freecursor`](https://github.com/grandpaul2/freecursor).
 
 ## Try it
 
 You need the tools under Requirements. From a fresh clone:
 
-    make                                              # builds bin/mthub; the first build downloads two model files
+    make                                              # builds bin/mthub
     ./bin/mthub passwd -admin=true alice              # asks for a password (8+ characters): makes the account
     ./bin/mthub user -owner=true alice                # makes alice the owner (optional)
     ./bin/mthub                                       # serves http://127.0.0.1:8484, data in ./data
@@ -28,14 +28,14 @@ for a test hub so it does not touch a real one. For page work, run `npm run watc
 
 ## Requirements
 
-- **Go**, the version in `go.mod` (1.27.1). An older Go stops with an error naming the version
+- **Go**, the version in `go.mod`. An older Go stops with an error naming the version
   it needs.
 - **Node.js with npm**: a current release (the scripts use `import.meta.dirname`, so Node 20.11
-  or newer; the hub is developed on Node 26). `make` runs `npm ci` for the packages.
+  or newer). `make` runs `npm ci` for the packages.
 - **For the browser tests:** `chromium` on the PATH, and for the `voice` and `stream` suites a
   Linux x86-64 machine with `curl`, `tar` and `sha256sum` (they download a LiveKit server).
   The `relay` suite needs the same and `ffmpeg` (with libx264 and libopus) on the PATH; it
-  downloads a MediaMTX server.
+  downloads a MediaMTX server. `make browser-test SKIP=voice,stream,relay` runs the rest.
 
 ## How it runs
 
@@ -68,9 +68,9 @@ All of it is indexed in [`docs/README.md`](docs/README.md). The reference pages:
 
     make                    # build bin/mthub
     make check              # type check, go vet, go test
-    make browser-test       # the page in headless Chromium, about 30 s
+    make browser-test       # the page in headless Chromium, about two minutes
 
-`make firefox-check` opens a real Firefox window and is run only by the maintainer. Details,
+`make firefox-check` checks a real Firefox's screen and is run only by the maintainer. Details,
 including how to run one suite or one Go test, are in [`docs/testing.md`](docs/testing.md).
 
 ## Contributing
@@ -83,5 +83,6 @@ where a change goes and the rules. New features and experiments are welcome too;
 
 ## Licence
 
-MIT, see `LICENSE`. What the page bundles from other projects, and under which licences, is in
+MIT, see `LICENSE`, except the MacroTech logo (`docs/topbar/`, and as drawn in `web/src/index.html`: the top bar
+and the tab icon), which is MacroTech's own artwork with all rights reserved. What the page bundles from other projects, and under which licences, is in
 `THIRD-PARTY.md`.

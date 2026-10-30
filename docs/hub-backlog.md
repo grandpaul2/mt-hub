@@ -9,47 +9,16 @@ Any of these is fair game, and so is something not listed.
 
 ## Later
 
-### Voice
+### Tests that fail on some machines
 
-- **voice-link transition matrix, the rest** (macrotech-ops `tech-notes/voice-link-transition-matrix.md`,
-  2026-10-24): suspects still open: S9 (a hub member who is online in game but in no group is
-  audible there with no list entry, head or slider: a decision on which is wanted), S10 (a put
-  player's first 1-2 s of speech don't reach the hub), S7/S8/S16/S17 (low). Untested cells ranked
-  in its section (b); the proposed instrument for them is a listener probe (a real SVC client
-  reporting played frames) per cell, then a scripted day of play on the scratch system
-  (`~/mc-debug/voice-bridge-lab/`). The specs it found out of date: `docs/voice/svc/link-spec.md`
-  (channel ids are the player's own uuid since 2.4.0) and `hub-link-spec.md` (both places is no
-  longer allowed since the hand-over).
-- **voice-link hardening left out of the 2026-10-14 fixes** (found by a review, judged too
-  unlikely to be worth it now): repairing participants' `mc` attribute in the 20 s check; the
-  bridge capping a game server's roster and accepting a player's audio only from that player's
-  server; the bridge backing off when LiveKit drops a player right after joining, avoiding a flap
-  for two players with one name, and holding roster changes during a LiveKit reconnect; the
-  sweep re-checking before it unlocks; saves syncing the file and reporting write errors; the
-  voice list written after the voice lock is released; the 20 s check not dropping someone who
-  joined while it ran; the relay refusing a server name with ":"; the page re-checking the
-  player is still gone before a take-over; a 30 s resend of the game servers' rosters. On the
-  game-server side (MT Utils): a new speaker's targets race, the relay socket assigned on open,
-  a separate thread for the leave report. On the page: a failed Voice Settings rebuild leaving
-  its half-built chain running, and the moment between publishing and muting when a muted
-  joiner's microphone is live.
-- **One-place-at-a-time leftovers (#55, #56; MT Utils 2.6.2)**, judged low by the 2026-10-22
-  reviews: a few frames of hub voice in flight reaching the game just after a put; an answer to a
-  question asked before an SVC reconnect still used once; a late cut on a refused join by hand
-  leaving a hand-over mark; two cuts of one account at once, one failing, deleting the other's
-  mark (a three-line fix: delete only a mark with the time this call set); a join of voice-link
-  while already in it cutting the hub side anyway. No test yet for a batch of cuts or a cut past
-  the 2 s deadline.
-
-### Tests on a new machine
-
-- **`reveal.mjs` fails on Fedora 44's Chromium 155** (`run.map is not a function`: its
-  `frames()` helper gets no array back), on `master` too.
-- **`relay.mjs` needs an ffmpeg with libx264**; Fedora's `ffmpeg-free` has none. RPM Fusion's
-  ffmpeg would do, but OBS on Paul's desktop uses the same libraries (the dotfiles agent's).
-- **`chat-scroll.mjs` fails under load** (its "the bottom message holds its place on every
-  frame" check, to a whole pixel) when something heavy runs beside the suites, as a game test
-  did on 2026-10-24; alone it passes on this machine.
+- **`reveal.mjs` fails on Chromium 155** (`run.map is not a function`: its `frames()` helper
+  gets no array back), on `master` too. A fix is welcome.
+- **`relay.mjs` needs an ffmpeg with libx264**; some distributions' default ffmpeg builds
+  (Fedora's `ffmpeg-free`) have none.
+- **`chat-scroll.mjs` can fail under load** (its "the bottom message holds its place on every
+  frame" check, to a whole pixel) when something heavy runs beside the suites; alone it passes.
+- **`relay.mjs` can time out under load** ("timed out waiting for LIVE") in a full run on a
+  busy machine; alone it passes.
 
 ### From the stocktake
 

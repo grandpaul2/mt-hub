@@ -3,6 +3,7 @@
 //   node test/browser/run.mjs              every suite except the ones that need the internet
 //   node test/browser/run.mjs tree moves   just those
 //   node test/browser/run.mjs --all        everything, including previews (fetches real sites)
+//   node test/browser/run.mjs --skip=voice,stream,relay   all but those (what this machine can't run)
 //
 // Builds the page and the server first, then runs the suites side by side (each has its own
 // hub and browser, so they can't disturb each other), up to one per CPU core.
@@ -19,14 +20,23 @@ const root = join(here, '..', '..');
 const NEEDS_NET = ['previews'];
 
 const args = process.argv.slice(2);
+if (args.includes('--skip')) {
+  console.error('--skip takes its suites after "=": --skip=voice,stream');
+  process.exit(2);
+}
 const all = readdirSync(here).filter((f) => f.endsWith('.mjs') && !['lib.mjs', 'run.mjs'].includes(f)).map((f) => f.slice(0, -4)).sort();
 const named = args.filter((a) => !a.startsWith('--'));
-const unknown = named.filter((n) => !all.includes(n));
+const skip = args.filter((a) => a.startsWith('--skip=')).flatMap((a) => a.slice(7).split(',')).filter(Boolean);
+const unknown = [...named, ...skip].filter((n) => !all.includes(n));
 if (unknown.length) {
   console.error(`no such suite: ${unknown.join(', ')} (have: ${all.join(', ')})`);
   process.exit(2);
 }
-const suites = named.length ? named : all.filter((s) => args.includes('--all') || !NEEDS_NET.includes(s));
+const suites = (named.length ? named : all.filter((s) => args.includes('--all') || !NEEDS_NET.includes(s))).filter((s) => !skip.includes(s));
+if (!suites.length) {
+  console.error('no suites left to run');
+  process.exit(2);
+}
 
 const bin = join(root, 'bin', 'mthub-test');
 execFileSync('make', ['web'], { cwd: root, stdio: 'inherit' });

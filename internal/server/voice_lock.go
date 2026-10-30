@@ -12,8 +12,7 @@ package server
 // changes its Minecraft name, is banned or deleted, or has been in neither place for
 // lockNowhereFor. That clock stands still while the hub can't tell who is where: while it
 // can't ask LiveKit, and while the bridge's listener is out of the room (the bridge or the
-// relay down: the in-game players vanish from the room then, not from the game; macrotech-ops
-// tech-notes/voice-link-lock-outages-spec.md R1).
+// relay down: the in-game players vanish from the room then, not from the game).
 
 import (
 	"encoding/json"
@@ -27,7 +26,7 @@ import (
 	"github.com/grandpaul2/mt-hub/internal/auth"
 )
 
-// One place at a time (macrotech-ops tech-notes/voice-link-handover-spec.md): #voice-link is
+// One place at a time (the maintainer's notes): #voice-link is
 // one place with two ways in, the hub and the group in game, and a person is in it one way at
 // a time. The hub shuts its own side before the game's opens: before it names a player as
 // locked to a game server (which then puts them in the group), and before a server lets a

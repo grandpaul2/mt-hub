@@ -11,3 +11,7 @@ __pycache__/
 /test/firefox/out/
 # Downloaded build inputs too big for git (build.mjs fetches and checks them)
 /fetched/
+
+# Personal agent files (each person's own)
+CLAUDE.local.md
+.claude/settings.local.json

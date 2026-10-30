@@ -8,13 +8,13 @@ the lab overturned in one place (echo cancellation), is kept at the end, marked 
 
 - [`svc-mic.md`](svc-mic.md): the microphone chain as built (current).
 - [`rooms-design.md`](rooms-design.md): the server and rooms as built (current spec).
-- `noise-suppression.md`: noise models that run in the browser (research record).
-- `audio-chain.md`: voice detection, echo cancellation, gain and Opus settings (research
+- [`noise-suppression.md`](noise-suppression.md): noise models that run in the browser (research record).
+- [`audio-chain.md`](audio-chain.md): voice detection, echo cancellation, gain and Opus settings (research
   record).
-- `transport.md`: the server, the TURN relay and where media runs (research record).
-- `prior-art.md`: what Jitsi, Element Call, Mumble, Stoat, Fluxer and others ship, and what
+- [`transport.md`](transport.md): the server, the TURN relay and where media runs (research record).
+- [`prior-art.md`](prior-art.md): what Jitsi, Element Call, Mumble, Stoat, Fluxer and others ship, and what
   users complain about (research record).
-- `svc/`: Simple Voice Chat and Voice Link between game servers.
+- [`svc/`](svc/): Simple Voice Chat and Voice Link between game servers.
 
 ## The design as built
 

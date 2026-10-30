@@ -46,7 +46,7 @@ Contributors and their agents start with [`../AGENTS.md`](../AGENTS.md).
 
 | Folder | What it is |
 |--------|------------|
-| `topbar/` | The top bar's logo and wiring texture. The logo is MacroTech's own artwork, by the maintainer. |
+| `topbar/` | The top bar's logo and wiring texture. The logo is MacroTech's own artwork, all rights reserved (not MIT; see `THIRD-PARTY.md`). |
 | `commands/` | The `/serverstatus` card. |
 
 ## Agent guides

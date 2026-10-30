@@ -60,7 +60,7 @@ OBS ──RTMP (H.264 + AAC)──► relay: channel "live" ──► the game's
   `hub` account. A local-only account publishes the `-web` channels.
 - The web server in front of the hub sends `/relay/*` to MediaMTX (WHEP and API). MediaMTX
   checks the `hub` account on every request; nothing under `/relay/` answers without it.
-- The exact config and commands are in our private relay runbook, not here.
+- Setting up the relay itself (its full config and commands) is not documented here.
 
 ## The hub (`internal/server/relay.go`)
 

@@ -12,8 +12,7 @@ import (
 // story writes the relay's journal: one line per roster change and one per talk spurt. The
 // relay is the one place every roster and every voice frame of voice-link passes (both game
 // servers and the hub's bridge), so its journal alone says who was where and who talked when,
-// without lining up four logs (that took most of an evening once; see
-// macrotech-ops tech-notes/voice-link-silent-after-leave.md). It never looks at audio bytes,
+// without lining up four logs (that took most of an evening once). It never looks at audio bytes,
 // and it never writes a line per frame.
 //
 // A spurt is a run of frames from one speaker on one source. It ends with the speaker's empty

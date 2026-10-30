@@ -2,7 +2,7 @@
 // relay and bridge, and a stand-in game server speaking the relay's protocol, as in
 // voice-link.mjs. Paul (Minecraft name PaulMC) on the page: the lock on his own row only, on by
 // itself when he joins by hand; the game server's question cuts his page before his player is
-// put in the group (macrotech-ops tech-notes/voice-link-handover-spec.md), quietly, the lock
+// put in the group (the maintainer's notes), quietly, the lock
 // kept; a cut with no player after it takes over once and the lock goes; a join by hand in game
 // cuts an unlocked page; the hub refuses a join while his player is in; locked,
 // his page hangs up when his player appears in game and joins again by itself when it goes,
@@ -313,7 +313,7 @@ check('joined elsewhere: still locked, the second tab listed 3 s later, the firs
 await raw('Target.closeTarget', { targetId });
 await until('the remaining page in voice-link', async () => { if (!(await inVoice())) await ev(`document.querySelector('#voice-list .row.voice.link').click()`); return inVoice(); }, 20000);
 
-// LiveKit drops the page while locked (macrotech-ops tech-notes/voice-link-lock-outages-spec.md
+// LiveKit drops the page while locked (the maintainer's notes
 // R2): the lock and the held microphone stay, and the page joins again by itself. The drop here
 // is LiveKit deleting the room (the page gets ROOM_DELETED; the hub's room_finished empties the
 // list and "linked"; the bridge's listener joins again by itself), a stand-in for a dead

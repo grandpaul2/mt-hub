@@ -854,8 +854,8 @@ at home in apps like this:
 - **Every change gets a test that fails on the old code** (`make browser-test`, Chromium).
 - **Styling changes also run `make firefox-check`:**
   - It compares the real screen with Firefox's own capture, view by view.
-  - It opens a window for about a minute, so **ask the maintainer first**, and an agent never runs it: it says in the pull request that
-    the change needs it.
+  - Only the maintainer runs it; an agent never does: it says in the pull request that the
+    change needs it.
   - New views (popups, dialogs) are added to it.
 - **The maintainer looks only at the live hub;** a local hub started for a test is a throwaway
   tool, not something to show.

@@ -1,6 +1,8 @@
 # Third-party work in the hub
 
-The hub's own code is MIT (see `LICENSE`). The page it serves also contains other people's
+The hub's own code is MIT (see `LICENSE`), except the MacroTech logo (`docs/topbar/`, and as
+drawn in `web/src/index.html`: the top bar and the tab icon), which is MacroTech's own artwork,
+all rights reserved. The page it serves also contains other people's
 work. Most of it is not in this repository: it is fetched by `npm ci` and built into `web/dist`,
 and so into the `mthub` binary. Two exceptions: the Lucide icon paths, copied into the source,
 and the voice microphone chain, `web/src/svc-mic.wasm`, built by `native/svc-mic/build.sh` from
@@ -37,7 +39,10 @@ International Public License (<https://creativecommons.org/licenses/by/4.0/>); t
 unmodified.
 
 Go modules: `golang.org/x/crypto`, `x/image`, `x/term` (BSD-3-Clause) and
-`github.com/coder/websocket` (ISC).
+`github.com/coder/websocket` (ISC). `cmd/voicebridge`, a separate program, also uses
+`github.com/livekit/protocol` and `livekit/server-sdk-go` (Apache-2.0) and `pion/webrtc` (MIT);
+the hub's own binary doesn't carry them.
 
 The browser tests download a [LiveKit server](https://github.com/livekit/livekit) binary
-(Apache-2.0) into `fetched/`; it isn't part of the hub.
+(Apache-2.0) and a [MediaMTX](https://github.com/bluenviron/mediamtx) server (MIT) into
+`fetched/`; they aren't part of the hub.

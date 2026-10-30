@@ -15,7 +15,8 @@ Each suite starts its own hub on a free port with a throwaway data directory, se
 Chromium over the DevTools protocol, so they need nothing from npm. A failed suite keeps its
 data and the hub's log in `/tmp/mthub-<suite>-*`.
 
-    make browser-test                      # all except previews, about 30 s
+    make browser-test                      # all except previews, about two minutes
+    make browser-test SKIP=voice,stream,relay   # all but those (or --skip= with run.mjs)
     node test/browser/run.mjs tree moves   # just those (the rest are listed as skipped)
     node test/browser/run.mjs --all        # including previews, which fetches real sites
     node test/browser/run.mjs --serial     # one at a time (they run side by side by default)
@@ -31,8 +32,8 @@ Needs:
 - The `voice` and `stream` suites run a LiveKit server. `run.mjs` downloads it once, before the
   suites start, into `fetched/livekit-server` (not in git; checked against LiveKit's published
   checksum). That needs network access to github.com, `curl`, `tar` and `sha256sum`, and the
-  download is the Linux x86-64 build, so on other systems these two suites cannot run: name
-  the others instead.
+  download is the Linux x86-64 build, so on other systems these two suites cannot run: leave
+  them out with `SKIP=`.
 - The `relay` suite runs a MediaMTX server, downloaded the same way into `fetched/mediamtx`
   (Linux x86-64), and `ffmpeg` from the PATH (with libx264 and libopus) as the streamer.
 
@@ -43,7 +44,7 @@ also checks the speaking light.
 ## Firefox check
 
 Headless browsers can't see what a GPU actually puts on screen. `make firefox-check`
-(`test/firefox/check.mjs`) opens a visible Firefox window for about a minute, with a throwaway
+(`test/firefox/check.mjs`) runs a real Firefox for about a minute, with a throwaway
 profile set to GPU rendering (WebRender over EGL/DMA-BUF) and a throwaway hub, and for each
 main view compares the real screen pixels with Firefox's own capture. It caught the bottom
 pixel row of g/p/y going missing in file-tree names (text cut short with "…" whose box edge sat
