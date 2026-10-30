@@ -9,8 +9,9 @@ mt hub is a small self-hosted web app that replaces Discord for one Minecraft gr
 (MacroTech): a git-backed file tree with previews and a plain text editor, chats, voice chats
 and screen sharing. One Go binary with the page built in. The page is plain TypeScript, no
 framework. All data is plain files in the data directory. It is not a code editor or IDE, not
-a general chat product, and not a Minecraft mod (that is
-[`mthub-mod`](https://github.com/grandpaul2/mthub-mod)).
+a general chat product, and not a Minecraft mod. The game-server side is MacroTech's own mod
+(MT Utils, private to the group), which talks to the hub only through the token routes in
+[`docs/api.md`](docs/api.md); that API is the contract.
 
 ## What you can build
 
@@ -30,7 +31,8 @@ PATH (`CHROMIUM=google-chrome` uses another browser).
 
     make                                  # npm ci, bundle the page, build bin/mthub
     make check                            # tsc, unit tests, go vet, go test ./...   (first run is slower)
-    make browser-test                     # the page in headless Chromium, about 30 s
+    make browser-test                     # the page in headless Chromium, about two minutes
+    make browser-test SKIP=voice,stream,relay   # all but those (what your machine can't run)
     node test/browser/run.mjs tree chats  # just those suites
     go test ./internal/server -run TestVoice   # one Go test
     npx tsc                               # type check only
@@ -40,17 +42,16 @@ PATH (`CHROMIUM=google-chrome` uses another browser).
 - **Network for some tests.** The `voice` and `stream` suites download a LiveKit
   server from github.com on their first run; they work on Linux x86-64 only and need `curl`,
   `tar` and `sha256sum`. The `relay` suite downloads a MediaMTX server the same way and needs
-  `ffmpeg` (with libx264 and libopus) on the PATH. Elsewhere, name the other suites on the
-  command line.
+  `ffmpeg` (with libx264 and libopus) on the PATH. Elsewhere, leave them out with `SKIP=`.
 - **`internal/voicebridge`'s tests need the LiveKit server** the `voice` suite downloads
   (`fetched/livekit-server`). Without it they print `NOT TESTED` and are skipped: run
   `make browser-test` once, or say they were not run.
 - **Always build the page before Go.** `web/dist` is generated, and the Go code embeds it. On a
   fresh clone `go vet` or `go test` alone fails with `pattern dist: no matching files found`;
   run `make` or `make check` first.
-- **Do not run `make firefox-check`.** It runs a real Firefox for a minute and a half (on an
-  i3/X11 desktop, a window on the screen). Only the maintainer runs it. If your change touches styling,
-  say in the pull request that it needs the Firefox check.
+- **Do not run `make firefox-check`.** It compares a real Firefox's screen with what Firefox
+  meant to draw, on the maintainer's machines; only the maintainer runs it. If your change
+  touches styling, say in the pull request that it needs the Firefox check.
 - **A hub started to try a change is a throwaway.** Give it its own `-data` directory and
   `-addr`, never the default `./data` or port 8484 if something real may be running:
   `./bin/mthub passwd -data /tmp/scratch -admin=true alice` (flags before the name), then
@@ -84,16 +85,20 @@ PATH (`CHROMIUM=google-chrome` uses another browser).
   microphone chain, with its native part in `native/svc-mic/`), `stream.ts`,
   `admin.ts`, `util.ts` shared helpers, `style.css` all styles.
 - `test/browser/`: one suite per area; `lib.mjs` has the helpers and the seed data.
-  `test/firefox/`: the real-screen check (maintainer only).
+  `test/unit/`: Node tests `make check` runs (the microphone chain against reference output).
+  `test/perf/`: a page-load measurement, run by hand. `test/firefox/`: the real-screen check
+  (maintainer only).
 - `docs/`: [`docs/README.md`](docs/README.md) indexes it. `docs/style-guide.md` is the design
-  reference and wins over the code; `docs/architecture.md` is the map.
+  reference and wins over the code; `docs/architecture.md` is the map, with the names the hub
+  expects (`#text-link`, `commands/`, ...).
 
 ## Rules
 
 - **A change comes with a check that fails on the old code**: a Go test, or a browser suite.
   Otherwise nobody can tell the change does anything.
 - **Read `docs/style-guide.md` before changing how anything looks or behaves,** so the change
-  fits in with the rest of the page. It records the group's decisions on look and behaviour.
+  fits in with the rest of the page: the sections for your area (the change-the-page guide
+  lists them), not all of it. It records the group's decisions on look and behaviour.
 - **Text a member wrote is never parsed as HTML.** Build nodes with `h()` from `util.ts`. The
   two places that render Markdown go through `cleanHTML`. Use `innerHTML` only with a constant,
   because a member could otherwise plant a script.
@@ -101,9 +106,9 @@ PATH (`CHROMIUM=google-chrome` uses another browser).
   and the page's policy forbids one; a form could be planted by member-written HTML.
 - **A chat route goes through `inChat`** (`private.go`), so private chats and DMs stay
   private. Search, events and lists must only carry what the caller can see.
-- **A token reaches only the routes in `tokenAllow`** (`tokens.go`). A game server's token sits
-  in a config file on a rented host, so a new route stays closed to tokens unless added there
-  on purpose.
+- **A token reaches only the routes listed for its kind** (`serverAllow` or `releaseAllow` in
+  `tokens.go`; `tokenAllow` maps a kind to its list). A game server's token sits in a config
+  file on a rented host, so a new route stays closed to tokens unless added there on purpose.
 - **Anything that stores bytes checks the disk first** (`roomFor`, and `floored` for a large
   upload) and has a size limit. The hub must never fill its disk.
 - **File names and paths go through `workspace.Clean`.** It refuses `.git` parts and control
@@ -114,8 +119,8 @@ PATH (`CHROMIUM=google-chrome` uses another browser).
   from other sites; the Content Security Policy in `headers.go` enforces it and the browser
   suites fail on anything it blocks. A new dependency is fine if it bundles into the page
   that way; mention it in the pull request.
-- **Nothing private goes in**: no tokens, addresses, home-folder paths, or names of real
-  people in code, tests, docs or commit messages. Use the stand-in names the tests use.
+- **Nothing private goes in**: no tokens, addresses, home-folder paths, or real names of people
+  in code, tests, docs or commit messages. Use the stand-in names the tests use.
 - **No GitHub Actions or other CI.** Nothing on GitHub builds or tests a pull request; the
   maintainer does, on their own machine.
 
@@ -124,7 +129,7 @@ PATH (`CHROMIUM=google-chrome` uses another browser).
 Before you open a pull request, both must pass on your branch:
 
     make check
-    make browser-test
+    make browser-test        # with SKIP=... for suites your machine can't run; say which
 
 An agent without a display can run both (the browser tests are headless). It cannot run
 `make firefox-check`, and cannot judge how something looks on a real screen or a phone. Say
@@ -149,12 +154,11 @@ tested something you did not run.
   Run `make check`, which bundles the page first.
 - **Running a suite file directly** (`node test/browser/tree.mjs`). It stops with "MTHUB_BIN
   is not set". Go through `node test/browser/run.mjs tree`.
-- **Reading "43 suites" as all of them.** `previews` is skipped unless you pass `--all`
-  (it fetches real sites). Naming suites prints the rest as "skipped": that is normal.
-- **`voice` or `stream` failing on a Mac or ARM machine.** They run a Linux x86-64 LiveKit
-  binary. Run the other suites and say so.
-- **A hung first build.** If `node build.mjs` sits on "downloading ... from cdn.mezon.ai", the
-  network blocks that host; it fails after two minutes. Download the file yourself into the
-  path the error names, or ask the human.
+- **Reading the suite count as all of them.** `previews` is skipped unless you pass `--all`
+  (it fetches real sites). Naming or skipping suites lists the rest as "skipped": that is normal.
+- **`voice`, `stream` or `relay` failing on a Mac or ARM machine, or without ffmpeg.** They run
+  Linux x86-64 servers. Run `make browser-test SKIP=voice,stream,relay` and say so.
+- **A failure that is not yours.** A few suites fail on some machines on `master` too
+  (`docs/hub-backlog.md` → Tests that fail on some machines); check there before chasing one.
 - **Committing generated files:** `web/dist/`, `bin/`, `fetched/`, `data/` and
   `test/browser/out/` are ignored; keep them out of the pull request.

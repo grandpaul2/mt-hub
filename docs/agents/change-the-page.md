@@ -58,8 +58,8 @@ own data directory and port: it is a scratch hub, not something to leave running
     make check
     node test/browser/run.mjs <the suite for your area>
 
-A styling change also needs `make firefox-check`, which opens a real Firefox window on a
-desktop. Do not run it; say in the pull request that the change needs it.
+A styling change also needs `make firefox-check`, which checks a real Firefox's screen on the
+maintainer's machines. Do not run it; say in the pull request that the change needs it.
 
 ## What people get wrong
 

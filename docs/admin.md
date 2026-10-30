@@ -48,17 +48,18 @@ password is temporary: until its owner picks their own, every call but `/api/me`
 Admins can also rename and delete chats, pin, and delete or edit anyone's messages.
 
 **Server tokens: how game servers log in** (`internal/auth/tokens.go`, `<data>/tokens.json`).
-The MT Hub Server mod ([`mthub-mod`](https://github.com/grandpaul2/mthub-mod)) on a game
+MacroTech's mod (MT Utils, private to the group) on a game
 server does the hub's work for that server's players: `/b`'s shortcuts, the schematics list
 and files, and posting screenshots. Players never log in from the game.
 - **Format:** sent as `Authorization: Bearer mt_<id>_<secret>`. Tokens never expire, and are
   revoked by hand: make a new one (and revoke the old) when someone loses access to that
   server's panel.
 - **Storage:** only a hash is stored. A token is shown once, when it's made (below).
-- **A token reaches only its routes** (`tokenAllow` in `internal/server/tokens.go`):
-  `/api/me`, reading `commands/`, `/api/schematics`, `GET /api/file/schematics/…`,
-  `POST /api/screenshots`, `POST /api/server-status` and `/api/server-link` (reading and
-  posting). Everything else is 403. A token sitting in a config file on a rented server can't
+- **A token reaches only its routes** (`serverAllow` in `internal/server/tokens.go`, the
+  list that counts): `/api/me`, reading `commands/`, `/api/schematics`,
+  `GET /api/file/schematics/…`, `POST /api/screenshots`, `POST /api/server-status`,
+  `/api/server-link` (reading and posting) and `POST /api/voice-link/{left,locked,joining}`.
+  Everything else is 403. A token sitting in a config file on a rented server can't
   read chats, edit files or touch accounts.
 - **Screenshots:** a server names the player with `?poster=<Minecraft name>` (letters, digits,
   `_`, 1–16 characters). If an admin gave an account that Minecraft name (Admin: with the new

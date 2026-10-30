@@ -41,7 +41,27 @@ Everything the hub knows is plain files in the data directory (`-data`, default 
 - `internal/preview`: link previews (public internet only).
 - `internal/server`: every route, the Content Security Policy (`headers.go`), disk limits
   (`limits.go`) and the event stream.
-- `cmd/voicelink`: a separate small relay for Simple Voice Chat between game servers.
+- `cmd/voicelink`: a separate small relay for Simple Voice Chat between game servers
+  (`internal/voicelink`). `cmd/voicelink-echo`: a test tool for it that repeats what it hears.
+- `cmd/voicebridge`: a separate program that joins one hub voice chat to that relay
+  (`internal/voicebridge`; the only user of LiveKit's Go library).
+
+## Names the hub expects
+
+A few names are fixed in the code. They come from MacroTech's copy, but a fresh hub works
+without any of them: each matters only once that feature is used.
+
+| Name | What it is | Where it is set |
+|---|---|---|
+| `#text-link` | the chat shared with game chat on the servers; can't be renamed or deleted while linked | `LinkChat`, `internal/server/link.go` |
+| `#voice-link` | the voice chat joined to the game servers' Simple Voice Chat group (needs `link_voice` in `voice.json`) | `LinkVoiceID`, `internal/server/voice.go` |
+| `#mod-discussion` | where the release token posts mod release cards | `ReleaseChat`, `internal/server/tokens.go` |
+| MacroTech | the author of release cards and server notices; no account may take the name | `internal/auth/tokens.go` |
+| `commands/` | Files folder a game server reads (its `/b` shortcuts) | `serverAllow`, `internal/server/tokens.go` |
+| `schematics/` | Files folder for schematic posts, readable by game servers | `SchematicsDir`, `internal/server/schematics.go` |
+| `screenshots/` | where game screenshots are posted; a feed, no history | `internal/server/tokens.go`, `internal/workspace/workspace.go` |
+| `large/`, `map art/` | Files areas that keep no history | `areas`, `internal/workspace/workspace.go` (and `AREAS`, `web/src/main.ts`) |
+| `mods/mod info/` | a release card's Readme button looks for the mod's page here | `MOD_INFO`, `web/src/chat.ts` |
 
 ## The page
 
@@ -69,8 +89,7 @@ signed with the shared secret) plus a check every 20 seconds. Details: `voice-an
 
 ## Game servers
 
-A Minecraft server with the MT Hub Server mod
-([`mthub-mod`](https://github.com/grandpaul2/mthub-mod)) holds one server token and
-makes every call for its players. A token can reach only the routes in `tokenAllow`
-(`internal/server/tokens.go`), so a token in a rented server's config file cannot read chats
+A Minecraft server with MacroTech's mod (MT Utils, private to the group) holds one server
+token and makes every call for its players. A token can reach only the routes listed for its
+kind (`serverAllow`, `releaseAllow` in `internal/server/tokens.go`), so a token in a rented server's config file cannot read chats
 or touch accounts. Details: `admin.md`.

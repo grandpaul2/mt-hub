@@ -415,7 +415,7 @@ async function connect(id: string, url: string, token: string, quiet = false) {
     // LiveKit dropped the connection (its own retries, about 45 s of them, have failed: a long
     // LiveKit outage, or a bad line). Locked in #voice-link, that is not leaving: the lock and
     // the held microphone stay, and the page joins again by itself as soon as it can
-    // (macrotech-ops tech-notes/voice-link-lock-outages-spec.md R2).
+    // (the maintainer's notes).
     const lc = linkChat();
     if (lc?.id === id && lc.lock) {
       toast('Voice chat dropped, rejoining…', 6000);

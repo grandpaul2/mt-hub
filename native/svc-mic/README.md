@@ -36,4 +36,6 @@ it; it fetches what it needs into `fetched/` and checks each against a pinned ha
 
 `make check` runs `test/unit/` (`test/unit/svcmic/`), which compares this module with Simple
 Voice Chat's natives and the game's keyboard gate on made-up input. The reference data in
-`test/unit/svcmic/ref/` is written by `make-refs.sh` from those mods' jars.
+`test/unit/svcmic/ref/` is committed, so the check needs nothing else. It is written by
+`make-refs.sh` from those mods' jars, one of them MacroTech's private mod, so only the
+maintainer regenerates it.

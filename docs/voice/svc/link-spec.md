@@ -48,8 +48,8 @@ Survival: SVC + MT Hub Server ──wss──┐            ┌──wss── C
    `port=` the voice port the host forwards to the server. Leave `bind_address` blank and
    `force_voice_chat=false`. Everything else stays at
    SVC's defaults. Never use `port=-1`; the SVC wiki warns it can crash the server.
-2. **Link plugin**, a feature of **MT Hub Server**, the server-only jar of the MT Hub mod
-   ([`mthub-mod`](https://github.com/grandpaul2/mthub-mod)). It turns on only when SVC is
+2. **Link plugin**, a feature of MacroTech's game-server mod (MT Hub Server when this was
+   written, now MT Utils; private to the group). It turns on only when SVC is
    installed and `voice_link` is set in
    `config/mthub.json`. This is the same pattern as the WaterFrames aliases. Players need
    nothing from us beyond SVC.

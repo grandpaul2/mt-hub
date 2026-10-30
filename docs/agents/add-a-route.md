@@ -58,8 +58,8 @@ handled for you; test a member where admins only, and a token where closed to to
 ## What people get wrong
 
 - Adding a chat route straight to the mux: private chats and DMs then leak. Use the `inChat` map.
-- Forgetting `tokenAllow`'s other side: a route that must work for a game server answers 403
-  until it is listed in `serverAllow`.
+- Forgetting the token side: a route that must work for a game server answers 403 until it is
+  listed in `serverAllow` (`tokenAllow` only maps a token kind to its list).
 - Using a path from the request without `workspace.Clean`.
 - Reading a whole upload into memory, or accepting one without `roomFor`.
 - Changing the shape of an existing answer.

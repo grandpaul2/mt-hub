@@ -89,4 +89,4 @@ instead of a login) are marked.
 
 Every call except `/api/login` and the signed LiveKit webhook answers 401 without a session
 or a server token, and writes are credited to its user. A server token reaches only the routes
-in `tokenAllow` (`internal/server/tokens.go`); everything else answers 403.
+listed for its kind (`serverAllow` or `releaseAllow` in `internal/server/tokens.go`); everything else answers 403.

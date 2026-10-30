@@ -298,7 +298,7 @@ func TestVoiceLock(t *testing.T) {
 	}
 }
 
-// The 2026-10-14 fixes (macrotech-ops tech-notes/voice-link-fixes-plan.md): the route game
+// The 2026-10-14 fixes (the maintainer's notes): the route game
 // servers ask (H1), a replaced session (H2), a slow or failing check (H3), an admin's
 // Disconnect (H4), look-alike names (H5), a changed Minecraft name and the old lock file (H6).
 func TestVoiceLockFixes(t *testing.T) {
@@ -522,7 +522,7 @@ func TestLookAlikeNames(t *testing.T) {
 	}
 }
 
-// One place at a time (macrotech-ops tech-notes/voice-link-handover-spec.md): the hub cuts an
+// One place at a time (the maintainer's notes): the hub cuts an
 // account from #voice-link's room before it names its player as locked, and before a server
 // lets a player join the group by hand; while the player is in the group (or going in), the
 // hub has nothing to join; anyone found in both is cut; joining by hand turns the lock on.
@@ -740,7 +740,7 @@ func TestVoiceLinkHandover(t *testing.T) {
 	}
 }
 
-// The code review of the hand-over (macrotech-ops tech-notes/voice-link-handover-code-review.md):
+// The code review of the hand-over (the maintainer's notes):
 // the mark is there before LiveKit is asked to cut (a page cut at once reads it); questions
 // every 2 s about a player whose put keeps failing don't keep it fresh for ever; a refused cut
 // leaves no mark; a join that doesn't lock drops an earlier one's that never got in.

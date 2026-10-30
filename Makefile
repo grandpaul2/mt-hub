@@ -1,8 +1,8 @@
 # `make` builds bin/mthub with the frontend embedded. `make check` runs tests and the type check
 # (test/unit/: the voice microphone chain against the game's, in Node).
 # `make browser-test` drives the page in headless Chromium (test/browser/; needs chromium).
-# `make firefox-check` compares a real Firefox window's screen pixels with what Firefox meant to
-# draw (test/firefox/; opens a window for about a minute, so run it by hand).
+# `make firefox-check` compares a real Firefox's screen pixels with what Firefox meant to draw
+# (test/firefox/; the maintainer runs it).
 .PHONY: all web check browser-test firefox-check clean
 
 all: web
@@ -22,8 +22,9 @@ check: web
 	go vet ./...
 	go test ./...
 
+# SKIP=voice,stream,relay leaves out suites this machine can't run.
 browser-test: node_modules
-	node test/browser/run.mjs
+	node test/browser/run.mjs $(if $(SKIP),--skip=$(SKIP))
 
 firefox-check: all
 	node test/firefox/check.mjs
