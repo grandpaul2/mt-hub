@@ -24,14 +24,16 @@ file and `LATER.md`; item 2 decided).
    player appears in a roster and asserts the hub receives the first frames; then buffer them
    (a short queue per player, flushed when the track is published) or prepare the participant
    sooner.
-2. **With the lock off, a hub member whose player is online in game but in no group is still
-   heard in voice-link,** from a stand-in speaker with no list entry, head or volume slider
-   (an online player is not shown as a remote member). It happens when someone clicks the lock
-   off and stays in #voice-link while playing, or when a put into the game fails for 15 s and
-   the hub takes over and turns the lock off. **Decided** (maintainer, 2026-10-30): the lock off
-   means "keep me separate", so their hub voice is not played in game while their player is
-   online and outside the group. *Next:* a short spec of where it stops (the game server's side
-   of the link, or the bridge not sending it) and the test that fails today.
+2. **With the lock off, a hub member whose player is online in game but in no group is heard
+   in voice-link with no list entry, head or volume slider**: they play from a stand-in speaker,
+   because an online player is not shown as a remote member. It happens when someone clicks
+   the lock off and stays in #voice-link while playing, or when a put into the game fails for
+   15 s and the hub takes over and turns the lock off. **Decided** (maintainer, 2026-10-30): the
+   lock off means "keep me out of the in-game group", not "keep me silent": staying in the hub
+   is a fair choice (no switch pauses and beeps when moving between servers a lot, or a mod not
+   updated), so they stay heard and are **shown like any hub member**, while their player is
+   online. *Next:* a short spec of the game server's side of the link showing them, and the
+   test that fails today.
 3. **Two voice specs are out of date.** `docs/voice/svc/link-spec.md` says a remote voice's
    channel is deliberately not the speaker's own uuid; since MT Utils 2.4.0 shown members use
    their own uuid. `docs/voice/svc/hub-link-spec.md` says someone in both places is heard twice
