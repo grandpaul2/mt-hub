@@ -17,8 +17,9 @@ a general chat product, and not a Minecraft mod. The game-server side is MacroTe
 
 New features, experiments and fixes are all welcome: build what your human asked for. The hub
 is for a group playing a game together, so it is meant to be fun to change. The maintainer
-tries every pull request before merging, so it does not have to be perfect. Ideas that came up
-earlier are in `docs/hub-backlog.md`, if you want a starting point.
+tries every pull request before merging, so it does not have to be perfect. If you want a
+starting point: `OPEN.md` is the work open now (take an item by saying so in the chat or
+opening a draft pull request), and `LATER.md` holds ideas for later.
 
 To make a change fit in, follow `docs/style-guide.md`: it describes how the page looks and
 behaves. If your change does something different on purpose, say so in the pull request.
@@ -66,6 +67,7 @@ PATH (`CHROMIUM=google-chrome` uses another browser).
 | add a `/` command in the chat box | [`docs/agents/add-a-chat-command.md`](docs/agents/add-a-chat-command.md) | `web/src/commands.ts` |
 | write or fix a browser test | [`docs/agents/write-a-browser-test.md`](docs/agents/write-a-browser-test.md) | `test/browser/*.mjs` |
 | fix the docs only | edit the file; keep `docs/README.md` true | `docs/`, `README.md` |
+| finish, start or drop an open item | rewrite its line in `OPEN.md` in the same pull request (done: remove it) | `OPEN.md`, `LATER.md` |
 
 ## Where things are
 
@@ -159,6 +161,6 @@ tested something you did not run.
 - **`voice`, `stream` or `relay` failing on a Mac or ARM machine, or without ffmpeg.** They run
   Linux x86-64 servers. Run `make browser-test SKIP=voice,stream,relay` and say so.
 - **A failure that is not yours.** A few suites fail on some machines on `master` too
-  (`docs/hub-backlog.md` → Tests that fail on some machines); check there before chasing one.
+  (`OPEN.md` → Tests); check there before chasing one.
 - **Committing generated files:** `web/dist/`, `bin/`, `fetched/`, `data/` and
   `test/browser/out/` are ignored; keep them out of the pull request.

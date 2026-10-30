@@ -21,7 +21,7 @@ Contributors and their agents start with [`../AGENTS.md`](../AGENTS.md).
 | [`api.md`](api.md) | reference | The HTTP API. |
 | [`testing.md`](testing.md) | reference | Go tests, browser tests, the Firefox check. |
 | [`style-guide.md`](style-guide.md) | current spec | How the hub looks and behaves. Agreed by the maintainers; it wins over the code. |
-| [`hub-backlog.md`](hub-backlog.md) | current spec | Ideas not built yet (the **Later** list) and the stocktake they came from. |
+| [`stocktake.md`](stocktake.md) | reference | What Discord and a file explorer have that the hub does not; the source of the ideas numbered in `LATER.md`. Open work is in [`OPEN.md`](../OPEN.md), ideas in [`LATER.md`](../LATER.md). |
 | [`voice/rooms-design.md`](voice/rooms-design.md) | current spec | Voice chats as built. |
 | [`voice/svc-mic.md`](voice/svc-mic.md) | current spec | The microphone chain: the game's (Simple Voice Chat and the keyboard noise gate), in the hub. |
 | [`stream/screen-share-spec.md`](stream/screen-share-spec.md) | current spec | Screen sharing as built. |
