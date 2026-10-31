@@ -164,14 +164,16 @@ func (s *Server) cutForGame(accounts []string, why string) map[string]bool {
 	// The marks first, so a page cut a moment from now already reads that it was handed over
 	// (code review, finding 2). A fresh one is kept as it is: a question every 2 s about a
 	// player whose put keeps failing must not keep it fresh for ever (finding 1).
+	// Every call, this round's or another's at the same moment, counts itself out and back; a
+	// refused one drops the mark only if it was the last out and none cut the account under
+	// it (OPEN item 4: two cuts at once, the marking one refused, the other through).
 	now := time.Now()
-	marked := map[string]bool{}
 	s.voice.mu.Lock()
 	for _, a := range accounts {
 		if !s.voice.cutLately(a, now) {
 			s.voice.cut[a] = now
-			marked[a] = true
 		}
+		s.voice.cutting[a]++
 	}
 	s.voice.mu.Unlock()
 	type result struct {
@@ -182,35 +184,38 @@ func (s *Server) cutForGame(accounts []string, why string) map[string]bool {
 	for _, a := range accounts {
 		go func() {
 			_, err := conf.twirp("RemoveParticipant", LinkVoiceID, map[string]string{"room": LinkVoiceID, "identity": a})
+			s.voice.mu.Lock()
+			mark, ok := s.voice.cut[a]
+			if s.voice.cutting[a]--; s.voice.cutting[a] == 0 {
+				delete(s.voice.cutting, a)
+			}
+			switch {
+			case err == nil && ok:
+				s.voice.cutWorked[a] = mark
+			case err != nil && ok && s.voice.cutting[a] == 0 && !s.voice.cutWorked[a].Equal(mark):
+				// LiveKit refused: still in the room, not going anywhere.
+				delete(s.voice.cut, a)
+			}
+			s.voice.mu.Unlock()
 			done <- result{a, err}
 		}()
 	}
 	deadline := time.After(cutDeadline)
-	var failed []string
 wait:
 	for range accounts {
 		select {
 		case r := <-done:
 			if r.err != nil {
 				log.Printf("voice-link: cutting %s for the game: %v", r.name, r.err)
-				failed = append(failed, r.name)
 				continue
 			}
 			out[r.name] = true
 		case <-deadline:
-			// (A call still out may yet cut its account: its mark stays, and runs out by itself.)
+			// (A call still out may yet cut its account: it keeps or drops the mark when it ends.)
 			log.Printf("voice-link: cutting for the game: LiveKit took over %s", cutDeadline)
 			break wait
 		}
 	}
-	// LiveKit refused these: still in the room, not going anywhere.
-	s.voice.mu.Lock()
-	for _, a := range failed {
-		if marked[a] {
-			delete(s.voice.cut, a)
-		}
-	}
-	s.voice.mu.Unlock()
 	for a := range out {
 		log.Printf("voice-link: cut %s from the hub (%s)", a, why)
 		s.voicePart(LinkVoiceID, a, false, time.Time{}, "")
@@ -425,6 +430,11 @@ func (s *Server) voiceLockSweep(now time.Time) {
 	for name, t := range s.voice.cut {
 		if now.Sub(t) >= handoverFor {
 			delete(s.voice.cut, name)
+		}
+	}
+	for name, t := range s.voice.cutWorked {
+		if now.Sub(t) >= handoverFor {
+			delete(s.voice.cutWorked, name)
 		}
 	}
 	for name, t := range s.voice.lockOnJoin {

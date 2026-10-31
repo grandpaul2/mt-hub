@@ -174,6 +174,10 @@ type voice struct {
 	// The hand-over to the game (voice_lock.go, cutForGame): when each account was last cut
 	// from #voice-link because its player is going into the group in game. Under mu.
 	cut map[string]time.Time
+	// Per account, the cut calls to LiveKit still out, and the mark (cut's time) one of them
+	// cut it under: a refused call drops the mark only when no other call cut it. Under mu.
+	cutting   map[string]int
+	cutWorked map[string]time.Time
 	// Accounts handed a #voice-link token to join by hand (not a take-over): the lock comes on
 	// when LiveKit says they are in. Under mu.
 	lockOnJoin map[string]time.Time
@@ -184,7 +188,7 @@ type voice struct {
 
 func loadVoice(dir string) *voice {
 	v := &voice{confFile: filepath.Join(dir, "voice.json"), file: filepath.Join(dir, "voice-chats.json"), chats: map[string]*voiceChat{},
-		locksFile: filepath.Join(dir, "voice-locks.json"), cut: map[string]time.Time{}, lockOnJoin: map[string]time.Time{}}
+		locksFile: filepath.Join(dir, "voice-locks.json"), cut: map[string]time.Time{}, cutting: map[string]int{}, cutWorked: map[string]time.Time{}, lockOnJoin: map[string]time.Time{}}
 	v.loadLocks()
 	if b, err := os.ReadFile(v.file); err == nil {
 		var list []*voiceChat

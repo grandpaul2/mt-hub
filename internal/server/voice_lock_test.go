@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -854,5 +855,67 @@ func TestVoiceLinkHandoverMarks(t *testing.T) {
 	s.voice.mu.Unlock()
 	if locked {
 		t.Error("an earlier join's lock came on with a join that doesn't lock")
+	}
+}
+
+// Two cuts of one account at once (OPEN item 4): the first sets the mark, the second finds it
+// fresh and sets none; the first's call fails and the second's cuts. The mark stays, in
+// either order of the answers, or the cut page reads an admin's Disconnect and drops the lock.
+func TestVoiceLinkTwoCutsOneFails(t *testing.T) {
+	for _, failFirst := range []bool{false, true} {
+		dir := t.TempDir()
+		us, _ := auth.Open(dir)
+		us.SetPassword("Dan", "Dan-password")
+		us.SetMC("Dan", "DanMC")
+		var calls atomic.Int32
+		arrived := make(chan struct{}, 2) // each RemoveParticipant as it arrives
+		release := make(chan struct{})    // lets the call held back answer
+		lk := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/twirp/livekit.RoomService/ListParticipants":
+				w.Write([]byte(`{"participants":[{"identity":"link:listener","sid":"PL_1"}]}`))
+			case "/twirp/livekit.RoomService/RemoveParticipant":
+				n := calls.Add(1)
+				arrived <- struct{}{}
+				// The first call fails, the second cuts; held back: the second (failFirst) or the first.
+				if (n == 1) != failFirst {
+					<-release
+				}
+				if n == 1 {
+					http.Error(w, "boom", http.StatusInternalServerError)
+					return
+				}
+				w.Write([]byte(`{}`))
+			default:
+				http.NotFound(w, r)
+			}
+		}))
+		os.WriteFile(filepath.Join(dir, "voice.json"), []byte(`{"url":"wss://lk.example","api":"`+lk.URL+`","key":"k","secret":"s3cret","link_voice":true}`), 0o600)
+		s := &Server{users: us, voice: loadVoice(dir), bus: newBroker()}
+		s.voiceCheckOnce()
+		s.voicePart(LinkVoiceID, "Dan", true, time.Now(), "")
+
+		first, second := make(chan map[string]bool), make(chan map[string]bool)
+		go func() { first <- s.cutForGame([]string{"Dan"}, "test") }()
+		<-arrived // the first has set the mark and asked LiveKit
+		go func() { second <- s.cutForGame([]string{"Dan"}, "test") }()
+		<-arrived
+		var a, b map[string]bool
+		if failFirst {
+			a = <-first
+			close(release)
+			b = <-second
+		} else {
+			b = <-second
+			close(release)
+			a = <-first
+		}
+		lk.Close()
+		s.voice.mu.Lock()
+		marked := s.voice.cutLately("Dan", time.Now())
+		s.voice.mu.Unlock()
+		if a["Dan"] || !b["Dan"] || !marked {
+			t.Errorf("failFirst=%v: the first cut says %v, the second %v; the mark there after: %v (want false, true, true)", failFirst, a["Dan"], b["Dan"], marked)
+		}
 	}
 }
