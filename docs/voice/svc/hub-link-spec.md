@@ -62,8 +62,9 @@ The lab below checked that byte for byte.
 - The group is named **voice-link** (was Link). The group id is unchanged, so nothing else
   moves.
 
-**Someone in both** (in the group in game and in #voice-link on the hub) is heard twice by
-others and hears themself. Nothing prevents it, as with joining a call from two devices.
+**Nobody is in both** (the group in game and #voice-link on the hub): going into one takes
+you out of the other first ([`lock-spec.md`](lock-spec.md) → One place at a time; until
+2026-10-22 someone could be in both, and was heard twice).
 
 ## Pieces
 
