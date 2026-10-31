@@ -9,7 +9,7 @@ belong, and comes back as a new item when it shows again.
 Anyone may take an item: say so in the chat or open a draft pull request, so two people don't
 build the same thing. An item's number stays when others close.
 
-Last reconciled: **2026-10-30** (items 2–7 closed: 2 won't-fix, see `docs/voice/svc/lock-spec.md` → What it doesn't do; 3–7 done; item 1 narrowed).
+Last reconciled: **2026-10-31** (nothing opened or closed: the folder list, Upload Schematic and the tree closing its own folders were asked for and shipped the same day, #78 and #79).
 
 ## Open
 
