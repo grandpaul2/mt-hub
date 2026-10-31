@@ -83,8 +83,9 @@ let treeJSON = '';
 const expanded = new Set<string>(JSON.parse(load('mt-expanded') ?? '[]'));
 const auto = new Set<string>();
 const hovered = new Set<string>();
+const shut = new Set<string>(); // closed by hand on the path to what's shown: kept shut until it changes
 const isOpen = (p: string) => expanded.has(p) || auto.has(p) || hovered.has(p);
-let keepPath = ''; // the next prune also keeps this one's folders (#folder=…&item=…)
+let keepPath = ''; // also kept open while its folder is the one shown (#folder=…&item=…)
 let targetDir = '';
 let focused = ''; // the tree row the keys are on (outlined while the tree has focus)
 // The selected rows, drawn grey: one after a click or an arrow key, several with Ctrl or
@@ -126,9 +127,14 @@ const leaveOK = async () => !dirty() || ask({
   confirm: 'Discard', danger: true,
 });
 
-// expandParents opens p's folders as the hub's (auto).
-function expandParents(p: string) {
-  for (let d = dirName(p); d; d = dirName(d)) if (!expanded.has(d)) auto.add(d);
+// expandParents opens p's folders as the hub's (auto). Asked for (a link, a search), it
+// opens even one you shut by hand; the tree's own keeping of the path (kept) doesn't.
+function expandParents(p: string, kept = false) {
+  for (let d = dirName(p); d; d = dirName(d)) {
+    if (kept && shut.has(d)) continue;
+    shut.delete(d);
+    if (!expanded.has(d)) auto.add(d);
+  }
 }
 
 // showInside opens dir itself too (the hub's), to show what goes in it.
@@ -140,9 +146,11 @@ function showInside(dir: string) {
 
 // pruneAuto closes the hub's folders that what the main panel now shows (path; '' for
 // something outside Files) isn't inside.
+// (keepPath counts only while its own folder is the one shown.)
 function pruneAuto(path: string) {
+  shut.clear();
+  if (keepPath && dirName(keepPath) !== path) keepPath = '';
   const keep = [path, keepPath].filter(Boolean);
-  keepPath = '';
   for (const d of [...auto]) if (!keep.some((k) => k.startsWith(d + '/'))) auto.delete(d);
 }
 
@@ -380,6 +388,10 @@ function renderTree() {
     if (shown) select(shown);
     pruneAuto(shown?.path ?? '');
   }
+  // The path to what's shown is always open, however it came to be shown (back from a chat
+  // to the file still open, a #folder= address, a reload, a moment with nothing shown).
+  if (shown) expandParents(shown.path, true);
+  if (keepPath && shown?.path === dirName(keepPath)) expandParents(keepPath, true);
   $('target').replaceChildren(...glyphs(targetDir ? `→ ${targetDir}/` : ''));
   // A selection of several keeps to what is still there (someone may have deleted a row).
   if (selected.size > 1) {
@@ -502,6 +514,7 @@ function activate(e: Entry) {
 }
 
 function collapseAll() {
+  for (const d of [...expanded, ...auto, ...hovered]) shut.add(d);
   expanded.clear();
   auto.clear();
   hovered.clear();
@@ -514,8 +527,11 @@ function collapseAll() {
 // setExpanded is opening or closing by hand: opened, it's yours; closed, it's shut whoever
 // opened it.
 function setExpanded(p: string, open: boolean) {
-  if (open) expanded.add(p);
-  else {
+  if (open) {
+    expanded.add(p);
+    shut.delete(p);
+  } else {
+    if (isOpen(p)) shut.add(p);
     expanded.delete(p);
     auto.delete(p);
     hovered.delete(p);
@@ -2083,6 +2099,9 @@ function setup() {
   // (Capture: before a drop handler opens the folder things land in.)
   document.addEventListener('drop', endHover, true);
   document.addEventListener('dragend', endHover, true);
+  // A drag's dragend can go to a row the tree has since redrawn, and so reach nothing; the
+  // first mouse move after a drag (there are none during one) shuts them then.
+  document.addEventListener('mousemove', () => hovered.size && endHover());
   tree.ondrop = (e) => {
     e.preventDefault();
     const bin = onTrash(e);

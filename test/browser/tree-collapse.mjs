@@ -46,6 +46,10 @@ check('after a reload: yours, and the path to the open file', [await open(), awa
 await to('#' + ERC);
 await chevron('boards');
 check('a chevron closes one of the hub\'s', (await open()).includes('boards'), false);
+// …and it stays shut while the tree redraws (picking another row redraws it).
+await ev(`document.querySelector('#tree .row[data-path="notes"]').dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }))`);
+await settle(300);
+check('and stays shut through a redraw', (await open()).includes('boards'), false);
 await chevron('boards');
 await to('#notes/todo.md');
 check('opened again by hand, it stays', [await open(), await saved()], [['boards', 'docs', 'notes'], ['docs', 'boards']]);
@@ -62,6 +66,23 @@ check('a folder view: its parents open, not itself', await open(), ['boards', 'b
 await to('#chan=general');
 check('and close on leaving', await open(), []);
 
+// Review of S98: a chat between two looks at the same open file keeps its path; two Open
+// folder links to one folder don't hold it open after; a #folder= address (and a reload)
+// opens the path to the folder.
+await to('#' + ERC);
+await to('#chan=general');
+await to('#' + ERC);
+check('back from a chat to the same file: its path opens again', await open(), ['boards', 'boards/handheld-device', 'boards/handheld-device/erc_outputs']);
+await to('#folder=boards/handheld-device&item=parts.md');
+await to('#folder=boards/handheld-device&item=board.toml');
+await to('#notes/todo.md');
+check('two Open folder links, then elsewhere: nothing held open', await open(), ['notes']);
+await to('#folder=boards/handheld-device/erc_outputs');
+await send('Page.reload');
+await settle(1800);
+check('a #folder= address after a reload: the path to it', await open(), ['boards', 'boards/handheld-device']);
+await to('#chan=general');
+
 // A drag hovering over a closed folder opens it; when the drag ends it shuts again.
 await ev(`(() => {
   window.__dt = new DataTransfer();
@@ -73,6 +94,18 @@ check('a drag hovering opens a folder', await open(), ['notes']);
 await ev(`document.querySelector('.row[data-path="README.md"]').dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: window.__dt }))`);
 await settle(300);
 check('and it shuts when the drag ends', [await open(), await saved()], [[], []]);
+// The drag's end can be lost (the tree redrew the row it started from): the first mouse move
+// after it shuts them.
+await ev(`(() => {
+  const dt = new DataTransfer();
+  document.querySelector('.row[data-path="README.md"]').dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
+  document.querySelector('.row[data-path="notes"]').dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt }));
+})()`);
+await settle(900);
+check('opened by a drag again', await open(), ['notes']);
+await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 120, y: 300 });
+await settle(300);
+check('a lost dragend: the next mouse move shuts it', await open(), []);
 
 // A move: the folder things land in opens, and stays until the next navigation.
 await ev(`(() => {
