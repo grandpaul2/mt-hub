@@ -1,12 +1,18 @@
-"""Makes message.mp3, the new-message sound (picked by ear over nine rounds).
+"""Makes message.mp3, the new-message sound (picked by ear, 2026-10-30).
 
-Three soft glass notes, C#6 A5 E6, at 0, 70 and 200 ms: a quick pair, then the last after
-a breath. Each note is a few inharmonic partials (a glass bar), struck over 18 ms with the
-upper partials toned down, then "a hand on the bell": after 150 ms it dies away quickly,
-so it doesn't hang like a clock chime. A small, dry room. 120 ms of silence first, so a
-wireless headset waking up doesn't swallow the start. The level was picked as 70% in
-paplay, whose scale is cubic (0.7^3 = 0.34, -9.3 dB). The file is at full strength and the
-Sound Settings slider is cubic too, so its default of 70% is exactly that, with room above.
+A snap and a lift: a soft analog-style tone, then a short one an octave up. Made from scratch
+here, sines only, every setting tuned by ear:
+- The snap, 683 Hz for 36 ms: a struck part dying away while a second part, in opposite
+  phase, swells in. Where they cross the sound dips and turns over (about 10 ms in), which is
+  what makes it sound natural rather than a beep.
+- The lift, 62 ms after the snap starts: 11 ms that glide down from 1500 to 1330 Hz and die
+  away quickly, so it doesn't ring.
+- Both are near-pure sines with a trace of overtones and a slight random pitch wobble, like
+  an analog oscillator, and come up over a few ms (3 and 2.2) so neither clicks.
+120 ms of silence first, so a wireless headset waking up doesn't swallow the start. The level
+was matched by ear to the old sound (three glass notes), whose level was picked as 70% in
+paplay (cubic: 0.34). The file is at full strength; Sound Settings' default of 70% gives the
+chosen level, with room above.
 
 Needs numpy and lame:  python3 web/src/sounds/make-message.py
 """
@@ -14,58 +20,54 @@ import os, subprocess, tempfile, wave
 import numpy as np
 
 SR = 48000
-rng = np.random.default_rng(7)
-RING = 0.18  # the fundamental's decay (s); the upper partials die faster
+rng = np.random.default_rng(3)
 
 
-def t(dur):
-    return np.arange(int(SR * dur)) / SR
+def ms(m):
+    return int(SR * m / 1000)
 
 
-def hz(name):
-    semis = {'C': -9, 'C#': -8, 'D': -7, 'D#': -6, 'E': -5, 'F': -4, 'F#': -3, 'G': -2, 'G#': -1, 'A': 0, 'A#': 1, 'B': 2}
-    return 440 * 2 ** ((semis[name[:-1]] + 12 * (int(name[-1]) - 4)) / 12)
+def osc(freq, partials):
+    """freq: Hz per sample; partials: (harmonic, level) on the running phase."""
+    phase = 2 * np.pi * np.cumsum(freq) / SR
+    return sum(level * np.sin(n * phase) for n, level in partials)
 
 
-def glass_note(freq, dur):
-    x = t(dur)
-    parts = [(1, 1, RING), (2.32, 0.5 * 0.35, RING * 0.6), (4.25, 0.3 * 0.35, RING * 0.36), (6.63, 0.15 * 0.35, RING * 0.2)]
-    out = sum(level * np.sin(2 * np.pi * freq * ratio * x + rng.uniform(0, 6.28)) * np.exp(-x / decay) for ratio, level, decay in parts)
-    out *= np.minimum(1, x / 0.018)                                        # the strike
-    out *= np.where(x < 0.15, 1, np.exp(-(x - 0.15) / 0.09))               # the hand on the bell
-    return out
+def wobble(n, cents=6):
+    """A slow random drift of the pitch, like an analog oscillator's."""
+    k = rng.standard_normal(n // 200 + 2)
+    return 2 ** (cents * np.interp(np.arange(n) / 200, np.arange(len(k)), k) / 1200)
 
 
-def room(x, mix=0.05, size=0.6):
-    """A small Schroeder room: four feedback combs into two allpasses."""
-    xs = np.concatenate([x, np.zeros(SR)])
-    wet = np.zeros_like(xs)
-    for d, g in [(1557, 0.80), (1617, 0.79), (1491, 0.78), (1422, 0.77)]:
-        d = int(d * size * SR / 44100)
-        c = np.zeros_like(xs)
-        for i in range(len(xs)):
-            c[i] = xs[i] + (g * c[i - d] if i >= d else 0)
-        wet += c
-    for d, g in [(225, 0.5), (556, 0.5)]:
-        a = np.zeros_like(wet)
-        for i in range(len(wet)):
-            a[i] = -g * wet[i] + (wet[i - d] + g * a[i - d] if i >= d else 0)
-        wet = a
-    return xs * (1 - mix) + wet / 4 * mix
+def edges(n, rise, fall):
+    """Fade in over rise ms and out over fall ms."""
+    g = np.ones(n)
+    a, r = ms(rise), ms(fall)
+    g[:a] = np.sin(np.linspace(0, np.pi / 2, a)) ** 2
+    g[n - r:] = np.cos(np.linspace(0, np.pi / 2, r)) ** 2
+    return g
 
 
-dur = RING * 7 + 0.2
-x = np.zeros(int(SR * (dur + 0.4)))
-for i, (name, at) in enumerate([('C#6', 0), ('A5', 0.07), ('E6', 0.20)]):
-    s = glass_note(hz(name), dur) * (0.8 if i < 2 else 1)
-    j = int(at * SR)
-    x[j:j + len(s)] += s[: len(x) - j]
-x = room(x)
-x = x / np.sqrt(np.mean(x[: int(SR * 0.4)] ** 2)) * 0.06  # full strength: Sound Settings' default 70% brings it to the chosen level
-keep = np.nonzero(np.abs(x) > 1e-4)[0]
-x = x[: keep[-1] + 1]
-x[-int(SR * 0.03):] *= np.linspace(1, 0, int(SR * 0.03))
-x = np.concatenate([np.zeros(int(SR * 0.12)), x])
+def snap():
+    n = ms(36)
+    t = np.arange(n) / SR * 1000
+    env = np.exp(-t / 8.5) - 0.62 * (1 - np.exp(-t / 16))  # dies away; the swell in opposite phase
+    return osc(683 * wobble(n), [(1, 1), (2, 0.01), (3, 0.02)]) * env * edges(n, 3, 4)
+
+
+def lift():
+    n = ms(11)
+    t = np.arange(n) / SR * 1000
+    freq = 1330 + (1500 - 1330) * np.exp(-t / 6)
+    return osc(freq * wobble(n), [(1, 1), (2, 0.011), (3, 0.006)]) * np.exp(-t / 5) * edges(n, 2.2, 4)
+
+
+a, b = snap(), lift()
+x = np.zeros(ms(120 + 62) + len(b) + ms(30))
+x[ms(120):ms(120) + len(a)] += a
+x[ms(182):ms(182) + len(b)] += b * np.max(np.abs(a)) / np.max(np.abs(b))  # the lift peaks as loud as the snap
+loudest = np.max(np.convolve(x ** 2, np.ones(ms(100)) / ms(100), 'valid'))
+x *= 0.085 / np.sqrt(loudest)  # full strength: its loudest 100 ms, matched by ear to the old sound
 
 here = os.path.dirname(os.path.abspath(__file__))
 with tempfile.NamedTemporaryFile(suffix='.wav') as tmp:

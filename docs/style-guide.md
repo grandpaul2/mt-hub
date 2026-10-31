@@ -661,12 +661,13 @@ separate dialogs.
     **Esc** in `--mention` blurple. Both are clickable (like Discord's): Enter saves, Esc
     cancels.
   - Phones (under 700 px) show **Save** and **Cancel**, and no hint.
-- **Message sound**: three soft glass notes (C#6 A5 E6), the hub's sound. It's
-  made by `web/src/sounds/make-message.py`: change it there, never by hand. Every
-  detail was tuned by ear: the pitch, the rhythm, the soft strike, the quick fade after 150 ms (so it
-  doesn't hang like a clock chime), and the level: 70% in paplay, which is cubic (0.34).
-  The file is at full strength; Sound Settings' default of 70% gives the chosen level, with room
-  above. When it plays: `ding.ts`.
+- **Message sound**: a snap and a lift, a soft analog-style tone and a short one an octave up,
+  the hub's sound since 2026-10-30 (before: three soft glass notes). It's made by
+  `web/src/sounds/make-message.py`: change it there, never by hand. Every detail was matched by
+  ear: the snap's dip and swell, the lift's glide and quick fall (so it doesn't ring), the soft
+  onsets (so neither clicks), and the level: the old sound's, which was 70% in paplay (cubic,
+  0.34). The file is at full strength; Sound Settings' default of 70% gives the chosen level,
+  with room above. When it plays: `ding.ts`.
 - **Sound Settings** (the menu on your name): one section per sound, each with a
   switch, a Volume slider (cubic like the system's; letting go plays it; **70% by default**,
   each sound's chosen level, so people can turn it up; a small tick above the slider marks

@@ -81,6 +81,6 @@ await gap();
 await say('other', 'with the sound off');
 check('message switch off: no sound', (await dings()).length, n);
 
-// The file: served, and a browser can decode it (about 0.9 s).
-check('the sound decodes', await ev(`fetch('/sounds/message.mp3').then((r) => r.arrayBuffer()).then((b) => new AudioContext().decodeAudioData(b)).then((a) => Math.round(a.duration * 10) / 10)`), 0.9);
+// The file: served, and a browser can decode it (about 0.2 s).
+check('the sound decodes', await ev(`fetch('/sounds/message.mp3').then((r) => r.arrayBuffer()).then((b) => new AudioContext().decodeAudioData(b)).then((a) => Math.round(a.duration * 10) / 10)`), 0.2);
 await done();

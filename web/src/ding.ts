@@ -1,4 +1,4 @@
-// The new-message sound three soft glass notes, picked by ear
+// The new-message sound: a snap and a lift, picked by ear
 // (sounds/make-message.py makes the file). Rules:
 //   - a new message from someone else, in a chat you can see (the server only sends those);
 //   - not if you're looking at that chat: a hub tab that's focused and showing it, in this
