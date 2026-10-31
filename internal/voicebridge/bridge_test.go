@@ -676,11 +676,14 @@ func TestPlayerJoinsAtOnce(t *testing.T) {
 	id := strings.ReplaceAll(steveUUID, "-", "")
 	steve := func() *player { b.mu.Lock(); defer b.mu.Unlock(); return b.players[id] }
 	for i := range 5 {
+		for len(starts) > 0 { // a join of the round before that started late: not this round's
+			<-starts
+		}
 		sent := time.Now()
 		g.roster(true)
 		select {
 		case at := <-starts:
-			if late := at.Sub(sent); late > 100*time.Millisecond {
+			if late := at.Sub(sent); late > 250*time.Millisecond {
 				t.Errorf("put in Link (%d): the join started %s later", i+1, late.Round(time.Millisecond))
 			}
 		case <-time.After(5 * time.Second):

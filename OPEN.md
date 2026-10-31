@@ -16,6 +16,12 @@ file and `LATER.md`; item 2 decided).
 
 ### Voice Link
 
+1. **A player the game puts into voice-link: what they say before their LiveKit participant
+   has joined doesn't reach the hub.** Kept so on purpose: the hub's join sound marks the
+   moment they are heard (maintainer, 2026-10-30). The bridge starts the join as the roster
+   arrives; the join itself took 30 ms or 1.08 s against a local LiveKit, at random, cause not
+   found. *Next:* time the joins on the relay (`journalctl -u voicebridge`) and, if the 1 s is
+   there too, find what it waits for.
 2. **With the lock off, a hub member whose player is online in game but in no group is heard
    in voice-link with no list entry, head or volume slider**: they play from a stand-in speaker,
    because an online player is not shown as a remote member. It happens when someone clicks
