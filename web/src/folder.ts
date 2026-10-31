@@ -411,8 +411,10 @@ export function setupFolder(h_: Hooks) {
   manager.onclick = () => hooks.manager();
   newSchem.onclick = () => hooks.newSchem();
   $('main-folder').append(h('div', { class: 'chat-head shot-bar' }, back, title, count, openPost, picker,
-    h('span', { class: 'spacer' }), filters, filtersBtn, manager, newSchem, tools, searchSlot, sortBtn,
-    h('label', { class: 'size', title: 'Tile size (all the way left: a list)' }, 'Size ', size)), scroller);
+    h('span', { class: 'spacer' }), filters, filtersBtn, manager,
+    // From Upload Schematic on, one group held to the right (style.css: .bar-end).
+    h('span', { class: 'bar-end' }, newSchem, tools, searchSlot, sortBtn,
+      h('label', { class: 'size', title: 'Tile size (all the way left: a list)' }, 'Size ', size))), scroller);
   search.oninput = () => render();
   const sortBy = (by: typeof sort) => () => {
     sort = by;

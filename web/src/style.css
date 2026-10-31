@@ -969,9 +969,9 @@ body.chat-hidden #chat .pins-btn, body.chat-hidden #chat .files-btn { display: n
 /* The list (the Size slider's last stop on the left, folder.ts): a row each, its picture
    small (16:9, 32px high) or its icon at 16px in the same slot, then name, date and size. */
 .folder-grid:not(.list) .bytes, .folder-grid:not(.list) .list-only { display: none; }
-.folder-grid.list { display: flex; flex-direction: column; align-items: stretch; gap: 0; }
+.folder-grid.list { display: flex; flex-direction: column; align-items: stretch; gap: 0; padding-bottom: 48px; } /* room to start a box below the rows */
 .folder-grid.list .shot { display: flex; align-items: center; gap: 12px; min-height: 36px; padding: 2px 8px; }
-.folder-grid.list .shot:hover { background: var(--hover); }
+.folder-grid.list .shot:hover:not(.picked) { background: var(--hover); }
 .folder-grid.list .shot > img.thumb, .folder-grid.list .folder-video, .folder-grid.list .folder-icon {
   flex: none; width: 57px; height: 32px; aspect-ratio: auto;
 }
@@ -1035,14 +1035,18 @@ body.chat-hidden #chat .pins-btn, body.chat-hidden #chat .files-btn { display: n
   transition: width var(--motion) ease-out, margin-left var(--motion) ease-out, opacity var(--motion) ease-out;
 }
 .shot-bar .search-slot.open { width: 222px; margin-left: 0; opacity: 1; }
-/* Upload Schematic sits on the same spot in schematics/ and in the Manager: right of it, the
+/* Upload Schematic sits on the same spot in schematics/ and in the Manager. In both bars it
+   starts a group (.bar-end) held to the right edge, whichever row it lands on, and wrapping
+   inside it from the right; the group is as wide in both. Right of the button, the
    folder bar has gap, the tools (5 x 30px + 2px border), gap, the closed search slot (its
    margin takes back its gap), Sort, gap, Size; the Manager's has gap, search (222px), gap,
    Size. So Sort has a fixed width (both sort:name and sort:date fit), and the Manager's
    search box makes up the rest: 152px + 8px + --sort-w = 8px + 222px + (its left margin - 1px),
    so that margin is --sort-w - 62px + 1px (its usual 1px kept). */
 .shot-bar { --sort-w: 88px; }
-.shot-bar .sort { width: var(--sort-w); flex: none; }
+.bar-end { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; margin-left: auto; min-width: 0; }
+.bar-end > button { flex: none; white-space: nowrap; }
+.shot-bar .sort { width: var(--sort-w); flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .schem-bar input[type=search] { margin-left: calc(var(--sort-w) - 62px + 1px); }
 /* On is state, not a call to action (style guide 3.2): a lighter blue than the buttons'. */
 .shot-bar .vtool[aria-pressed=true], .shot-bar .vtool[aria-pressed=true]:hover { color: var(--link); }

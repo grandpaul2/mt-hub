@@ -181,26 +181,34 @@ await settle(1500);
 check('delete removes the folder', [(await tree()).some((p) => p.startsWith('schematics/Build 6')), await hash()], [false, '#schems']);
 
 // The board's Back goes to the schematics folder (where its button is); Esc does too.
-check('Upload Schematic sits by the search box', await ev(`[...document.querySelector('.schem-bar').children].map((c) => c.textContent || c.tagName).slice(-3, -1)`), ['Upload Schematic', 'INPUT']);
+check('Upload Schematic sits by the search box', await ev(`[...document.querySelector('.schem-bar .bar-end').children].map((c) => c.textContent || c.tagName).slice(0, 2)`), ['Upload Schematic', 'INPUT']);
 check('the board has a Back button', await ev(`document.querySelector('.schem-bar > button').textContent`), '← Back to schematics/');
 await ev(`document.querySelector('.schem-bar > button').click()`);
 await settle(1200);
 check('Back opens the schematics folder', [await hash(), await ev(`document.getElementById('main-schems').hidden`)], ['#folder=schematics', true]);
 // schematics/ has Upload Schematic too, right of Schematic Manager, on the same spot as the
-// Manager's (Paul, S98), whichever way the folder is sorted (Sort has a fixed width that fits both).
+// Manager's (Paul, S98), whichever way the folder is sorted (Sort has a fixed width that fits
+// both), at any window width: it starts a group held to the right in both bars, so it can
+// land a row lower in one, never sideways.
 const where = (sel) => ev(`(() => { const b = [...document.querySelectorAll('${sel} button')].find((b) => b.textContent === 'Upload Schematic'); const r = b.getBoundingClientRect(); return [Math.round(r.left * 2) / 2, Math.round(r.right * 2) / 2]; })()`);
-check('schematics/ has Schematic Manager, then Upload Schematic', await ev(`(() => { const bs = [...document.querySelectorAll('#main-folder .shot-bar > button')].filter((b) => b.checkVisibility()).map((b) => b.textContent); const i = bs.indexOf('Schematic Manager'); return bs.slice(i, i + 2); })()`), ['Schematic Manager', 'Upload Schematic']);
-// At 1200px both bars wrap (it ends the first row in both); at 1800px neither does.
-const oneRow = (sel) => ev(`(() => { const kids = [...document.querySelectorAll('${sel} > *')].filter((k) => k.checkVisibility()); return new Set(kids.map((k) => Math.round(k.getBoundingClientRect().top))).size === 1; })()`);
-const wide = async (on) => {
-  await send(on ? 'Emulation.setDeviceMetricsOverride' : 'Emulation.clearDeviceMetricsOverride', on ? { width: 1800, height: 900, deviceScaleFactor: 1, mobile: false } : {});
+check('schematics/ has Schematic Manager, then Upload Schematic', await ev(`(() => { const bs = [...document.querySelectorAll('#main-folder .shot-bar button:not(.vtool)')].filter((b) => b.checkVisibility()).map((b) => b.textContent); const i = bs.indexOf('Schematic Manager'); return bs.slice(i, i + 2); })()`), ['Schematic Manager', 'Upload Schematic']);
+// The window widths compared: both bars in one row, the group alone on a second row in one
+// and not the other, both wrapped. (The review found 96 and 150px apart at 1400 and 1500.)
+const WIDTHS = [1000, 1100, 1200, 1300, 1400, 1450, 1500, 1550, 1600, 1800];
+const sweep = async (sel) => {
+  const out = [];
+  for (const width of WIDTHS) {
+    await send('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false });
+    await settle(250);
+    out.push((await where(sel))[0]);
+    if (width === 1800) await shot(sel.startsWith('#main-folder') ? 'schematics-folder-bar' : 'schematics-board-bar', { x: 0, y: 0, width: 1800, height: 120 });
+  }
+  await send('Emulation.clearDeviceMetricsOverride');
   await settle(400);
+  return out;
 };
 const inFolder = await where('#main-folder .shot-bar');
-await wide(true);
-const inFolderWide = [await oneRow('#main-folder .shot-bar'), await where('#main-folder .shot-bar')];
-await shot('schematics-folder-bar', { x: 0, y: 0, width: 1800, height: 120 });
-await wide(false);
+const folderSweep = await sweep('#main-folder .shot-bar');
 const sortFits = () => ev(`(() => { const s = document.querySelector('#main-folder .sort'); return s.scrollWidth <= s.clientWidth; })()`);
 const fitsName = await sortFits();
 await ev(`document.querySelector('#main-folder .sort').click()`);
@@ -220,11 +228,9 @@ await settle(800);
 await ev(`[...document.querySelectorAll('#main-folder .shot-bar button')].find((b) => b.textContent === 'Schematic Manager').click()`);
 await settle(400);
 check('and its button comes back to the board', await hash(), '#schems');
-check('Upload Schematic is on the same spot on the board (both bars wrapped)', await where('.schem-bar'), inFolder);
-await wide(true);
-check('and in one row', [await oneRow('.schem-bar'), await where('.schem-bar')], inFolderWide);
-await shot('schematics-board-bar', { x: 0, y: 0, width: 1800, height: 120 });
-await wide(false);
+check('Upload Schematic is on the same spot on the board', await where('.schem-bar'), inFolder);
+const boardSweep = await sweep('.schem-bar');
+check(`and at ${WIDTHS.join(', ')}px wide`, boardSweep.map((x, i) => (x === folderSweep[i] ? 'same' : `${WIDTHS[i]}: ${folderSweep[i]} vs ${x}`)), WIDTHS.map(() => 'same'));
 await ev(`document.activeElement?.blur()`);
 await key('Escape');
 await settle(400);
@@ -235,5 +241,35 @@ check('the folder\'s Upload Schematic opens an empty post', [await ev(`document.
 await barButton('Cancel');
 await settle(400);
 check('Cancel goes to the board', await ev(`!!document.querySelector('.schem-edit')`), false);
+
+// The folder's Upload Schematic while a post is being edited: with changes it asks, and no
+// keeps the edit; without changes it doesn't ask.
+await ev(`location.hash = '#schem=Build 2'`);
+await settle(500);
+await pressEdit();
+await settle(300);
+await typeInto('.schem-edit-desc', 'Half done.');
+await ev(`location.hash = '#folder=schematics'`);
+await settle(800);
+await answerDialogs(null);
+const uploadFromFolder = () => ev(`[...document.querySelectorAll('#main-folder .shot-bar button')].find((b) => b.textContent === 'Upload Schematic').click()`);
+await uploadFromFolder();
+await settle(400);
+check('with changes it asks', await question(), 'Discard your changes to “Item Sorter”?');
+await answer(0);
+await settle(400);
+check('no keeps the edit', [await ev(`document.querySelector('.schem-edit-desc').value`), await ev(`document.querySelector('#main-schems .single-name').textContent`)], ['Half done.', 'Item Sorter']);
+await barButton('Cancel');
+await settle(300);
+await answer(1);
+await settle(400);
+await pressEdit();
+await settle(300);
+await ev(`location.hash = '#folder=schematics'`);
+await settle(800);
+await uploadFromFolder();
+await settle(400);
+check('without changes it doesn\'t ask, and opens an empty post', [await question(), await ev(`document.querySelector('.schem-edit .schem-edit-title')?.value`), await ev(`document.querySelector('#main-schems .single-name').textContent`)], [null, '', 'Upload Schematic']);
+await answerDialogs(true);
 
 await done();

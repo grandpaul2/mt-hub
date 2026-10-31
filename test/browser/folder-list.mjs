@@ -54,6 +54,31 @@ const centre = await ev(`(() => { const r = document.querySelector('#main-folder
 for (const type of ['mousePressed', 'mouseReleased']) await send('Input.dispatchMouseEvent', { type, x: centre[0], y: centre[1], button: 'left', clickCount: 1, modifiers: 2 });
 await settle(300);
 check('Ctrl+click picks a row', await ev(`document.querySelectorAll('#main-folder .shot.picked').length`), 1);
+const at = (i, dy = 0) => ev(`(() => { const r = document.querySelectorAll('#main-folder .shot[data-path]')[${i}].getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2 + ${dy}]; })()`);
+const mouse = (type, [x, y], modifiers = 0) => send('Input.dispatchMouseEvent', { type, x, y, button: type === 'mouseMoved' ? 'none' : 'left', buttons: type === 'mousePressed' ? 1 : 0, clickCount: 1, modifiers });
+const picked = () => ev(`[...document.querySelectorAll('#main-folder .shot.picked')].map((t) => t.dataset.path.split('/').pop())`);
+for (const type of ['mousePressed', 'mouseReleased']) await mouse(type, await at(2), 8);
+await settle(300);
+check('Shift+click picks the rows between', await picked(), ['Build 1', 'Build 2', 'Build 3']);
+// A picked row keeps its colour under the pointer; a row that isn't picked shows the hover.
+const bg = (i) => ev(`getComputedStyle(document.querySelectorAll('#main-folder .shot[data-path]')[${i}]).backgroundColor`);
+const pickedBg = await bg(0);
+await mouse('mouseMoved', await at(1));
+await settle(200);
+const underPointer = await bg(1);
+await mouse('mouseMoved', await at(4));
+await settle(200);
+check('a picked row keeps its colour under the pointer; another shows the hover', [underPointer === pickedBg, (await bg(4)) !== 'rgba(0, 0, 0, 0)'], [true, true]);
+// A box from the space under the last row, up over two rows, picks them.
+const n = SEED.schems.length;
+const [x0, y0] = await at(n - 1, 40);
+const [, y1] = await at(n - 2);
+check('there is room under the last row', await ev(`document.elementFromPoint(${x0}, ${y0})?.closest('.shot') == null && document.querySelector('#main-folder .folder-grid').contains(document.elementFromPoint(${x0}, ${y0}))`), true);
+await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: x0, y: y0, button: 'left', buttons: 1, clickCount: 1 });
+for (const y of [y0 - 10, (y0 + y1) / 2, y1]) await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0 + 30, y, button: 'left', buttons: 1 });
+await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x0 + 30, y: y1, button: 'left', buttons: 0, clickCount: 1 });
+await settle(300);
+check('a box dragged from under the rows picks what it touches', await picked(), SEED.schems.slice(-2).map((x) => x[0]));
 
 // After a reload it is still a list; one stop right is tiles, the folder's date gone again.
 await send('Page.reload');

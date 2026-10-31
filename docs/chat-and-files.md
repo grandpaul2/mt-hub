@@ -67,7 +67,7 @@ are in [`style-guide.md`](style-guide.md).
   pastes pictures in. Pictures and videos show as thumbnails, other files as their tree icon.
   Size all the way left shows the folder as a list instead: a row each, the picture small or
   the icon, then name, date and size. `schematics/` itself has Schematic Manager and Upload
-  Schematic (the Manager's button, on the same spot).
+  Schematic (the Manager's button, held to the right in both bars so it doesn't move sideways).
   `screenshots/` opens at its newest;
   everything is folders first, then by name (`x.png` before `x (2).png`). A README is just
   a file in it. The folder stays the selected row and isn't expanded. A nested folder has

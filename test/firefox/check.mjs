@@ -432,7 +432,8 @@ for (const [name, hash] of VIEWS) {
       uploadAt = at;
       const fits = await js(`(() => { const s = document.querySelector('#main-folder .sort'); const ok = s.scrollWidth <= s.clientWidth; s.textContent = 'sort:date'; const ok2 = s.scrollWidth <= s.clientWidth; s.textContent = 'sort:name'; return ok && ok2; })()`);
       if (!fits) { console.log('FAIL schematics folder: sort:name or sort:date doesn’t fit the Sort button'); failed++; }
-    } else if (at !== uploadAt) { console.log(`FAIL schematics: Upload Schematic is at ${at}, in the folder at ${uploadAt}`); failed++; }
+    // (Run alone, the schematics view has no folder view to compare with.)
+    } else if (uploadAt && at !== uploadAt) { console.log(`FAIL schematics: Upload Schematic is at ${at}, in the folder at ${uploadAt}`); failed++; }
   }
   if (name === 'folder list') await shown(name, 'the list', `document.querySelector('#main-folder .folder-grid').classList.contains('list')`);
   if (name === 'new file tile') { // the folder view's name box

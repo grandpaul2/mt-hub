@@ -60,7 +60,7 @@ export function setupSchems(events: Live, h_: Hooks) {
   const toFolder = () => hooks.openFolder(SCHEM_DIR);
   back.onclick = toFolder;
   head.append(back, h('span', {}, 'Schematics'), count,
-    h('span', { class: 'spacer' }), add, search, h('label', { class: 'size', title: 'Card height' }, 'Size ', height));
+    h('span', { class: 'spacer' }), h('span', { class: 'bar-end' }, add, search, h('label', { class: 'size', title: 'Card height' }, 'Size ', height)));
   $('main-schems').append(head, postBar, body);
   // A post: ←/→ for the previous/next one on the board, Esc back to the board; on the board,
   // Esc back to the folder. Not while typing, or while the full-window viewer has the keys;
