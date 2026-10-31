@@ -21,12 +21,6 @@ Last reconciled: **2026-10-30** (items 7 and 1 built, item 2 won't-fix: see `doc
    arrives; the join itself took 30 ms or 1.08 s against a local LiveKit, at random, cause not
    found. *Next:* time the joins on the relay (`journalctl -u voicebridge`) and, if the 1 s is
    there too, find what it waits for.
-4. **Two cuts of one account at once can lose the hand-over mark.** In `cutForGame`
-   (`internal/server/voice_lock.go`) call A sets the mark and call B, finding it fresh, sets
-   none; if A's `RemoveParticipant` fails and B's succeeds, A deletes the mark B's cut relied
-   on, and the cut page reads no hand-over and treats it as an admin's Disconnect (lock off).
-   *Next:* a Go test of two cuts at once with the first failing; then keep the mark when any
-   call cut the account.
 
 ### Tests
 
