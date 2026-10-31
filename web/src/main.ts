@@ -383,7 +383,10 @@ function renderTree() {
   // Whatever opens in the main pane (from the tree, a chat link, the address bar) becomes
   // the selected row.
   const shown = entries.find(isActive);
-  if ((shown?.path ?? null) !== lastActive) {
+  // A file or folder still showing whose row isn't there for a moment (just created, renamed
+  // elsewhere, the tree not yet reloaded) isn't a change of what's shown.
+  const between = !shown && ((mainMode === 'file' && !!cur) || mainMode === 'folder');
+  if (!between && (shown?.path ?? null) !== lastActive) {
     lastActive = shown?.path ?? null;
     if (shown) select(shown);
     pruneAuto(shown?.path ?? '');
@@ -2101,7 +2104,11 @@ function setup() {
   document.addEventListener('dragend', endHover, true);
   // A drag's dragend can go to a row the tree has since redrawn, and so reach nothing; the
   // first mouse move after a drag (there are none during one) shuts them then.
-  document.addEventListener('mousemove', () => hovered.size && endHover());
+  document.addEventListener('mousemove', () => {
+    if (!hovered.size) return;
+    endDrag(); // (and lets the next drag open that folder again)
+    endHover();
+  });
   tree.ondrop = (e) => {
     e.preventDefault();
     const bin = onTrash(e);

@@ -106,6 +106,15 @@ check('opened by a drag again', await open(), ['notes']);
 await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 120, y: 300 });
 await settle(300);
 check('a lost dragend: the next mouse move shuts it', await open(), []);
+await ev(`(() => {
+  window.__dt2 = new DataTransfer();
+  document.querySelector('.row[data-path="README.md"]').dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: window.__dt2 }));
+  document.querySelector('.row[data-path="notes"]').dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: window.__dt2 }));
+})()`);
+await settle(900);
+check('the next drag over the same folder opens it again', await open(), ['notes']);
+await ev(`document.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: window.__dt2 }))`);
+await settle(300);
 
 // A move: the folder things land in opens, and stays until the next navigation.
 await ev(`(() => {
