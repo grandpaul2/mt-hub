@@ -385,7 +385,8 @@ function renderTree() {
   const shown = entries.find(isActive);
   // A file or folder still showing whose row isn't there for a moment (just created, renamed
   // elsewhere, the tree not yet reloaded) isn't a change of what's shown.
-  const between = !shown && ((mainMode === 'file' && !!cur) || mainMode === 'folder');
+  // (The top folder, Files, has no row: showing it is a change.)
+  const between = !shown && ((mainMode === 'file' && !!cur) || (mainMode === 'folder' && folderDir() !== ''));
   if (!between && (shown?.path ?? null) !== lastActive) {
     lastActive = shown?.path ?? null;
     if (shown) select(shown);

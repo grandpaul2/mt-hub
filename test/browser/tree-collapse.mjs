@@ -65,6 +65,11 @@ await to('#folder=boards/handheld-device/erc_outputs');
 check('a folder view: its parents open, not itself', await open(), ['boards', 'boards/handheld-device']);
 await to('#chan=general');
 check('and close on leaving', await open(), []);
+// Files (the top folder, which has no row) closes them too.
+await to('#' + ERC);
+await ev(`document.getElementById('files-head').click()`);
+await settle(700);
+check('Files, the top folder: the hub\'s close', [await ev(`location.hash`), await open()], ['#folder=', []]);
 
 // Review of S98: a chat between two looks at the same open file keeps its path; two Open
 // folder links to one folder don't hold it open after; a #folder= address (and a reload)
