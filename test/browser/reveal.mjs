@@ -1,7 +1,7 @@
 // Things inside a panel slide open and shut (style guide 5, Motion): the one suite that runs
 // with motion on (lib.mjs). Each check samples a size on every frame (frames in lib.mjs) and
 // fails on a page that pops: there the first frame is already the last.
-import { api, check, done, ev, frames, HUB, send, settle, STILL } from './lib.mjs';
+import { api, check, done, ev, frames, HUB, send, settle, STILL, until } from './lib.mjs';
 
 const farm = await (await api('POST', '/api/channels/general/messages', { text: 'farm is up' })).json();
 await api('POST', '/api/channels', { name: 'builds' }, 'Paul');
@@ -21,6 +21,9 @@ const left = () => ev(`document.getAnimations().length`);
 await ev(`document.getElementById('user').click()`);
 await settle(150);
 await ev(`[...document.querySelectorAll('#menu button')].find((b) => b.firstChild.textContent === 'Voice Settings').click()`);
+// (It opens once the browser has listed the microphones, which takes Chromium 155 and later
+// a few seconds with its fake one: wait for its rows, then for it to finish opening.)
+await until('Voice settings', () => ev(`!!document.querySelector('#dialog .set-row')`));
 await settle(800);
 const rowOf = (t) => `[...document.querySelectorAll('#dialog .set-row')].find((r) => r.querySelector('.set-title').textContent === '${t}')`;
 const pick = (t, v) => `(() => { const s = ${rowOf(t)}.querySelector('select'); s.value = '${v}'; s.dispatchEvent(new Event('change')); })()`;
