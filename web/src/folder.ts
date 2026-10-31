@@ -8,7 +8,9 @@
 // further). Files named "<date> <time> <poster>" (screenshots, pasted pictures) show their
 // poster and date, and a folder of them gets a Filters button that brings out who/from/to
 // (and can't put them away while one is set). New File / New Folder
-// name the new one in a tile, as the tree does in a row.
+// name the new one in a tile, as the tree does in a row. The Size slider's last stop on the
+// left shows the folder as a list instead: a row each, its picture small or its icon, then
+// name, date and size. schematics/ itself has Schematic Manager and Upload Schematic.
 import { iconURL } from './icons';
 import { ICON, viewerOpen } from './viewer';
 import { $, GLYPH, glyphs, baseName, date, dateTime, bytes, dragData, enc, go, h, load, reveal, showMenu, store, user, typing, thumbOr } from './util';
@@ -23,6 +25,7 @@ type Hooks = {
   upload(files: File[], dir: string): void;
   post(dir: string): (() => void) | null; // a schematic post's folder: opens it in the Manager
   manager(): void; // open the Schematic Manager (from schematics/)
+  newSchem(): void; // the Manager's Upload Schematic (from schematics/)
   make(path: string, folder: boolean): Promise<boolean>; // create it (false: it wasn't, a toast says why)
   menu(e: MouseEvent, path: string): void; // a tile's right-click menu (the tree's)
   menuMany(e: MouseEvent, paths: string[]): void; // the menu for several picked tiles
@@ -95,6 +98,8 @@ const title = h('span', {});
 const openPost = h('button', { title: 'Open this post in the Schematic Manager' }, 'Open post');
 // schematics/ itself gets the Manager's button, where a screenshots folder has its filters.
 const manager = h('button', { title: 'Open the Schematic Manager' }, 'Schematic Manager');
+// The Manager's own button, on the same spot as there (style.css: .sort's width).
+const newSchem = h('button', { title: 'Upload a schematic' }, 'Upload Schematic');
 const count = h('span', { class: 'muted count' });
 const search = h('input', { type: 'search', placeholder: 'Search names…', tabIndex: -1 });
 // The search box is tucked away until the glass (the last of the bar's icon buttons) is
@@ -127,7 +132,10 @@ let filtersSlide = false; // the next render is from the Filters button: they sl
 const filtered = () => !!(who.value || from.value || to.value);
 // Reads "sort:name" or "sort:date" (the sort in use); a click opens the menu with both.
 const sortBtn = h('button', { class: 'sort', title: 'Sort by' });
-const size = h('input', { type: 'range', min: 120, max: 1200, step: 10, title: 'Tile size' });
+// The slider's last stop on the left, LIST, is the list; the rest are tile widths.
+const LIST = 110;
+const size = h('input', { type: 'range', min: LIST, max: 1200, step: 10, title: 'Tile size (all the way left: a list)' });
+const listed = () => Number(size.value) <= LIST;
 const grid = h('div', { class: 'shot-grid folder-grid' });
 const scroller = h('div', { class: 'shot-scroll' }, grid);
 const picker = h('input', { type: 'file', multiple: true, hidden: true });
@@ -401,9 +409,12 @@ export function setupFolder(h_: Hooks) {
     }
   });
   manager.onclick = () => hooks.manager();
+  newSchem.onclick = () => hooks.newSchem();
   $('main-folder').append(h('div', { class: 'chat-head shot-bar' }, back, title, count, openPost, picker,
-    h('span', { class: 'spacer' }), filters, filtersBtn, manager, tools, searchSlot, sortBtn,
-    h('label', { class: 'size', title: 'Tile size' }, 'Size ', size)), scroller);
+    h('span', { class: 'spacer' }), filters, filtersBtn, manager,
+    // From Upload Schematic on, one group held to the right (style.css: .bar-end).
+    h('span', { class: 'bar-end' }, newSchem, tools, searchSlot, sortBtn,
+      h('label', { class: 'size', title: 'Tile size (all the way left: a list)' }, 'Size ', size))), scroller);
   search.oninput = () => render();
   const sortBy = (by: typeof sort) => () => {
     sort = by;
@@ -521,8 +532,9 @@ function thumbSrc(f: FolderFile) {
   return /\.gif$/i.test(f.path) || big ? `/api/file/${enc(f.path)}` : `/api/thumb/${enc(f.path)}?v=${f.mod}`;
 }
 
-// sizeGrid applies the slider: tile width, and thumbnail vs original per picture.
+// sizeGrid applies the slider: a list or tiles of its width, and thumbnail vs original per picture.
 function sizeGrid() {
+  grid.classList.toggle('list', listed());
   grid.style.setProperty('--shot-w', `${size.value}px`);
   for (const img of grid.querySelectorAll<HTMLImageElement>('img.thumb')) {
     const src = thumbSrc({ path: img.dataset.path!, size: 0, mod: Number(img.dataset.mod), dir: false });
@@ -547,7 +559,7 @@ function render() {
   // Who/from/to show when the folder has stamped names; the people are the posters in it.
   const stamps = all.map((f) => (f.dir ? null : stamped(baseName(f.path))));
   const stampedHere = stamps.some(Boolean);
-  manager.hidden = dir !== 'schematics';
+  manager.hidden = newSchem.hidden = dir !== 'schematics';
   const pick = who.value;
   const people = [...new Set(stamps.flatMap((st) => (st ? [st.who] : [])))].sort((a, b) => a.localeCompare(b));
   who.replaceChildren(h('option', { value: '' }, 'Everyone'), ...people.map((p) => h('option', { value: p, selected: p === pick }, p)));
@@ -587,8 +599,9 @@ function folderTile(f: FolderFile) {
   const el = h('div', { class: 'shot', title: f.path },
     h('div', { class: 'folder-icon' }, h('img', { src: iconURL(f.path, true, false), alt: '', draggable: false })),
     h('div', { class: 'shot-meta' }, h('span', { class: 'who' }, name),
-      // Sorted by date, a folder shows the date it's sorted by.
-      sort === 'date' && f.mod ? h('span', { class: 'when' }, date(new Date(f.mod))) : ''));
+      // Sorted by date, a folder tile shows the date it's sorted by; a row always does.
+      h('span', { class: sort === 'date' ? 'when' : 'when list-only' }, f.mod ? date(new Date(f.mod)) : ''),
+      h('span', { class: 'bytes' })));
   el.dataset.path = f.path;
   el.onclick = (e) => pickClick(e, f.path) || hooks.open(f.path);
   el.oncontextmenu = (e) => tileMenu(e, f.path);
@@ -618,7 +631,8 @@ function fileTile(f: FolderFile) {
   const t = st?.t ?? (f.mod ? new Date(f.mod) : null);
   const when = st ? dateTime(st.t) : t ? date(t) : '';
   const el = h('div', { class: 'shot', title: `${name} · ${bytes(f.size)}` }, media,
-    h('div', { class: 'shot-meta' }, h('span', { class: 'who' }, st?.who ?? name), h('span', { class: 'when' }, when)));
+    h('div', { class: 'shot-meta' }, h('span', { class: 'who' }, st?.who ?? name), h('span', { class: 'when' }, when),
+      h('span', { class: 'bytes' }, bytes(f.size)))); // (shown in the list only)
   el.dataset.path = f.path;
   el.onclick = (e) => pickClick(e, f.path) || hooks.openFile(f.path);
   el.oncontextmenu = (e) => tileMenu(e, f.path);

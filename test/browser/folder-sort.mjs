@@ -76,7 +76,7 @@ check('kept across a reload', [await button(), await tiles()], ['sort:date', byD
 check('the tick moved', await pick('Name'), ['Name', 'Date modified ✓']);
 check('back by name', [await button(), await tiles()], ['sort:name', SEED.mapart]);
 await open('schematics');
-check('folders by name, no date', [(await tiles()).filter((p) => p.startsWith('Build')), await ev(`!!document.querySelector('#main-folder .shot[data-path="schematics/Build 2"] .when')`)],
+check('folders by name, no date', [(await tiles()).filter((p) => p.startsWith('Build')), await ev(`document.querySelector('#main-folder .shot[data-path="schematics/Build 2"] .when')?.checkVisibility() ?? false`)],
   [SEED.schems.map((s) => s[0]), false]);
 
 await done();

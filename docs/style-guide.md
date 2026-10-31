@@ -170,7 +170,7 @@ Near-same greys share one token, and each red and blue role has one.
   - **A dialog's confirm button** (Log in, Send, Add account, Post): blue.
   - **A bar's single primary action** (Edit, which becomes View, or Cancel once there are unsaved changes): blue. **Save:** blue only
     with unsaved changes.
-  - **Everything else is grey,** including New post and Upload: buttons that are always
+  - **Everything else is grey,** including Upload Schematic and Upload: buttons that are always
     there.
   - **Destructive confirms** (Delete, Ban, Discard) are **red** (`--danger-fill`), never blue.
   - **A switch that's on is blue**: that's state, not a call to action, and
@@ -747,13 +747,25 @@ separate dialogs.
   separate form.
 - **Folder view**:
   - One for every folder: back, title, count, Upload, the search glass, search, sort, Size.
+  - **List:** the Size slider's last stop on the left shows the folder as a list: a row each,
+    a picture or video 16:9 at 32 px high, any other file or folder its icon at 16 px in the
+    same slot, then name, date and size in columns (a folder's date always; its size blank).
+    Rows pick, drag, open menus and take a new name as tiles do; a picked row keeps its
+    colour under the pointer, and the space under the last row starts a box. Kept per
+    browser with the tile size. No column headers: Sort sorts.
   - **Search:** hidden until the glass at the right end of the icon buttons is clicked.
     The glass turns light blue (`--link`: it's on, like a switch) and the buttons slide left
     as the box comes in (0.2 s). A second click, or Esc in the box, slides it out and clears it.
   - **Filters:** a folder of stamped names (screenshots) shows one **Filters**
     button. A click brings who / From / To / Clear out to its left; a second click puts them
     away. While a filter is set they stay out and **Clear is blue** (the way back, 3.2).
-  - **The Schematic Manager's New post** sits on the right, by its search box.
+  - **Upload Schematic** sits on the right of the Manager's bar, by its search box, and in
+    `schematics/`' folder bar right of Schematic Manager, on the same spot: in both bars it
+    starts a group held to the right edge, as wide in both (Sort has a fixed width;
+    style.css explains the sum). In a window where one bar wraps and the other doesn't, the
+    group is a row lower in one, never sideways. While the folder's search is open the
+    button moves left with the bar's other buttons. Its empty post's bar reads Upload
+    Schematic.
   - **Sort:** a text button that reads the sort in use, "sort:name" or "sort:date"; a click opens a
     menu with Name and Date modified, the one in use ticked. Date is newest first, folders
     too (a folder's date is its newest file's, shown on its tile while sorted by date). One

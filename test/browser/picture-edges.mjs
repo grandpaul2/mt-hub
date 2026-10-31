@@ -40,7 +40,7 @@ const setFile = async (sel, path) => {
 const post = async (title) => {
   await send('Page.navigate', { url: `${HUB}/?r=${Math.random()}#schems` });
   await settle(1500);
-  await ev(`[...document.querySelectorAll('#main-schems button')].find((b) => b.textContent === 'New post').click()`);
+  await ev(`[...document.querySelectorAll('#main-schems button')].find((b) => b.textContent === 'Upload Schematic').click()`);
   await settle(300);
   await setFile('.schem-edit input[type=file][accept^=".litematic"]', join(OUT, 'edge.litematic'));
   await ev(`(() => { const t = document.querySelector('.schem-edit-title'); t.value = ${JSON.stringify(title)}; t.dispatchEvent(new Event('input')); })()`);
