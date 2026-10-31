@@ -9,8 +9,7 @@ belong, and comes back as a new item when it shows again.
 Anyone may take an item: say so in the chat or open a draft pull request, so two people don't
 build the same thing. An item's number stays when others close.
 
-Last reconciled: **2026-10-30** (first version: the old backlog's Later list split into this
-file and `LATER.md`; item 2 decided).
+Last reconciled: **2026-10-30** (items 7 and 1 built, item 2 won't-fix: see `docs/voice/svc/lock-spec.md` → What it doesn't do).
 
 ## Open
 
@@ -22,16 +21,6 @@ file and `LATER.md`; item 2 decided).
    arrives; the join itself took 30 ms or 1.08 s against a local LiveKit, at random, cause not
    found. *Next:* time the joins on the relay (`journalctl -u voicebridge`) and, if the 1 s is
    there too, find what it waits for.
-2. **With the lock off, a hub member whose player is online in game but in no group is heard
-   in voice-link with no list entry, head or volume slider**: they play from a stand-in speaker,
-   because an online player is not shown as a remote member. It happens when someone clicks
-   the lock off and stays in #voice-link while playing, or when a put into the game fails for
-   15 s and the hub takes over and turns the lock off. **Decided** (maintainer, 2026-10-30): the
-   lock off means "keep me out of the in-game group", not "keep me silent": staying in the hub
-   is a fair choice (no switch pauses and beeps when moving between servers a lot, or a mod not
-   updated), so they stay heard and are **shown like any hub member**, while their player is
-   online. *Next:* a short spec of the game server's side of the link showing them, and the
-   test that fails today.
 3. **Two voice specs are out of date.** `docs/voice/svc/link-spec.md` says a remote voice's
    channel is deliberately not the speaker's own uuid; since MT Utils 2.4.0 shown members use
    their own uuid. `docs/voice/svc/hub-link-spec.md` says someone in both places is heard twice
