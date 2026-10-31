@@ -106,11 +106,13 @@ type Bridge struct {
 	relayNow chan struct{}   // closed (and replaced) whenever relay changes
 	listener *lksdk.Room     // nil while not in the room
 	wanted   map[string]want // by player uuid (hex): who the game servers say is in Link
+	wantNow  chan struct{}   // a signal that wanted changed, so the room follows at once
 	players  map[string]*player
 	lastSent string     // the hub roster last sent to the relay
 	sending  sync.Mutex // one roster built and sent at a time, so an older one never goes last
 
 	beforeSend func(roster string) // tests: called between building a roster and sending it
+	joinStarts func(name string)   // tests: called as a player's participant starts to join
 }
 
 type want struct {
@@ -133,7 +135,7 @@ func New(conf Config, logf func(format string, a ...any)) *Bridge {
 	if logf == nil {
 		logf = func(string, ...any) {}
 	}
-	return &Bridge{conf: conf, logf: logf, wanted: map[string]want{}, players: map[string]*player{}, relayNow: make(chan struct{})}
+	return &Bridge{conf: conf, logf: logf, wanted: map[string]want{}, players: map[string]*player{}, relayNow: make(chan struct{}), wantNow: make(chan struct{}, 1)}
 }
 
 // setRelay records the relay connection (nil: none) and wakes whoever waits on it. Called
@@ -260,6 +262,7 @@ func (b *Bridge) relayOnce(ctx context.Context) error {
 		b.mu.Lock()
 		b.wanted = map[string]want{}
 		b.mu.Unlock()
+		b.wantChanged()
 	}()
 	b.sendRoster()
 	// A relay that went away without closing (a host cut off hard) sends nothing, not even
@@ -327,12 +330,23 @@ func (b *Bridge) relayOnce(ctx context.Context) error {
 				}
 			}
 			b.mu.Unlock()
+			b.wantChanged()
 		}
+	}
+}
+
+// wantChanged wakes runPlayers: a player put in Link starts joining the room at once, since
+// what they say before their participant is in is not heard in the hub (toHub).
+func (b *Bridge) wantChanged() {
+	select {
+	case b.wantNow <- struct{}{}:
+	default: // a wake is already waiting, and it reads wanted as it is then
 	}
 }
 
 // serversNow drops the players of a server that is no longer connected to the relay.
 func (b *Bridge) serversNow(servers []string) {
+	defer b.wantChanged()
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	for id, w := range b.wanted {
@@ -637,7 +651,8 @@ func redPrimary(p []byte) []byte {
 // ---- the room: the players ---------------------------------------------------------------
 
 // runPlayers makes the room match the game servers' rosters: a participant for each player
-// in Link, none for anyone else. It tries again by itself when LiveKit refuses.
+// in Link, none for anyone else, as soon as a roster changes. It tries again by itself when
+// LiveKit refuses.
 func (b *Bridge) runPlayers(ctx context.Context) {
 	t := time.NewTicker(500 * time.Millisecond)
 	defer t.Stop()
@@ -646,6 +661,7 @@ func (b *Bridge) runPlayers(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
+		case <-b.wantNow:
 		case <-t.C:
 		}
 		b.mu.Lock()
@@ -694,6 +710,9 @@ func (b *Bridge) joinPlayer(id string) error {
 	if p == nil {
 		return nil
 	}
+	if b.joinStarts != nil {
+		b.joinStarts(p.name)
+	}
 	tok, err := b.token(PlayerPrefix+p.server+":"+p.name, p.name, false, true)
 	if err != nil {
 		return err
@@ -737,7 +756,10 @@ func (b *Bridge) toHub(id string, opus []byte) {
 	b.mu.Lock()
 	p := b.players[id]
 	if p == nil || !p.ready {
-		b.mu.Unlock() // still joining: the first fraction of a second after they join Link
+		// Still joining: the first fraction of a second after they join Link. Not held for
+		// later: the hub plays the join sound as the participant connects, so what came before
+		// the sound is dropped rather than played late or sped up (maintainer, 2026-10-30).
+		b.mu.Unlock()
 		return
 	}
 	if len(opus) == 0 {

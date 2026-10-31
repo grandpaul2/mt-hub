@@ -16,14 +16,6 @@ file and `LATER.md`; item 2 decided).
 
 ### Voice Link
 
-1. **A player the game puts into voice-link: their first 1–2 s of speech don't reach the hub.**
-   `voicebridge` drops the player's frames until their LiveKit participant is ready
-   (`internal/voicebridge/bridge.go`, where frames for a participant that is not ready are
-   dropped). Game listeners hear those words at once. No test covers it: the bridge's tests wait
-   for the track first. *Next:* a Go test in `bridge_test.go` that sends speech the moment a
-   player appears in a roster and asserts the hub receives the first frames; then buffer them
-   (a short queue per player, flushed when the track is published) or prepare the participant
-   sooner.
 2. **With the lock off, a hub member whose player is online in game but in no group is heard
    in voice-link with no list entry, head or volume slider**: they play from a stand-in speaker,
    because an online player is not shown as a remote member. It happens when someone clicks

@@ -665,3 +665,29 @@ func TestListenerFollowsRelay(t *testing.T) {
 	r.start(t)
 	eventually(t, "the listener back with the relay", 10*time.Second, listening)
 }
+
+// A player put in Link starts joining the room at once, not at the bridge's next pass: what
+// they say before their participant is in is not heard in the hub. Five times, as a roster
+// that happens to arrive just before a pass would pass with a slow bridge too.
+func TestPlayerJoinsAtOnce(t *testing.T) {
+	starts := make(chan time.Time, 10)
+	_, g, _, b := setupWith(t, func(b *Bridge) { b.joinStarts = func(string) { starts <- time.Now() } })
+	eventually(t, "the bridge at the relay", 10*time.Second, func() bool { _, told := g.hubRoster(); return told > 0 })
+	id := strings.ReplaceAll(steveUUID, "-", "")
+	steve := func() *player { b.mu.Lock(); defer b.mu.Unlock(); return b.players[id] }
+	for i := range 5 {
+		sent := time.Now()
+		g.roster(true)
+		select {
+		case at := <-starts:
+			if late := at.Sub(sent); late > 100*time.Millisecond {
+				t.Errorf("put in Link (%d): the join started %s later", i+1, late.Round(time.Millisecond))
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatalf("put in Link (%d): no join", i+1)
+		}
+		eventually(t, "Steve in the room", 10*time.Second, func() bool { p := steve(); return p != nil && p.ready })
+		g.roster(false)
+		eventually(t, "Steve gone", 5*time.Second, func() bool { return steve() == nil })
+	}
+}
