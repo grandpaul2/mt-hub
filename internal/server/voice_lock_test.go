@@ -870,6 +870,7 @@ func TestVoiceLinkTwoCutsOneFails(t *testing.T) {
 		var calls atomic.Int32
 		arrived := make(chan struct{}, 2) // each RemoveParticipant as it arrives
 		release := make(chan struct{})    // lets the call held back answer
+		secondIn := make(chan struct{})   // the second call has arrived: the two overlap
 		lk := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			switch r.URL.Path {
 			case "/twirp/livekit.RoomService/ListParticipants":
@@ -877,11 +878,15 @@ func TestVoiceLinkTwoCutsOneFails(t *testing.T) {
 			case "/twirp/livekit.RoomService/RemoveParticipant":
 				n := calls.Add(1)
 				arrived <- struct{}{}
+				if n == 2 {
+					close(secondIn)
+				}
 				// The first call fails, the second cuts; held back: the second (failFirst) or the first.
 				if (n == 1) != failFirst {
 					<-release
 				}
 				if n == 1 {
+					<-secondIn // (answering before the second is out would test nothing)
 					http.Error(w, "boom", http.StatusInternalServerError)
 					return
 				}
