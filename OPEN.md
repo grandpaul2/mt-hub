@@ -21,11 +21,6 @@ Last reconciled: **2026-10-30** (items 7 and 1 built, item 2 won't-fix: see `doc
    arrives; the join itself took 30 ms or 1.08 s against a local LiveKit, at random, cause not
    found. *Next:* time the joins on the relay (`journalctl -u voicebridge`) and, if the 1 s is
    there too, find what it waits for.
-3. **Two voice specs are out of date.** `docs/voice/svc/link-spec.md` says a remote voice's
-   channel is deliberately not the speaker's own uuid; since MT Utils 2.4.0 shown members use
-   their own uuid. `docs/voice/svc/hub-link-spec.md` says someone in both places is heard twice
-   and nothing prevents it; since the hand-over (#55, #56) a player is in one place at a time.
-   *Next:* correct both, docs only.
 4. **Two cuts of one account at once can lose the hand-over mark.** In `cutForGame`
    (`internal/server/voice_lock.go`) call A sets the mark and call B, finding it fresh, sets
    none; if A's `RemoveParticipant` fails and B's succeeds, A deletes the mark B's cut relied

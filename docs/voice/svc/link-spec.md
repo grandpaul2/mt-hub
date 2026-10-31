@@ -76,9 +76,15 @@ only (the mod itself is All Rights Reserved; the API is published for plugins).
    Empty data means "stopped talking"; SVC's client sends exactly that (`MicThread` line 281),
    and it is forwarded as is.
 4. **Inbound audio:** keep one `StaticAudioChannel` for each remote speaker.
-   - Channel id `UUID.nameUUIDFromBytes("mtlink:" + speakerUuid)`. This is deliberately not the
-     speaker's own UUID, so it can't collide with that player's normal voice if they later join
-     this server.
+   - Channel id: the uuid the speaker is shown under as a member of the group, which is their
+     own uuid (since MT Utils 2.4.0; a hub member with a Minecraft name is shown as that
+     player). A speaker who is not shown (online on this server
+     as well, a second voice of someone shown, or members off because SVC's internals moved)
+     plays on `UUID.nameUUIDFromBytes("mtlink:" + speakerUuid)`, which can't collide with a
+     player's own voice. A shown uuid that has been a real player on this server since it
+     started may still have a channel in a listener's game, numbered by that player's last
+     packet: the game is told that uuid disconnected (which closes it) before the show
+     (MT Utils 2.6.3).
    - `setCategory("link_<server>")`, registered with `volumeCategoryBuilder()` (ids are a–z
      and `_`, at most 16 characters).
    - `setBypassGroupIsolation(true)` (otherwise SVC skips anyone in an isolated group).
