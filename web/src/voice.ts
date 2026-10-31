@@ -189,7 +189,7 @@ function linkRows(c: VoiceChat): HTMLElement[] {
     // Your own row (you here, or your player in game) has your lock, and nobody else's does.
     // In the hub, a ✕ to its right leaves; your player in game has none (that is the game's).
     if (user.mc && (p.name === user.name || p === mine)) row.append(lockButton(c));
-    if (here && p.name === user.name) row.append(leaveButton());
+    if (here && !p.via && p.name === user.name) row.append(leaveButton());
     // A player is not a hub account here: their volume for you, nothing else.
     row.oncontextmenu = (e) => menu(e, p.name === user.name ? [] : !p.via ? personItems(c.id, p.name, here)
       : here ? [null, volumeItem(p.name), [pref(p.name).muted ? 'Unmute' : 'Mute', () => setPref(p.name, { muted: !pref(p.name).muted })]] : []);
