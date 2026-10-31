@@ -52,7 +52,8 @@ const pathRef = (p: string) => (/[^\w./-]/.test(p) ? `#[${p}]` : `#${p}`);
 
 export function setupSchems(events: Live, h_: Hooks) {
   hooks = h_;
-  const add = h('button', { title: 'Post a schematic' }, 'New post');
+  // Upload Schematic: on the same spot as in the schematics folder (style.css: .sort's width).
+  const add = h('button', { title: 'Upload a schematic' }, 'Upload Schematic');
   add.onclick = () => openForm('');
   // Back to the folder the board is a view of, where its button is.
   const back = h('button', { title: 'Back to the schematics folder (Esc)' }, ...glyphs(`← Back to ${SCHEM_DIR}/`));
@@ -119,6 +120,15 @@ export async function openSchems(dir = '') {
   render();
 }
 
+// newSchem is Upload Schematic from the schematics folder: the Manager, on an empty post.
+// A post being edited is kept unless leaving it is all right (it asks, as leaving does).
+export async function newSchem() {
+  hooks.show();
+  if (!loaded) await refresh();
+  if (view.kind === 'form' && (!view.dir || !await leaveForm())) return render();
+  openForm('');
+}
+
 // schemPost is a post's title, credit and file for a chat link to its folder; null if p
 // isn't a post's folder.
 export function schemPost(p: string) {
@@ -168,7 +178,7 @@ function renderList() {
   const top = body.scrollTop;
   body.replaceChildren(...list.map(card));
   if (!list.length) body.append(h('div', { class: 'muted pad' },
-    posts.length ? 'Nothing found.' : 'No schematics yet. Click New post to add one.'));
+    posts.length ? 'Nothing found.' : 'No schematics yet. Click Upload Schematic to add one.'));
   body.scrollTop = top;
 }
 
@@ -346,7 +356,7 @@ function renderForm() {
     back: { label: '← All schematics', title: 'Back to the board', go: async () => {
       if (await leaveForm()) backToBoard();
     } },
-    name: editing ? editing.title : 'New post',
+    name: editing ? editing.title : 'Upload Schematic',
     info: editing ? 'Editing' : '',
     extra: [save, cancel],
   }));

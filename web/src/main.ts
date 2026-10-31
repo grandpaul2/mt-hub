@@ -10,7 +10,7 @@ import {
   $, GLYPH, MOTION, ago, glyphs, ask, baseName, dateTime, bytes, closeDialog, closeMenu, copyText, dialog, dirName, enc, fileURL, go, h, inMenuAnchor, json, load, loadBundle, MenuItem, req,
   dragData, openDialog, setAccounts, showMenu, store, toast, toastError, toastUndo, typing, unreachable, user, Live,
 } from './util';
-import { openSchems, schemPost, setupSchems } from './schems';
+import { newSchem, openSchems, schemPost, setupSchems } from './schems';
 import { byName, folderDir, folderOrder, openFolder, pickInFolder, refreshFolder, repaintFolder, setupFolder, stampName, startCreate as startFolderCreate } from './folder';
 import { ICON, openViewer, singleBar, viewerOpen } from './viewer';
 import { iconURL, loadIcons } from './icons';
@@ -2218,6 +2218,7 @@ function setup() {
     openFile,
     upload,
     manager: () => openSchems(''),
+    newSchem: () => newSchem(),
     post: (dir) => {
       const p = schemPost(dir);
       return p && (() => openSchems(p.dir));

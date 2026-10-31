@@ -65,6 +65,9 @@ are in [`style-guide.md`](style-guide.md).
 - **Folder view:** clicking any folder (or a `#path` link to it) opens it as a grid of its
   folders and files, with one bar: Upload, a name search, Size (`#folder=<path>`). Ctrl+V
   pastes pictures in. Pictures and videos show as thumbnails, other files as their tree icon.
+  Size all the way left shows the folder as a list instead: a row each, the picture small or
+  the icon, then name, date and size. `schematics/` itself has Schematic Manager and Upload
+  Schematic (the Manager's button, on the same spot).
   `screenshots/` opens at its newest;
   everything is folders first, then by name (`x.png` before `x (2).png`). A README is just
   a file in it. The folder stays the selected row and isn't expanded. A nested folder has
@@ -100,7 +103,7 @@ are in [`style-guide.md`](style-guide.md).
   description.) A post opens on its own (`#schem=<folder>`) with the single-item bar, Open
   folder, Edit and Delete. A post is edited in place: Edit turns its page's title, credit and
   description into boxes where they sit and puts move/remove buttons on its pictures, with
-  Save and Cancel in the bar (leaving with changes asks). New post is the same page, empty.
+  Save and Cancel in the bar (leaving with changes asks). Upload Schematic is the same page, empty.
   Both write those files; a title that's taken offers
   the file to that post as a new version (same name: replaces it, history keeps the old).
   Anything changed in Files shows on the board, and a post's folder view has Open post.

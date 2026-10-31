@@ -966,6 +966,25 @@ body.chat-hidden #chat .pins-btn, body.chat-hidden #chat .files-btn { display: n
    that would take what's being dragged is outlined dashed, like the tree when it would. */
 .folder-grid .shot.picked { background: var(--select); box-shadow: 0 0 0 4px var(--select); outline: 1px solid var(--focus); outline-offset: 4px; }
 .folder-grid .shot.drop-target, .shot-bar button.drop-target { outline: 1px dashed var(--focus); outline-offset: 4px; }
+/* The list (the Size slider's last stop on the left, folder.ts): a row each, its picture
+   small (16:9, 32px high) or its icon at 16px in the same slot, then name, date and size. */
+.folder-grid:not(.list) .bytes, .folder-grid:not(.list) .list-only { display: none; }
+.folder-grid.list { display: flex; flex-direction: column; align-items: stretch; gap: 0; }
+.folder-grid.list .shot { display: flex; align-items: center; gap: 12px; min-height: 36px; padding: 2px 8px; }
+.folder-grid.list .shot:hover { background: var(--hover); }
+.folder-grid.list .shot > img.thumb, .folder-grid.list .folder-video, .folder-grid.list .folder-icon {
+  flex: none; width: 57px; height: 32px; aspect-ratio: auto;
+}
+.folder-grid.list .folder-video video { height: 32px; aspect-ratio: auto; }
+.folder-grid.list .folder-icon { background: none; }
+.folder-grid.list .folder-icon img { width: 16px; height: 16px; }
+.folder-grid.list .play { display: none; }
+.folder-grid.list .shot-meta { flex: 1; min-width: 0; flex-wrap: nowrap; gap: 16px; margin-top: 0; }
+.folder-grid.list .shot-meta .who { flex: 1; min-width: 0; }
+.folder-grid.list .shot-meta .when { flex: none; width: 18ch; }
+.folder-grid.list .shot-meta .bytes { flex: none; width: 9ch; text-align: right; color: var(--chat-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.folder-grid.list .shot.picked { box-shadow: none; outline-offset: -1px; }
+.folder-grid.list .shot.drop-target { outline-offset: -1px; }
 /* Cut, until it is pasted or the cut is cancelled: dimmed. */
 #tree .row.cut, .folder-grid .shot.cut { opacity: .45; }
 /* The box dragged from empty space to pick tiles. */
@@ -1016,6 +1035,15 @@ body.chat-hidden #chat .pins-btn, body.chat-hidden #chat .files-btn { display: n
   transition: width var(--motion) ease-out, margin-left var(--motion) ease-out, opacity var(--motion) ease-out;
 }
 .shot-bar .search-slot.open { width: 222px; margin-left: 0; opacity: 1; }
+/* Upload Schematic sits on the same spot in schematics/ and in the Manager: right of it, the
+   folder bar has gap, the tools (5 x 30px + 2px border), gap, the closed search slot (its
+   margin takes back its gap), Sort, gap, Size; the Manager's has gap, search (222px), gap,
+   Size. So Sort has a fixed width (both sort:name and sort:date fit), and the Manager's
+   search box makes up the rest: 152px + 8px + --sort-w = 8px + 222px + (its left margin - 1px),
+   so that margin is --sort-w - 62px + 1px (its usual 1px kept). */
+.shot-bar { --sort-w: 88px; }
+.shot-bar .sort { width: var(--sort-w); flex: none; }
+.schem-bar input[type=search] { margin-left: calc(var(--sort-w) - 62px + 1px); }
 /* On is state, not a call to action (style guide 3.2): a lighter blue than the buttons'. */
 .shot-bar .vtool[aria-pressed=true], .shot-bar .vtool[aria-pressed=true]:hover { color: var(--link); }
 .schem-body { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 20px; }

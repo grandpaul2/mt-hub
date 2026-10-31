@@ -243,16 +243,18 @@ const VIEWS = [['tree and chat', 'gyp'], ['file', 'boards/Playground juggling gl
   ['schematics', 'schems'], ['picture', 'screenshots/2026-09-01 15.00.01 Peggy.png'], ['viewer', 'screenshots/2026-09-01 15.00.01 Peggy.png'],
   ['chat (main panel)', 'chan=general'], ['search', 'gyp'], ['mention popup', 'chan=general'], ['command popup', 'chan=general'], ['server status', 'chan=general'], ['emoji picker', 'chan=general'],
   ['new line and jump', 'chan=piggy-jig'], ['save to files', 'chan=general'], ['chat files', 'chan=general'], ['private chat', 'chan=jig-staff'], ['server link', 'chan=text-link'], ['delete question', 'gyp'], ['delete message question', 'chan=general'], ['rows selected', 'gyp'], ['rows cut', 'gyp'], ['trash', 'gyp'], ['tiles picked and the box', 'folder=screenshots'],
-  ['minecraft name', 'gyp'], ['message edit', 'chan=general'], ['file tray', 'chan=general'], ['sending and failed', 'chan=general'], ['sound settings', 'gyp'], ['voice settings', 'gyp'], ['voice settings warned', 'gyp'], ['voice-link lock', 'gyp'], ['voice-link locked', 'gyp'], ['voice-link no microphone', 'gyp'], ['admin', 'gyp']];
+  ['minecraft name', 'gyp'], ['message edit', 'chan=general'], ['file tray', 'chan=general'], ['sending and failed', 'chan=general'], ['sound settings', 'gyp'], ['voice settings', 'gyp'], ['voice settings warned', 'gyp'], ['voice-link lock', 'gyp'], ['voice-link locked', 'gyp'], ['voice-link no microphone', 'gyp'], ['admin', 'gyp'], ['folder list', 'folder=screenshots']];
 const unknown = (ONLY ?? []).filter((n) => !VIEWS.some(([v]) => v === n));
 if (unknown.length) throw new Error(`no such view: ${unknown.join(', ')}`);
 mkdirSync(OUT, { recursive: true });
 const T = {}; let t0 = Date.now();
+let uploadAt = ''; // where Upload Schematic is in schematics/ (the schematics view compares)
 const lap = (k) => { const n = Date.now(); T[k] = (T[k] ?? 0) + n - t0; t0 = n; };
 console.log(`TIMING startup ${Math.round(process.uptime() * 1000)} ms`);
 for (const [name, hash] of VIEWS) {
   if (ONLY && !ONLY.includes(name)) continue;
   t0 = Date.now();
+  if (name === 'folder list') await js(`localStorage.setItem('mt-folder-w', '110')`); // the Size slider all the way left (the last view)
   if (name === 'new line and jump') await js(`localStorage.setItem('mt-read', JSON.stringify({ 'piggy-jig': '${readTo}' }))`);
   if (name === 'voice-link lock' || name === 'voice-link locked') await setLock(name === 'voice-link locked');
   if (name === 'voice-link no microphone') await js(`localStorage.setItem('check-gum-fail', '1')`);
@@ -421,6 +423,18 @@ for (const [name, hash] of VIEWS) {
     await shown(name, 'the question', `!document.getElementById('overlay').hidden && !!document.querySelector('#dialog h2')`);
     await idle(600);
   }
+  // Upload Schematic is on the same spot in schematics/ and on the board, and Sort fits both its
+  // texts (with Firefox's fonts: style.css adds the widths up).
+  if (name === 'schematics folder' || name === 'schematics') {
+    const at = await js(`(() => { const b = [...document.querySelectorAll('${name === 'schematics' ? '.schem-bar' : '#main-folder .shot-bar'} button')].find((b) => b.textContent === 'Upload Schematic');
+      const r = b.getBoundingClientRect(); return Math.round(r.left * 2) / 2 + ',' + Math.round(r.right * 2) / 2; })()`);
+    if (name === 'schematics folder') {
+      uploadAt = at;
+      const fits = await js(`(() => { const s = document.querySelector('#main-folder .sort'); const ok = s.scrollWidth <= s.clientWidth; s.textContent = 'sort:date'; const ok2 = s.scrollWidth <= s.clientWidth; s.textContent = 'sort:name'; return ok && ok2; })()`);
+      if (!fits) { console.log('FAIL schematics folder: sort:name or sort:date doesn’t fit the Sort button'); failed++; }
+    } else if (at !== uploadAt) { console.log(`FAIL schematics: Upload Schematic is at ${at}, in the folder at ${uploadAt}`); failed++; }
+  }
+  if (name === 'folder list') await shown(name, 'the list', `document.querySelector('#main-folder .folder-grid').classList.contains('list')`);
   if (name === 'new file tile') { // the folder view's name box
     await js(`document.querySelector('#main-folder .vtool[title="New file"]').click()`);
     await shown(name, 'the name box', `!!document.querySelector('#main-folder input')`);
