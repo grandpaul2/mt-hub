@@ -6,7 +6,7 @@
 // the full-screen bar, a dropped connection reconnecting, sound refused without a click, a
 // stream with B-frames, the stream blinking and ending, and a phone.
 import { spawn, spawnSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { join } from 'node:path';
 import { api, check, DATA, done, ev as quiet, HUB, send, settle, shot } from './lib.mjs';
@@ -53,7 +53,24 @@ const kids = [];
 // (cwd: MediaMTX writes a self-signed certificate, auto.crt and auto.key, where it starts.)
 const run = (cmd, args) => { const p = spawn(cmd, args, { stdio: 'ignore', cwd: DATA }); kids.push(p); return p; };
 process.on('exit', () => kids.forEach((k) => k.kill()));
-run(MTX, [conf]);
+// MediaMTX quits at once when it can't watch its configuration file ("couldn't initialize
+// inotify: too many open files": the user's inotify instances, 128 by default, used up by the
+// suites' browsers beside it). Started again until its API answers, as other suites end and
+// free some; still down after 30 s, the suite stops here with MediaMTX's own words.
+const mtxLog = join(DATA, 'mediamtx.log');
+const mtxUp = () => fetch(`http://127.0.0.1:${apiPort}/v3/paths/list`, { headers: { Authorization: 'Basic ' + btoa('hub:hub-pass') } }).then((r) => r.ok, () => false);
+for (const end = Date.now() + 30000; ;) {
+  const p = run(MTX, [conf]);
+  let quit = false;
+  p.on('exit', () => (quit = true));
+  while (!quit && !(await mtxUp()) && Date.now() < end) await new Promise((r) => setTimeout(r, 100));
+  if (!quit && (await mtxUp())) break;
+  const why = (existsSync(mtxLog) ? readFileSync(mtxLog, 'utf8') : '').split('\n').filter((l) => l.includes(' ERR ')).at(-1) ?? 'no error in its log';
+  if (Date.now() >= end) throw new Error(`MediaMTX did not start in 30 s: ${why}`);
+  console.log(`(MediaMTX quit, started again: ${why})`);
+  p.kill();
+  await new Promise((r) => setTimeout(r, 1000));
+}
 // What OBS sends once the relay has converted its sound: H.264 and Opus. bframes is the
 // number of B-frames (OBS's x264 makes them unless told bframes=0).
 const publish = (channel, bframes) => run('ffmpeg', ['-nostdin', '-loglevel', 'error', '-re', '-f', 'lavfi', '-i', 'testsrc2=s=320x180:r=30', '-re', '-f', 'lavfi', '-i', 'sine=f=440:r=48000',
