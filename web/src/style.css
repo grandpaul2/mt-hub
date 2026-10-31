@@ -1499,6 +1499,11 @@ h3.md-h { font-size: 15px; }
 .voice-lock.on { color: var(--mention-text); background: var(--mention-tint); opacity: 1; }
 .voice-lock.on:hover { background: var(--mention-tint); filter: brightness(1.15); }
 .voice-lock.lost { color: var(--danger); }
+/* The ✕ on your own row in the voice chat you're in: Leave. In voice-link, right of the lock. */
+.voice-leave { display: inline-flex; margin-left: auto; padding: 3px; border: 0; border-radius: 4px; background: none; color: var(--muted); opacity: .55; cursor: pointer; }
+.voice-lock + .voice-leave { margin-left: 2px; }
+.voice-leave svg { width: 14px; height: 14px; }
+.voice-leave:hover { opacity: 1; color: var(--danger); background: var(--panel-2); }
 .row.channel.voice.speaking .name { color: var(--ok); }
 .row.channel.voice.speaking .hash svg { color: var(--ok); }
 /* The bar while you're in one: where you are, then mute, deafen, settings, leave. */

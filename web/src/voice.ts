@@ -138,6 +138,7 @@ function voiceRows(): HTMLElement[] {
       row.dataset.voice = c.id;
       row.dataset.who = name;
       row.onclick = () => void join(c.id);
+      if (here && name === user.name) row.append(leaveButton());
       row.oncontextmenu = (e) => {
         e.preventDefault();
         const items: MenuItem[] = [here ? ['Leave', () => void leave(true)] : ['Join', () => void join(c.id)]];
@@ -186,7 +187,9 @@ function linkRows(c: VoiceChat): HTMLElement[] {
     row.dataset.who = p.name;
     row.onclick = enter;
     // Your own row (you here, or your player in game) has your lock, and nobody else's does.
+    // In the hub, a ✕ to its right leaves; your player in game has none (that is the game's).
     if (user.mc && (p.name === user.name || p === mine)) row.append(lockButton(c));
+    if (here && !p.via && p.name === user.name) row.append(leaveButton());
     // A player is not a hub account here: their volume for you, nothing else.
     row.oncontextmenu = (e) => menu(e, p.name === user.name ? [] : !p.via ? personItems(c.id, p.name, here)
       : here ? [null, volumeItem(p.name), [pref(p.name).muted ? 'Unmute' : 'Mute', () => setPref(p.name, { muted: !pref(p.name).muted })]] : []);
@@ -705,6 +708,17 @@ async function holdMic(fromClick: boolean): Promise<boolean> {
     asking = false;
     renderList();
   }
+}
+
+// leaveButton is the ✕ on your own row in the voice chat you're in: Leave, in one click.
+function leaveButton(): HTMLElement {
+  const b = h('button', { type: 'button', class: 'voice-leave', title: 'Leave the voice chat', innerHTML: CHAT_ICON.close });
+  b.setAttribute('aria-label', 'Leave the voice chat');
+  b.onclick = (e) => {
+    e.stopPropagation();
+    void leave(true);
+  };
+  return b;
 }
 
 function lockButton(c: VoiceChat): HTMLElement {

@@ -161,6 +161,7 @@ check('sound starting a moment late: the bar never asked for a click', await ev(
 await ev(`sessionStorage.removeItem('ctx-slow')`);
 await until('Paul listed, locked', async () => (await rows()).includes('  Paul* (locked)'));
 check('joined by hand: the lock on by itself, closed, with its hint', [await rows(), await lockTitle()], [['#voice-link*', '  Paul* (locked)'], 'Staying in voice-link when you leave the game. Click to stop']);
+check('his row: the lock, then the ✕ to its right', await ev(`[...document.querySelector('#voice-list .row.voice.here.in-link').querySelectorAll('button')].map((b) => b.className.split(' ')[0])`), ['voice-lock', 'voice-leave']);
 check('GET /api/voice says so to Paul and to nobody else', [await apiLock('Paul'), await apiLock('Alex')], [true, false]);
 const joinedWith = await gum();
 check('joining asked for the microphone once, and the lock holds that one', joinedWith, { n: 1, tracks: ['live'] });
@@ -183,7 +184,7 @@ const forced = await api('POST', '/api/voice/voice-link/join', {}, 'Paul');
 check('going into the game: the hub has nothing to join', [forced.status, (await forced.json()).error], [409, 'Your player is in voice-link in Minecraft.']);
 inGame(true);
 await until('his player listed', async () => (await rows()).includes('  Paul [SMP] (locked)'), 15000);
-check('his player in game: his player listed with his lock', await rows(), ['#voice-link', '  Paul [SMP] (locked)']);
+check('his player in game: his player listed with his lock, no ✕', [await rows(), await ev(`!!document.querySelector('#voice-list .voice-leave')`)], [['#voice-link', '  Paul [SMP] (locked)'], false]);
 // On the hub, hub names: his player shows as Paul; the hover names the player in game. And the
 // lock on reads as on: light blurple on its blurple chip.
 check('his player under his hub name, the game name in the hover', await ev(`document.querySelector('#voice-list .row.voice.in-link').title`), 'PaulMC is in the voice-link group in game');
@@ -358,7 +359,8 @@ await ev(`document.querySelector('#voice-list .row.voice.link').click()`);
 await until('Paul in again', () => inVoice(), 20000);
 await until('his row, locked by the join', async () => (await rows()).includes('  Paul* (locked)'));
 
-// Unlocking in the voice chat keeps the microphone in use; Leave then lets it go.
+// Unlocking in the voice chat keeps the microphone in use; Leave (his row's ✕; the bar's is in
+// voice.mjs) then lets it go.
 await until('his row', async () => (await rows()).includes('  Paul* (locked)'));
 await clickLock();
 await until('unlocked', async () => (await rows()).includes('  Paul* (lock)'));
@@ -366,10 +368,10 @@ check('unlocked: GET /api/voice and the hub\'s answer agree; the roster carries 
 check('the microphone still in use by the voice chat', (await gum()).tracks.at(-1), 'live');
 await clickLock();
 await until('locked', async () => apiLock('Paul'));
-await ev(`[...document.querySelectorAll('#voice-bar button')].at(-1).click()`);
+await ev(`document.querySelector('#voice-list .voice-leave').click()`);
 await until('Paul out', async () => !(await inVoice()));
 await settle(1000);
-check('Leave takes the lock off and lets the microphone go', [await apiLock('Paul'), (await gum()).tracks.filter((t) => t !== 'ended')], [false, []]);
+check('the ✕ (Leave) takes the lock off and lets the microphone go', [await apiLock('Paul'), (await gum()).tracks.filter((t) => t !== 'ended')], [false, []]);
 
 // Locked and stepped back for the game, he starts another voice chat: the lock goes (joining
 // another voice chat), and the new voice chat has a live microphone of its own.

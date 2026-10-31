@@ -173,6 +173,9 @@ await until('Paul hears Alex arrive', async () => (await sfx(ev)).at(-1) === 'ot
 check('sounds: Alex hears his join, Paul hears someone arrive', [(await sfx(alex.ev)).at(-1), (await sfx(ev)).at(-1)], ['join', 'otherJoin']);
 check('people in a voice chat are light blurple (green while talking)', await ev(`[...document.querySelectorAll('#voice-list .row.voice .name')].map((n) => getComputedStyle(n).color).every((c) => ['rgb(201, 205, 251)', 'rgb(115, 201, 145)'].includes(c))`), true);
 check('only the first has the speaker icon', await ev(`[...document.querySelectorAll('#voice-list .row.voice')].map((r) => !!r.querySelector('.hash svg'))`), [true, false]);
+// Each has a ✕ on their own row only (Leave), at the row's right end.
+const leaveX = (evaluate) => evaluate(`[...document.querySelectorAll('#voice-list .row.voice')].map((r) => r.dataset.who + (r.querySelector('.voice-leave') ? ' ✕' + (r.lastElementChild.classList.contains('voice-leave') ? '' : ' (not last)') + ' ' + r.querySelector('.voice-leave').title : ''))`);
+check('a ✕ on your own row only', [await leaveX(ev), await leaveX(alex.ev)], [['Paul ✕ Leave the voice chat', 'Alex'], ['Paul', 'Alex ✕ Leave the voice chat']]);
 await until('Alex hears Paul', () => alex.ev(`document.querySelectorAll('body > div[hidden] audio').length >= 1`), 15000);
 await until('Paul hears Alex', () => ev(`document.querySelectorAll('body > div[hidden] audio').length >= 1`), 15000);
 check('each hears the other (an audio element each)', [await alex.ev(`document.querySelectorAll('body > div[hidden] audio').length`), await ev(`document.querySelectorAll('body > div[hidden] audio').length`)], [1, 1]);
@@ -318,7 +321,7 @@ await until('Paul’s page updated', async () => JSON.stringify(await rows(ev)) 
 check('Alex is now the top (Alex’s page)', await rows(alex.ev), ['Alex*']);
 await until('Alex hears Paul go', async () => (await sfx(alex.ev)).at(-1) === 'otherLeave');
 check('sounds: Paul hears his leave, Alex hears someone go', [(await sfx(ev)).at(-1), (await sfx(alex.ev)).at(-1)], ['leave', 'otherLeave']);
-check('Paul’s page: Alex only, bar hidden', [await rows(ev), await ev(`document.getElementById('voice-bar').hidden`)], [['Alex'], true]);
+check('Paul’s page: Alex only, bar hidden, no ✕', [await rows(ev), await ev(`document.getElementById('voice-bar').hidden`), await leaveX(ev)], [['Alex'], true, ['Alex']]);
 await rightClick(ev, 'Alex');
 await settle(200);
 check('Paul right-clicks Alex, not in it', await menuItems(ev), ['Join', '-', 'Message', '-', 'Mute for Everyone', 'Disconnect (red)']);
