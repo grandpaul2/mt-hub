@@ -9,7 +9,7 @@ belong, and comes back as a new item when it shows again.
 Anyone may take an item: say so in the chat or open a draft pull request, so two people don't
 build the same thing. An item's number stays when others close.
 
-Last reconciled: **2026-10-30** (items 7 and 1 built, item 2 won't-fix: see `docs/voice/svc/lock-spec.md` → What it doesn't do).
+Last reconciled: **2026-10-30** (items 2–7 closed: 2 won't-fix, see `docs/voice/svc/lock-spec.md` → What it doesn't do; 3–7 done; item 1 narrowed).
 
 ## Open
 
