@@ -45,10 +45,6 @@ file and `LATER.md`; item 2 decided).
    on, and the cut page reads no hand-over and treats it as an admin's Disconnect (lock off).
    *Next:* a Go test of two cuts at once with the first failing; then keep the mark when any
    call cut the account.
-7. **Leaving #voice-link takes a right-click.** Your own row has the lock but no way out: you
-   leave from the row's menu (Leave) or the voice bar's hang-up. Wanted: a small ✕ beside the
-   lock that leaves the channel. *Next:* a short spec (when the ✕ shows, what it does when your
-   player is in the group in game), then the button and a browser test.
 
 ### Tests
 
