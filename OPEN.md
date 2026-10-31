@@ -30,9 +30,6 @@ Last reconciled: **2026-10-30** (items 7 and 1 built, item 2 won't-fix: see `doc
 
 ### Tests
 
-5. **`reveal.mjs` fails on Chromium 155** (`run.map is not a function`: its `frames()` helper
-   gets no array back), on `master` too. *Next:* find what `frames()` gets back on 155 and make
-   it work on both. A fix is welcome.
 6. **`chat-scroll.mjs` and `relay.mjs` can fail under load.** `chat-scroll`'s "the bottom message
    holds its place on every frame" check (to a whole pixel), and `relay`'s "timed out waiting
    for LIVE", when something heavy runs beside the suites; alone both pass. *Next:* make each
