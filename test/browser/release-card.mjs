@@ -1,4 +1,4 @@
-// Mod release cards (S60): a post shaped like a release is drawn as a card (label, mod and
+// Mod release cards: a post shaped like a release is drawn as a card (label, mod and
 // version, tags, changes, a Note when there is one, Readme for the mod's page, the jar's Download); a file that left Files shows a muted
 // line; anything not quite that shape stays ordinary formatted text; snippets stay plain.
 import { api, check, done, ev, HUB, hub, send, settle, shot } from './lib.mjs';
@@ -8,7 +8,7 @@ await hub('/api/file/mods/client/mthub-1.3.1.jar?base=', { method: 'PUT', body: 
 await hub(`/api/file/mods/${encodeURIComponent('mod info')}/${encodeURIComponent('MT Hub.md')}?base=`, { method: 'PUT', body: '# MT Hub\n' });
 await hub(`/api/file/mods/${encodeURIComponent('mod info')}/${encodeURIComponent('Server tweak.md')}?base=`, { method: 'PUT', body: '# Server tweak\n' });
 
-const post = async (text, who = 'Paul') =>
+const post = async (text, who = 'Pat') =>
   (await (await api('POST', '/api/channels/general/messages', { text }, who)).json()).id;
 const full = await post('## MT Hub 1.3.1\n-# Client · Optional\n#mods/client/mthub-1.3.1.jar\n- [Upload to hub] on its own line\n- Join **Link** in Simple Voice Chat\n**Note:** on Linux, install `vlc`.');
 const gone = await post('## WaterFrames 2.1.22-mt4\n-# Client + Server · Required\n#mods/client/waterframes-mt4.jar\n- Shader mode');

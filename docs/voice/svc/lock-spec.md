@@ -137,7 +137,7 @@ until it has one.
 - Phones are not considered.
 - Show you in game while your player is online somewhere in no group and you stay in the hub's
   #voice-link with the lock off (or after a put that failed). The players in voice-link there
-  hear you with no list entry, head or volume slider. Won't fix (maintainer, 2026-10-30): voice-link
+  hear you with no list entry, head or volume slider. Won't fix: voice-link
   is built for the happy path, players on our servers with the lock on, not to cover every case a
   voice chat service would; the lock is the answer.
 

@@ -3,7 +3,7 @@ import { api, check, done, ev, HUB, send, settle, shot } from './lib.mjs';
 
 const post = (text, who) => api('POST', '/api/channels/general/messages', { text }, who);
 await post('the hopper page https://minecraft.wiki/w/Hopper');
-await post('carpet https://modrinth.com/mod/carpet and no preview for <https://github.com/gnembon/fabric-carpet> please', 'Paul');
+await post('carpet https://modrinth.com/mod/carpet and no preview for <https://github.com/gnembon/fabric-carpet> please', 'Pat');
 await post('https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_272x92dp.png');
 await post('watch this https://youtu.be/dQw4w9WgXcQ');
 await send('Page.navigate', { url: HUB });

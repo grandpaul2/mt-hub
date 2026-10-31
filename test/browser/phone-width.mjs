@@ -7,12 +7,12 @@
 import { api, check, COOKIE, done, ev, HUB, png, send, settle, shot } from './lib.mjs';
 
 for (const [name, body] of [['clip.mp4', 'not a real video'], ['wide.png', png(800, 200, [60, 160, 110])], ['tune.mp3', 'not a real sound'], ['notes.txt', 'text']])
-  await fetch(`${HUB}/api/channels/general/media?name=${name}`, { method: 'POST', headers: { cookie: COOKIE.Paul }, body });
-const { id: first } = await (await api('POST', '/api/channels/general/messages', { text: 'look #media/general/clip.mp4 #media/general/wide.png #media/general/tune.mp3 #media/general/notes.txt' }, 'Paul')).json();
+  await fetch(`${HUB}/api/channels/general/media?name=${name}`, { method: 'POST', headers: { cookie: COOKIE.Pat }, body });
+const { id: first } = await (await api('POST', '/api/channels/general/messages', { text: 'look #media/general/clip.mp4 #media/general/wide.png #media/general/tune.mp3 #media/general/notes.txt' }, 'Pat')).json();
 // A grouped message (no head of its own) and a reply quoting a long line.
-await api('POST', '/api/channels/general/messages', { text: 'and a second line from the same person' }, 'Paul');
-await api('POST', '/api/channels/general/messages', { text: 'a long first line, the kind a quote has to cut short on a narrow screen, on and on and on' }, 'Paul');
-const { id: long } = await (await api('POST', '/api/channels/general/messages', { text: 'again '.repeat(30) }, 'Paul')).json();
+await api('POST', '/api/channels/general/messages', { text: 'and a second line from the same person' }, 'Pat');
+await api('POST', '/api/channels/general/messages', { text: 'a long first line, the kind a quote has to cut short on a narrow screen, on and on and on' }, 'Pat');
+const { id: long } = await (await api('POST', '/api/channels/general/messages', { text: 'again '.repeat(30) }, 'Pat')).json();
 await api('POST', '/api/channels/general/messages', { text: 'replying', reply_to: long }, 'Alex');
 // The feed's own sideways overflow, and each preview's right edge against the feed's.
 const feed = () => ev(`(() => {

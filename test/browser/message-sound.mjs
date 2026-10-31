@@ -2,7 +2,7 @@
 // the file itself.
 import { api, check, done, ev, HUB, send, settle, sleep } from './lib.mjs';
 
-await api('POST', '/api/channels', { name: 'other' }, 'Paul');
+await api('POST', '/api/channels', { name: 'other' }, 'Pat');
 await send('Emulation.setFocusEmulationEnabled', { enabled: true }); // the page counts as the focused window
 await send('Page.navigate', { url: `${HUB}/#chan=general` });
 await settle(2500);
@@ -15,21 +15,21 @@ const say = async (chat, text, who = 'Alex') => {
 };
 const gap = () => sleep(3200); // the sound plays at most once in 3 s
 
-await say('general', 'in the chat Paul is looking at');
+await say('general', 'in the chat Pat is looking at');
 check('the chat you are looking at: no sound', await dings(), []);
 await say('other', 'in another chat');
 check('another chat: a sound', await dings(), ['other']);
 await say('other', 'right after');
 check('within 3 seconds: no second sound', await dings(), ['other']);
 await gap();
-await say('other', 'mine', 'Paul');
+await say('other', 'mine', 'Pat');
 check('your own message: no sound', await dings(), ['other']);
 
 // The hub isn't the window you're in: even the chat on screen gets one (after the tab's
 // note of what it shows has gone stale).
 await ev(`document.hasFocus = () => false`);
 await sleep(2700); // until the tab's note of what it shows has gone stale
-await say('general', 'while Paul is in another window');
+await say('general', 'while Pat is in another window');
 check('not focused: a sound for the chat on screen', await dings(), ['other', 'general']);
 
 // Another hub tab, focused and showing the chat: this one stays quiet.

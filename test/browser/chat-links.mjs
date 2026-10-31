@@ -11,9 +11,9 @@ ws.addEventListener('message', (e) => {
   if (m.method === 'Runtime.exceptionThrown') console.log('  PAGE EXCEPTION:', m.params.exceptionDetails.exception?.description?.split('\n').slice(0, 3).join(' | '));
   if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') console.log('  PAGE ERROR:', m.params.args.map((a) => a.value ?? a.description).join(' '));
 });
-const paul = (method, path, body) => api(method, path, body, 'Paul');
-await paul('POST', '/api/channels/builds/messages', { text: 'old link test' });
-await paul('PATCH', '/api/channels/builds', { name: 'farms' });
+const pat = (method, path, body) => api(method, path, body, 'Pat');
+await pat('POST', '/api/channels/builds/messages', { text: 'old link test' });
+await pat('PATCH', '/api/channels/builds', { name: 'farms' });
 const visit = async (hashPart, side) => {
   await send('Page.navigate', { url: 'about:blank' });
   await settle(200);
@@ -26,12 +26,12 @@ const visit = async (hashPart, side) => {
 };
 check('old link + saved side pane follow rename', await visit('#chan=builds', 'builds'), ['#chan=farms', '# farms', 'farms']);
 check('old messages there', await ev(`[...document.querySelectorAll('#main-chat-body .msg-body')].map((m) => m.textContent)`), ['new farm is up', 'old link test']);
-await paul('PATCH', '/api/channels/farms', { name: 'farm-builds' });
+await pat('PATCH', '/api/channels/farms', { name: 'farm-builds' });
 check('chain of renames', await visit('#chan=builds', 'general'), ['#chan=farm-builds', '# farm-builds', 'general']);
-await paul('POST', '/api/channels', { name: 'builds' });
-await paul('POST', '/api/channels', { name: 'builds' });
+await pat('POST', '/api/channels', { name: 'builds' });
+await pat('POST', '/api/channels', { name: 'builds' });
 check('reused name wins', await visit('#chan=builds', 'general'), ['#chan=builds', '# builds', 'general']);
-await paul('DELETE', '/api/channels/redstone');
+await pat('DELETE', '/api/channels/redstone');
 check('deleted chat falls back to first', (await visit('#chan=redstone', 'redstone'))[2], 'builds');
 
 await done();

@@ -17,8 +17,8 @@ func TestAdmin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Paul owns the hub, Eldridge is an admin, Steve and Alex are members.
-	for name, role := range map[string]auth.User{"Paul": {Owner: true, Admin: true}, "Eldridge": {Admin: true}, "Steve": {}, "Alex": {}} {
+	// Pat owns the hub, Eldridge is an admin, Steve and Alex are members.
+	for name, role := range map[string]auth.User{"Pat": {Owner: true, Admin: true}, "Eldridge": {Admin: true}, "Steve": {}, "Alex": {}} {
 		us.SetPassword(name, name+"-password")
 		us.Change(name, func(u *auth.User) { u.Owner, u.Admin = role.Owner, role.Admin })
 	}
@@ -36,7 +36,7 @@ func TestAdmin(t *testing.T) {
 		cookies[name] = c
 		return c
 	}
-	for _, n := range []string{"Paul", "Eldridge", "Steve", "Alex"} {
+	for _, n := range []string{"Pat", "Eldridge", "Steve", "Alex"} {
 		login(n)
 	}
 	call := func(who, method, path, body string) (int, map[string]any) {
@@ -63,31 +63,31 @@ func TestAdmin(t *testing.T) {
 	want("member opens the admin page", code, 403)
 	code, _ = call("Steve", "PATCH", "/api/admin/users/Alex", `{"banned":true}`)
 	want("member bans", code, 403)
-	code, _ = call("Eldridge", "PATCH", "/api/admin/users/Paul", `{"banned":true}`)
+	code, _ = call("Eldridge", "PATCH", "/api/admin/users/Pat", `{"banned":true}`)
 	want("admin bans the owner", code, 403)
-	code, _ = call("Eldridge", "POST", "/api/admin/users/Paul/password", "")
+	code, _ = call("Eldridge", "POST", "/api/admin/users/Pat/password", "")
 	want("admin resets the owner", code, 403)
 	code, _ = call("Eldridge", "PATCH", "/api/admin/users/Steve", `{"admin":true}`)
 	want("admin makes an admin", code, 403)
 	code, _ = call("Eldridge", "POST", "/api/admin/users", `{"name":"Herobrine","admin":true}`)
 	want("admin adds an admin", code, 403)
-	code, _ = call("Paul", "DELETE", "/api/admin/users/Paul", "")
+	code, _ = call("Pat", "DELETE", "/api/admin/users/Pat", "")
 	want("owner deletes themselves", code, 403)
-	code, _ = call("Paul", "PATCH", "/api/admin/users/Nobody", `{"banned":true}`)
+	code, _ = call("Pat", "PATCH", "/api/admin/users/Nobody", `{"banned":true}`)
 	want("no such user", code, 404)
 
 	// Admin tag colours: yours, or anyone's for the owner; admins only; one of the set colours.
 	code, _ = call("Eldridge", "PUT", "/api/admin/users/Eldridge/tag", `{"tag":"teal"}`)
 	want("admin sets their own tag", code, 200)
-	code, _ = call("Eldridge", "PUT", "/api/admin/users/Paul/tag", `{"tag":"red"}`)
+	code, _ = call("Eldridge", "PUT", "/api/admin/users/Pat/tag", `{"tag":"red"}`)
 	want("admin sets the owner's tag", code, 403)
 	code, _ = call("Steve", "PUT", "/api/admin/users/Steve/tag", `{"tag":"red"}`)
 	want("member sets a tag", code, 403)
-	code, _ = call("Paul", "PUT", "/api/admin/users/Alex/tag", `{"tag":"red"}`)
+	code, _ = call("Pat", "PUT", "/api/admin/users/Alex/tag", `{"tag":"red"}`)
 	want("tag for a member", code, 400)
-	code, _ = call("Paul", "PUT", "/api/admin/users/Eldridge/tag", `{"tag":"#ff0000"}`)
+	code, _ = call("Pat", "PUT", "/api/admin/users/Eldridge/tag", `{"tag":"#ff0000"}`)
 	want("a colour not in the set", code, 400)
-	code, _ = call("Paul", "PUT", "/api/admin/users/Eldridge/tag", `{"tag":"pink"}`)
+	code, _ = call("Pat", "PUT", "/api/admin/users/Eldridge/tag", `{"tag":"pink"}`)
 	want("owner sets an admin's tag", code, 200)
 	tagReq, _ := http.NewRequest("GET", srv.URL+"/api/users", nil)
 	tagReq.AddCookie(&http.Cookie{Name: sessionCookie, Value: cookies["Alex"]})
@@ -102,8 +102,8 @@ func TestAdmin(t *testing.T) {
 	for _, a := range tags {
 		gotTags[a.Name] = a.Tag
 	}
-	if gotTags["Eldridge"] != "pink" || gotTags["Paul"] != "gold" || gotTags["Alex"] != "" {
-		t.Errorf("tags in /api/users: %v (want Eldridge pink, Paul gold by default, Alex none)", gotTags)
+	if gotTags["Eldridge"] != "pink" || gotTags["Pat"] != "gold" || gotTags["Alex"] != "" {
+		t.Errorf("tags in /api/users: %v (want Eldridge pink, Pat gold by default, Alex none)", gotTags)
 	}
 
 	// A ban: Steve's open stream ends at once, his session is refused (saying why), and
@@ -188,7 +188,7 @@ func TestAdmin(t *testing.T) {
 	// The name is retired: chats know people by name, so a new Herobrine would get the old
 	// one's DMs and private chats.
 	for _, n := range []string{"Herobrine", "HEROBRINE"} {
-		code, body = call("Paul", "POST", "/api/admin/users", `{"name":"`+n+`"}`)
+		code, body = call("Pat", "POST", "/api/admin/users", `{"name":"`+n+`"}`)
 		if code != 409 || body["error"] != auth.ErrRetired.Error() {
 			t.Errorf("re-add %s: %d %v", n, code, body)
 		}
@@ -229,16 +229,16 @@ func TestAdmin(t *testing.T) {
 	}
 
 	// The owner manages admins.
-	code, _ = call("Paul", "PATCH", "/api/admin/users/Steve", `{"admin":true}`)
+	code, _ = call("Pat", "PATCH", "/api/admin/users/Steve", `{"admin":true}`)
 	want("owner makes an admin", code, 200)
 	code, _ = call("Eldridge", "PATCH", "/api/admin/users/Steve", `{"banned":true}`)
 	want("admin bans an admin", code, 403)
-	code, _ = call("Paul", "PATCH", "/api/admin/users/Steve", `{"admin":false}`)
+	code, _ = call("Pat", "PATCH", "/api/admin/users/Steve", `{"admin":false}`)
 	want("owner removes an admin", code, 200)
 
 	// The list (with who's on) and the log.
 	r, _ = http.NewRequest("GET", srv.URL+"/api/admin/users", nil)
-	r.AddCookie(&http.Cookie{Name: sessionCookie, Value: cookies["Paul"]})
+	r.AddCookie(&http.Cookie{Name: sessionCookie, Value: cookies["Pat"]})
 	res, _ = http.DefaultClient.Do(r)
 	var list []adminUser
 	json.NewDecoder(res.Body).Decode(&list)
@@ -250,7 +250,7 @@ func TestAdmin(t *testing.T) {
 	for _, e := range log {
 		got = append(got, e.By+" "+e.Action+" "+e.User)
 	}
-	wantLog := "Paul unadmin Steve|Paul admin Steve|Eldridge unlink-mc Alex|Eldridge add Lennox|Eldridge set-mc Eldridge|Eldridge set-mc Alex|Eldridge delete Herobrine|Eldridge add Herobrine|Eldridge reset Alex|Eldridge unban Steve|Eldridge ban Steve"
+	wantLog := "Pat unadmin Steve|Pat admin Steve|Eldridge unlink-mc Alex|Eldridge add Lennox|Eldridge set-mc Eldridge|Eldridge set-mc Alex|Eldridge delete Herobrine|Eldridge add Herobrine|Eldridge reset Alex|Eldridge unban Steve|Eldridge ban Steve"
 	if strings.Join(got, "|") != wantLog {
 		t.Errorf("log:\n%s\nwant\n%s", strings.Join(got, "|"), wantLog)
 	}

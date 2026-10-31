@@ -30,15 +30,15 @@ func TestAttachments(t *testing.T) {
 	ws, _ := workspace.Open(filepath.Join(dir, "workspace"))
 	cs, _ := chat.Open(filepath.Join(dir, "chat"))
 	ls, _ := preview.Open(filepath.Join(dir, "previews"))
-	for _, n := range []string{"Paul", "Steve", "Eve"} {
+	for _, n := range []string{"Pat", "Steve", "Eve"} {
 		us.SetPassword(n, n+"-password")
 	}
-	us.Change("Paul", func(u *auth.User) { u.Admin = true })
+	us.Change("Pat", func(u *auth.User) { u.Admin = true })
 	hub := New(us, ws, cs, ls, filepath.Join(dir, "thumbs"), fstest.MapFS{}, nil)
 	srv := httptest.NewServer(hub)
 	defer srv.Close()
 	cookie := map[string]string{}
-	for _, n := range []string{"Paul", "Steve", "Eve"} {
+	for _, n := range []string{"Pat", "Steve", "Eve"} {
 		cookie[n], _ = us.Login(n, n+"-password")
 	}
 	do := func(who, method, path, body string) *http.Response {
@@ -72,8 +72,8 @@ func TestAttachments(t *testing.T) {
 		return m
 	}
 
-	call("Paul", "POST", "/api/channels", `{"name":"builds"}`)
-	call("Paul", "POST", "/api/channels", `{"name":"staff","kind":"private","members":["Steve"]}`)
+	call("Pat", "POST", "/api/channels", `{"name":"builds"}`)
+	call("Pat", "POST", "/api/channels", `{"name":"staff","kind":"private","members":["Steve"]}`)
 
 	// Any kind of file, in a public chat too; kept with the chat, not in Files.
 	code, b := call("Steve", "POST", "/api/channels/builds/media?name=farm.litematic", "schem bytes")
@@ -161,20 +161,20 @@ func TestAttachments(t *testing.T) {
 	if code != 200 || !strings.Contains(b, "#media/general/notes.txt") {
 		t.Errorf("edited link: %d %s", code, b)
 	}
-	code, b = call("Paul", "PATCH", "/api/channels/general/messages/"+pasted.ID, `{"text":"#media/builds/farm.litematic"}`)
+	code, b = call("Pat", "PATCH", "/api/channels/general/messages/"+pasted.ID, `{"text":"#media/builds/farm.litematic"}`)
 	if _, err := os.Stat(filepath.Join(dir, "chat", "general", "media", "farm.litematic")); code != 403 || err == nil {
 		t.Errorf("someone else's edit: %d, copied anyway: %v", code, err == nil)
 	}
-	call("Paul", "POST", "/api/channels", `{"name":"gone"}`)
+	call("Pat", "POST", "/api/channels", `{"name":"gone"}`)
 	call("Steve", "POST", "/api/channels/gone/media?name=old.zip", "old")
 	keep := post("Steve", "general", "#media/gone/old.zip")
-	call("Paul", "DELETE", "/api/channels/gone", "")
+	call("Pat", "DELETE", "/api/channels/gone", "")
 	if code, b = call("Eve", "GET", "/api/channels/general/media/old.zip", ""); b != "old" || !strings.Contains(keep.Text, "media/general/old.zip") {
 		t.Errorf("outlives its chat: %d %q (%q)", code, b, keep.Text)
 	}
 
 	// A rename takes the files along, and old links still count.
-	call("Paul", "PATCH", "/api/channels/builds", `{"name":"farms"}`)
+	call("Pat", "PATCH", "/api/channels/builds", `{"name":"farms"}`)
 	if code, b = call("Eve", "GET", "/api/channels/farms/media/farm.litematic", ""); b != "schem bytes" {
 		t.Errorf("after the rename: %d %q", code, b)
 	}

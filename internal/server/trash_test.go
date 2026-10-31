@@ -25,7 +25,7 @@ func TestTrashRoutes(t *testing.T) {
 	cs, _ := chat.Open(filepath.Join(dir, "chat"))
 	ls, _ := preview.Open(filepath.Join(dir, "previews"))
 	cookies := map[string]string{}
-	for name, admin := range map[string]bool{"Paul": true, "Steve": false} {
+	for name, admin := range map[string]bool{"Pat": true, "Steve": false} {
 		us.SetPassword(name, name+"-password")
 		us.Change(name, func(u *auth.User) { u.Admin = admin })
 		cookies[name], _ = us.Login(name, name+"-password")
@@ -94,13 +94,13 @@ func TestTrashRoutes(t *testing.T) {
 		t.Fatalf("delete: %d %s", code, body)
 	}
 	idA := trashed(body)[0]
-	_, body = call("Paul", "DELETE", "/api/file/docs?dir=1", "")
+	_, body = call("Pat", "DELETE", "/api/file/docs?dir=1", "")
 	idDocs := trashed(body)[0]
 	_, body = call("Steve", "POST", "/api/batch/delete", `{"paths":["b.md"]}`)
 	idB := trashed(body)[0]
 
 	names, ids := list("Steve")
-	if names != "b.md by Steve, docs by Paul, a.md by Steve" || ids["a.md"] != idA || ids["docs"] != idDocs || ids["b.md"] != idB {
+	if names != "b.md by Steve, docs by Pat, a.md by Steve" || ids["a.md"] != idA || ids["docs"] != idDocs || ids["b.md"] != idB {
 		t.Fatalf("listed: %s %v", names, ids)
 	}
 
@@ -135,14 +135,14 @@ func TestTrashRoutes(t *testing.T) {
 	}
 
 	// An admin erases.
-	if code, body := call("Paul", "POST", "/api/trash/delete", `{"ids":["`+idDocs+`"]}`); code != 200 || strings.TrimSpace(body) != `{"deleted":1}` {
+	if code, body := call("Pat", "POST", "/api/trash/delete", `{"ids":["`+idDocs+`"]}`); code != 200 || strings.TrimSpace(body) != `{"deleted":1}` {
 		t.Fatalf("delete forever: %d %s", code, body)
 	}
 	call("Steve", "POST", "/api/batch/delete", `{"paths":["a.md","kept"]}`)
-	if code, body := call("Paul", "POST", "/api/trash/empty", ""); code != 200 || strings.TrimSpace(body) != `{"deleted":2}` {
+	if code, body := call("Pat", "POST", "/api/trash/empty", ""); code != 200 || strings.TrimSpace(body) != `{"deleted":2}` {
 		t.Fatalf("empty: %d %s", code, body)
 	}
-	if names, _ := list("Paul"); names != "" {
+	if names, _ := list("Pat"); names != "" {
 		t.Fatalf("listed after Empty Trash: %s", names)
 	}
 }

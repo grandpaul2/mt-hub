@@ -6,7 +6,7 @@ import { api, check, done, ev, HUB, hub, key, send, settle, shot, typeText } fro
 const farms = ['# Farms', '', 'Notes on the farms.', '', '## Gold', 'At the nether roof.', '', '## Iron', 'The iron farm is at spawn.', ''].join('\n');
 await hub('/api/file/notes/farms.md?base=', { method: 'PUT', body: farms });
 const iron = await (await api('POST', '/api/channels/general/messages', { text: 'the iron farm works' })).json();
-await api('POST', '/api/channels/general/messages', { text: '@Alex look #[screenshots/2026-09-03 15.00.03 eldridge.png]' }, 'Paul');
+await api('POST', '/api/channels/general/messages', { text: '@Alex look #[screenshots/2026-09-03 15.00.03 eldridge.png]' }, 'Pat');
 
 await send('Page.navigate', { url: HUB });
 await settle(2500);
@@ -48,7 +48,7 @@ check('opens the file, Markdown block at the line flashes', [await hash(), await
   ['#notes/farms.md', 'The iron farm is at spawn.']);
 
 s = await search('from:');
-check('from: suggests accounts', s.rows, ['Alex', 'Paul', 'Steve']);
+check('from: suggests accounts', s.rows, ['Alex', 'Pat', 'Steve']);
 await key('ArrowDown');
 await key('Enter');
 await settle(800);

@@ -3,7 +3,7 @@
 // remembered; switching keeps the reader's place. Also checks the page's own fonts.
 import { answerDialogs, asked, check, COOKIE, done, ev, HUB, key, send, settle, shot, sleep, ws } from './lib.mjs';
 
-const put = (path, body) => fetch(`${HUB}/api/file/${path}?base=`, { method: 'PUT', headers: { cookie: COOKIE.Paul }, body });
+const put = (path, body) => fetch(`${HUB}/api/file/${path}?base=`, { method: 'PUT', headers: { cookie: COOKIE.Pat }, body });
 await put('notes.txt', 'phantom farm start\nphantom farm stop\n');
 await put('bad.json', '{"a": 1,, "b": }');
 // A long Markdown file: headings, paragraphs and lists, each line numbered.

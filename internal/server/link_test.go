@@ -26,12 +26,12 @@ func TestServerLink(t *testing.T) {
 	ws, _ := workspace.Open(filepath.Join(dir, "workspace"))
 	cs, _ := chat.Open(filepath.Join(dir, "chat"))
 	ls, _ := preview.Open(filepath.Join(dir, "previews"))
-	us.SetPassword("Paul", "Paul-password")
+	us.SetPassword("Pat", "Pat-password")
 	us.SetPassword("Lennox", "Lennox-password") // no Minecraft name linked
-	us.SetMC("Paul", "grandpaul")
+	us.SetMC("Pat", "patmc")
 	srv := httptest.NewServer(New(us, ws, cs, ls, filepath.Join(dir, "thumbs"), fstest.MapFS{}, nil))
 	defer srv.Close()
-	cookie, _ := us.Login("Paul", "Paul-password")
+	cookie, _ := us.Login("Pat", "Pat-password")
 	survival, _, _ := us.NewToken("survival", "")
 	creative, _, _ := us.NewToken("creative", "")
 	release, _, _ := us.NewReleaseToken("")
@@ -103,7 +103,7 @@ func TestServerLink(t *testing.T) {
 		token, body string
 		want        int
 	}{
-		{survival, `{"player":"grandpaul","text":"anyone on creative?"}`, 200},
+		{survival, `{"player":"patmc","text":"anyone on creative?"}`, 200},
 		{creative, `{"player":"Eldridge","text":"yep"}`, 200},
 		{creative, `{"player":"not a name","text":"hi"}`, 400},
 		{creative, `{"player":"Eldridge","text":"   "}`, 400},
@@ -112,22 +112,22 @@ func TestServerLink(t *testing.T) {
 			t.Errorf("posting %s: %d %s, want %d", c.body, code, body, c.want)
 		}
 	}
-	// Stored under hub names where there is one. In game it's Minecraft names: Paul is
-	// grandpaul there, from his server and from the hub alike.
+	// Stored under hub names where there is one. In game it's Minecraft names: Pat is
+	// patmc there, from his server and from the hub alike.
 	// And from the hub: a file, a forward-style link, several lines, a colour code.
 	call("", "POST", "/api/channels/"+LinkChat+"/messages", `{"text":"**on** in ~~ten~~\nsee #[media/text-link/my base.png] and #media/text-link/farm.litematic §cin red"}`)
 
 	msgs, _ := cs.Messages(LinkChat, "", 10)
-	if len(msgs) != 3 || msgs[0].User != "Paul" || msgs[0].Via != "SMP" || msgs[1].User != "Eldridge" || msgs[1].Via != "CMP" || msgs[2].Via != "" {
+	if len(msgs) != 3 || msgs[0].User != "Pat" || msgs[0].Via != "SMP" || msgs[1].User != "Eldridge" || msgs[1].Via != "CMP" || msgs[2].Via != "" {
 		t.Errorf("stored: %+v", msgs)
 	}
 
 	// Each server gets the others' lines, never its own.
-	if got, want := lines(read(survival, "?after=")), "[CMP] Eldridge: yep | [HUB] grandpaul: on in ten see [my base.png] and [farm.litematic] in red"; got != want {
+	if got, want := lines(read(survival, "?after=")), "[CMP] Eldridge: yep | [HUB] patmc: on in ten see [my base.png] and [farm.litematic] in red"; got != want {
 		t.Errorf("survival reads:\n %s\nwant\n %s", got, want)
 	}
 	c := read(creative, "?after=")
-	if got, want := lines(c), "[SMP] grandpaul: anyone on creative? | [HUB] grandpaul: on in ten see [my base.png] and [farm.litematic] in red"; got != want {
+	if got, want := lines(c), "[SMP] patmc: anyone on creative? | [HUB] patmc: on in ten see [my base.png] and [farm.litematic] in red"; got != want {
 		t.Errorf("creative reads:\n %s\nwant\n %s", got, want)
 	}
 	if c.Last != msgs[2].ID {
@@ -193,10 +193,10 @@ func TestServerLinkNotice(t *testing.T) {
 	ws, _ := workspace.Open(filepath.Join(dir, "workspace"))
 	cs, _ := chat.Open(filepath.Join(dir, "chat"))
 	ls, _ := preview.Open(filepath.Join(dir, "previews"))
-	us.SetPassword("Paul", "Paul-password")
+	us.SetPassword("Pat", "Pat-password")
 	srv := httptest.NewServer(New(us, ws, cs, ls, filepath.Join(dir, "thumbs"), fstest.MapFS{}, nil))
 	defer srv.Close()
-	cookie, _ := us.Login("Paul", "Paul-password")
+	cookie, _ := us.Login("Pat", "Pat-password")
 	survival, _, _ := us.NewToken("survival", "")
 	creative, _, _ := us.NewToken("creative", "")
 	call := func(token, method, path, body string) (int, string) {
@@ -313,13 +313,13 @@ func TestLinkChatName(t *testing.T) {
 	ws, _ := workspace.Open(filepath.Join(dir, "workspace"))
 	cs, _ := chat.Open(filepath.Join(dir, "chat"))
 	ls, _ := preview.Open(filepath.Join(dir, "previews"))
-	us.Add("Paul", true)
-	us.SetPassword("Paul", "Paul-password")
+	us.Add("Pat", true)
+	us.SetPassword("Pat", "Pat-password")
 	cs.CreateChannel("server-link")
-	cs.Send("server-link", "Paul", chat.Draft{Text: "from before"})
+	cs.Send("server-link", "Pat", chat.Draft{Text: "from before"})
 	srv := httptest.NewServer(New(us, ws, cs, ls, filepath.Join(dir, "thumbs"), fstest.MapFS{}, nil))
 	defer srv.Close()
-	cookie, _ := us.Login("Paul", "Paul-password")
+	cookie, _ := us.Login("Pat", "Pat-password")
 	call := func(method, path, body string) (int, string) {
 		t.Helper()
 		r, _ := http.NewRequest(method, srv.URL+path, strings.NewReader(body))

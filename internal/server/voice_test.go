@@ -30,14 +30,14 @@ func TestVoice(t *testing.T) {
 	ws, _ := workspace.Open(filepath.Join(dir, "workspace"))
 	cs, _ := chat.Open(filepath.Join(dir, "chat"))
 	ls, _ := preview.Open(filepath.Join(dir, "previews"))
-	for _, n := range []string{"Paul", "Steve", "Alex", "Eve"} {
+	for _, n := range []string{"Pat", "Steve", "Alex", "Eve"} {
 		us.SetPassword(n, n+"-password")
 	}
-	us.Change("Paul", func(u *auth.User) { u.Admin = true })
+	us.Change("Pat", func(u *auth.User) { u.Admin = true })
 	start := func() (*httptest.Server, map[string]string) {
 		srv := httptest.NewServer(New(us, ws, cs, ls, filepath.Join(dir, "thumbs"), fstest.MapFS{}, nil))
 		cookie := map[string]string{}
-		for _, n := range []string{"Paul", "Steve", "Alex", "Eve"} {
+		for _, n := range []string{"Pat", "Steve", "Alex", "Eve"} {
 			cookie[n], _ = us.Login(n, n+"-password")
 		}
 		return srv, cookie
@@ -128,14 +128,14 @@ func TestVoice(t *testing.T) {
 	if got := ids("Eve"); len(got) != 1 || got[0] != pub {
 		t.Errorf("Eve sees %v, want only the public one", got)
 	}
-	if got := ids("Paul"); len(got) != 1 {
-		t.Errorf("Paul (an admin) sees %v: a private voice chat must be hidden from him", got)
+	if got := ids("Pat"); len(got) != 1 {
+		t.Errorf("Pat (an admin) sees %v: a private voice chat must be hidden from him", got)
 	}
 	if got := ids("Alex"); len(got) != 2 {
 		t.Errorf("Alex (invited) sees %v, want both", got)
 	}
-	c, _ := call("Paul", "POST", "/api/voice/"+priv+"/join", "")
-	want("Paul (admin, not invited) can't join the private one", c, 404)
+	c, _ := call("Pat", "POST", "/api/voice/"+priv+"/join", "")
+	want("Pat (admin, not invited) can't join the private one", c, 404)
 	c, _ = call("Alex", "POST", "/api/voice/"+priv+"/join", "")
 	want("Alex (invited) can join it", c, 200)
 	c, _ = call("Alex", "POST", "/api/voice/"+priv+"/invite", `{"invite":["Eve"]}`)
@@ -145,15 +145,15 @@ func TestVoice(t *testing.T) {
 	if got := ids("Eve"); len(got) != 2 {
 		t.Errorf("Eve, once invited, sees %v", got)
 	}
-	code, third := startChat("Paul", `{}`)
+	code, third := startChat("Pat", `{}`)
 	want("a third voice chat", code, 200)
 	code, _ = startChat("Eve", `{}`)
 	want("a fourth is refused", code, 409)
 	// Starting again replaces the empty one you started: nobody holds two places that way.
-	code, again := startChat("Paul", `{}`)
-	want("Paul starts again", code, 200)
+	code, again := startChat("Pat", `{}`)
+	want("Pat starts again", code, 200)
 	if got := ids("Eve"); len(got) != 3 || slices.Contains(got, third) || !slices.Contains(got, again) {
-		t.Errorf("after Paul started again: %v (old %s, new %s)", got, third, again)
+		t.Errorf("after Pat started again: %v (old %s, new %s)", got, third, again)
 	}
 	third = again
 
@@ -171,29 +171,29 @@ func TestVoice(t *testing.T) {
 		}
 		return
 	}
-	if got := people("Paul", pub); strings.Join(got, ",") != "Alex,Eve" {
+	if got := people("Pat", pub); strings.Join(got, ",") != "Alex,Eve" {
 		t.Errorf("people %v, want Alex,Eve", got)
 	}
 	// Eve joining another voice chat takes her out of this one.
 	hook("participant_joined", third, "Eve", 300, false)
-	if got := people("Paul", pub); strings.Join(got, ",") != "Alex" {
+	if got := people("Pat", pub); strings.Join(got, ",") != "Alex" {
 		t.Errorf("after Eve moved: %v, want Alex", got)
 	}
 	// It survives a restart.
 	srv.Close()
 	srv, cookie = start()
 	defer srv.Close()
-	if got := people("Paul", pub); strings.Join(got, ",") != "Alex" {
+	if got := people("Pat", pub); strings.Join(got, ",") != "Alex" {
 		t.Errorf("after a restart: %v, want Alex", got)
 	}
-	if got := ids("Paul"); len(got) != 2 {
-		t.Errorf("after a restart Paul sees %v, want the two public ones", got)
+	if got := ids("Pat"); len(got) != 2 {
+		t.Errorf("after a restart Pat sees %v, want the two public ones", got)
 	}
 	// The last one out ends it, and a new one may start.
 	c, _ = call("Alex", "POST", "/api/voice/"+pub+"/leave", "")
 	want("Alex leaves", c, 204)
-	if got := ids("Paul"); len(got) != 1 {
-		t.Errorf("after the last left, Paul sees %v, want just the third", got)
+	if got := ids("Pat"); len(got) != 1 {
+		t.Errorf("after the last left, Pat sees %v, want just the third", got)
 	}
 	code, _ = startChat("Eve", `{}`)
 	want("a new one fits again", code, 200)

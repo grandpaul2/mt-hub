@@ -2,9 +2,9 @@
 // everyone's, live; DMs sit at the bottom, the most recent message first.
 import { api, as, check, done, ev, HUB, key, send, settle } from './lib.mjs';
 
-for (const n of ['builds', 'music']) await api('POST', '/api/channels', { name: n }, 'Paul');
-const dmAlex = (await (await api('POST', '/api/dms', { members: ['Alex'] }, 'Paul')).json()).name;
-const dmSteve = (await (await api('POST', '/api/dms', { members: ['Steve'] }, 'Paul')).json()).name;
+for (const n of ['builds', 'music']) await api('POST', '/api/channels', { name: n }, 'Pat');
+const dmAlex = (await (await api('POST', '/api/dms', { members: ['Alex'] }, 'Pat')).json()).name;
+const dmSteve = (await (await api('POST', '/api/dms', { members: ['Steve'] }, 'Pat')).json()).name;
 await api('POST', `/api/channels/${dmAlex}/messages`, { text: 'first' }, 'Alex');
 await api('POST', `/api/channels/${dmSteve}/messages`, { text: 'second' }, 'Steve');
 
@@ -52,11 +52,11 @@ check('newest DM first', await list(), ['#general', '#builds', '#music', '@Alex'
 await as('Alex');
 await send('Page.navigate', { url: `${HUB}/?r=1#chan=general` });
 await settle(2500);
-check('a member sees the same order', await list(), ['#general', '#builds', '#music', '@Paul']);
+check('a member sees the same order', await list(), ['#general', '#builds', '#music', '@Pat']);
 check('members can’t drag', await ev(`[...document.querySelectorAll('#channels .row')].some((r) => r.draggable)`), false);
 check('members can’t reorder', (await api('PUT', '/api/channel-order', { names: ['music'] }, 'Alex')).status, 403);
-await api('PUT', '/api/channel-order', { names: ['music', 'general', 'builds'] }, 'Paul');
+await api('PUT', '/api/channel-order', { names: ['music', 'general', 'builds'] }, 'Pat');
 await settle(800);
-check('an admin’s change arrives live', await list(), ['#music', '#general', '#builds', '@Paul']);
+check('an admin’s change arrives live', await list(), ['#music', '#general', '#builds', '@Pat']);
 
 await done();

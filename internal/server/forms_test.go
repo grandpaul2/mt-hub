@@ -23,10 +23,10 @@ func TestFormPostsRefused(t *testing.T) {
 	ws, _ := workspace.Open(filepath.Join(dir, "workspace"))
 	cs, _ := chat.Open(filepath.Join(dir, "chat"))
 	ls, _ := preview.Open(filepath.Join(dir, "previews"))
-	us.SetPassword("Paul", "Paul-password")
+	us.SetPassword("Pat", "Pat-password")
 	srv := httptest.NewServer(New(us, ws, cs, ls, filepath.Join(dir, "thumbs"), fstest.MapFS{}, nil))
 	defer srv.Close()
-	cookie, _ := us.Login("Paul", "Paul-password")
+	cookie, _ := us.Login("Pat", "Pat-password")
 	// What <form method=post enctype=text/plain><input name='{"text":"hi","x":"' value='"}'> sends.
 	const formBody = `{"text":"hi","x":"="}`
 	post := func(headers map[string]string) (int, string) {

@@ -3,7 +3,7 @@
 import { api, as, check, COOKIE, done, ev, hub, HUB, key, send, settle, shot } from './lib.mjs';
 
 const status = (path, who) => fetch(HUB + path, { headers: { cookie: COOKIE[who] } }).then((r) => r.status);
-const patch = (name, body, who = 'Paul') =>
+const patch = (name, body, who = 'Pat') =>
   fetch(`${HUB}/api/admin/users/${name}`, { method: 'PATCH', body: JSON.stringify(body), headers: { cookie: COOKIE[who] } });
 const menu = async () => {
   await ev(`document.getElementById('user').click()`);
@@ -53,7 +53,7 @@ check('banned login', await loginForm(), 'this account is banned');
 await shot('banned');
 
 // The owner's Admin page.
-await as('Paul');
+await as('Pat');
 await send('Page.navigate', { url: HUB });
 await settle(1500);
 check('owner menu', await menu(), ['Admin', 'Keyboard Shortcuts', 'Voice Settings', 'Sound Settings', 'Change Password', 'Log Out', 'Log Out Everywhere']);
@@ -61,9 +61,9 @@ await ev(`document.getElementById('user').click()`);
 await settle(200);
 await ev(`[...document.querySelectorAll('#menu button')].find((b) => b.textContent.startsWith('Admin')).click()`);
 await settle(700);
-check('rows', [await rowText('Alex'), await rowText('Paul'), await rowText('Steve')], [
+check('rows', [await rowText('Alex'), await rowText('Pat'), await rowText('Steve')], [
   'Alex | No Minecraft name · Never signed in | ⋯',
-  'Paul op | No Minecraft name · ● online | colour ⋯',
+  'Pat op | No Minecraft name · ● online | colour ⋯',
   'Steve banned | No Minecraft name · Last seen just now | ⋯',
 ]);
 check('a settings dialog: title, close X, groups', [await ev(`document.querySelector('#dialog .dialog-head h2').textContent`), await ev(`document.querySelector('#dialog .dialog-x').title`),
@@ -128,17 +128,17 @@ await ev(`${mcBox}.focus()`);
 await key('Escape');
 await settle(300);
 check('Esc closes the box, not Admin; the name is as it was', [await ev(`!!${mcBox}`), await ev(`!document.getElementById('overlay').hidden`), await rowText('Herobrine')], [false, true, 'Herobrine | Minecraft: Hero2 · Never signed in | ⋯']);
-await nameIt('Paul', 'hero2');
+await nameIt('Pat', 'hero2');
 check('a name someone has is refused', await ev(`document.querySelector('.admin-error').textContent`), 'another account has that Minecraft name');
-await ev(`${mcBox}.value = 'Paul_mc'; ${mcBox}.form.requestSubmit()`);
+await ev(`${mcBox}.value = 'Pat_mc'; ${mcBox}.form.requestSubmit()`);
 await settle(500);
-check('your own row has it too', await rowText('Paul'), 'Paul op | Minecraft: Paul_mc · ● online | colour ⋯');
+check('your own row has it too', await rowText('Pat'), 'Pat op | Minecraft: Pat_mc · ● online | colour ⋯');
 await nameIt('Herobrine', '');
 check('an empty box takes the name away', await rowText('Herobrine'), 'Herobrine | No Minecraft name · Never signed in | ⋯');
 
-check('log', await ev(`[...document.querySelectorAll('.admin-log li')].map((l) => l.textContent.replace(/^.*? Paul/, 'Paul'))`), [
-  'Paul took away the Minecraft name of Herobrine', 'Paul set the Minecraft name of Paul', 'Paul set the Minecraft name of Herobrine',
-  'Paul added Herobrine', 'Paul reset the password of Steve', 'Paul banned Alex', 'Paul unbanned Steve', 'Paul banned Steve',
+check('log', await ev(`[...document.querySelectorAll('.admin-log li')].map((l) => l.textContent.replace(/^.*? Pat/, 'Pat'))`), [
+  'Pat took away the Minecraft name of Herobrine', 'Pat set the Minecraft name of Pat', 'Pat set the Minecraft name of Herobrine',
+  'Pat added Herobrine', 'Pat reset the password of Steve', 'Pat banned Alex', 'Pat unbanned Steve', 'Pat banned Steve',
 ]);
 await shot('after');
 
@@ -152,7 +152,7 @@ await openMore('Herobrine');
 check('an admin’s menu (owner)', await items(), ['Reset Password', 'Minecraft Name…', 'Remove Admin']);
 await closeMenu();
 const table = await tableRows();
-check('owner table: the same tag as chat; a colour well on every admin (the owner can change anyone’s)', table, ['Alex banned ⋯', 'Herobrine op colour ⋯', 'Paul op colour ⋯', 'Steve ⋯']);
+check('owner table: the same tag as chat; a colour well on every admin (the owner can change anyone’s)', table, ['Alex banned ⋯', 'Herobrine op colour ⋯', 'Pat op colour ⋯', 'Steve ⋯']);
 check('default tag colours: gold for the owner, purple for admins', await ev(`[...${section('Accounts')}.querySelectorAll('.tag.op')].map((t) => t.className)`), ['tag op t-purple', 'tag op t-gold']);
 // Picking a colour: the well opens the swatches (the current one marked); a click saves it.
 await ev(`${row('Herobrine')}.querySelector('.tag-well').click()`);
@@ -162,13 +162,13 @@ await shot('swatches');
 await ev(`document.querySelector('#menu .tag-swatch.t-teal').click()`);
 await settle(600);
 check('Herobrine’s tag is teal, here and for everyone', [await ev(`${row('Herobrine')}.querySelector('.tag.op').className`),
-  (await (await api('GET', '/api/users', undefined, 'Paul')).json()).find((a) => a.name === 'Herobrine').tag], ['tag op t-teal', 'teal']);
-// The chat behind redraws: Paul's tag on his message turns green when he picks green.
-await api('POST', '/api/channels/general/messages', { text: 'tag test' }, 'Paul');
+  (await (await api('GET', '/api/users', undefined, 'Pat')).json()).find((a) => a.name === 'Herobrine').tag], ['tag op t-teal', 'teal']);
+// The chat behind redraws: Pat's tag on his message turns green when he picks green.
+await api('POST', '/api/channels/general/messages', { text: 'tag test' }, 'Pat');
 await settle(500);
 const chatTag = () => ev(`[...document.querySelectorAll('.msg-head .tag.op')].map((t) => t.className).at(-1)`);
 check('chat: the owner’s tag is gold', await chatTag(), 'tag op t-gold');
-await api('PUT', '/api/admin/users/Paul/tag', { tag: 'green' }, 'Paul');
+await api('PUT', '/api/admin/users/Pat/tag', { tag: 'green' }, 'Pat');
 await settle(800);
 check('chat: green once he picks it, without a reload', await chatTag(), 'tag op t-green');
 await shot('owner');
@@ -193,14 +193,14 @@ await ev(`document.getElementById('user').click()`);
 await settle(200);
 await ev(`[...document.querySelectorAll('#menu button')].find((b) => b.textContent.startsWith('Admin')).click()`);
 await settle(700);
-check('admin sees the same table (their own colour well and their own Minecraft name; no menu on other admins)', await tableRows(), ['Alex banned ⋯', 'Herobrine op colour ⋯', 'Paul op', 'Steve ⋯']);
+check('admin sees the same table (their own colour well and their own Minecraft name; no menu on other admins)', await tableRows(), ['Alex banned ⋯', 'Herobrine op colour ⋯', 'Pat op', 'Steve ⋯']);
 check('admin page', [await ev(`!!${section('Admins')}`), await ev(`document.querySelector('.add-user').innerText.trim()`)], [false, 'Add account']);
 await shot('admin-view');
 
 // Back as the owner: remove admin.
-await as('Paul');
+await as('Pat');
 await send('Page.navigate', { url: HUB });
 await settle(1500);
-check('remove admin', (await fetch(`${HUB}/api/admin/users/Herobrine`, { method: 'PATCH', body: JSON.stringify({ admin: false }), headers: { cookie: COOKIE.Paul } })).status, 200);
+check('remove admin', (await fetch(`${HUB}/api/admin/users/Herobrine`, { method: 'PATCH', body: JSON.stringify({ admin: false }), headers: { cookie: COOKIE.Pat } })).status, 200);
 
 await done();

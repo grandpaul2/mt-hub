@@ -2,7 +2,7 @@
 // still there after a reload, and goes once it's sent.
 import { api, check, done, ev, HUB, key, send, settle, typeText } from './lib.mjs';
 
-await api('POST', '/api/channels', { name: 'builds' }, 'Paul');
+await api('POST', '/api/channels', { name: 'builds' }, 'Pat');
 await send('Page.navigate', { url: HUB + '/#chan=general' });
 await settle(2500);
 

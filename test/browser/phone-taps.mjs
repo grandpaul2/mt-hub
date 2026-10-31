@@ -3,7 +3,7 @@
 // on the buttons now showing, works. A real mouse click on desktop still works.
 import { api, check, done, ev, HUB, send, settle } from './lib.mjs';
 
-const { id } = await (await api('POST', '/api/channels/general/messages', { text: 'tap me' }, 'Paul')).json();
+const { id } = await (await api('POST', '/api/channels/general/messages', { text: 'tap me' }, 'Pat')).json();
 await api('PUT', `/api/channels/general/messages/${id}/reactions/${encodeURIComponent('👍')}`, undefined, 'Alex');
 await send('Emulation.setDeviceMetricsOverride', { width: 400, height: 800, deviceScaleFactor: 1, mobile: true });
 await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });

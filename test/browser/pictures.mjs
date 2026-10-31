@@ -26,7 +26,7 @@ await settle(800);
 check('screenshots folder view', [await hash(), await tiles(), await filt()],
   ['#folder=screenshots', SEED.shots, { button: true, out: false, pressed: false, clearBlue: false }]);
 check('tiles show poster and time', await ev(`[...document.querySelectorAll('#main-folder .shot .who')].map((w) => w.textContent)`),
-  ['Paul', 'Alex', 'eldridge', 'eldridge', 'eldridge', 'Lennox']);
+  ['Pat', 'Alex', 'eldridge', 'eldridge', 'eldridge', 'Lennox']);
 check('opens at the bottom (newest)', await ev(`(() => { const s = document.querySelector('#main-folder .shot-scroll'); return s.scrollTop + s.clientHeight >= s.scrollHeight - 2; })()`), true);
 check('no history', await ev(`document.querySelector('.row[data-path="screenshots"]').title.includes('no history')`), true);
 await shot('screenshots');
@@ -36,7 +36,7 @@ check('Filters brings them out, left of it', [await filt(), await ev(`document.q
 await pressFilters();
 check('and puts them away', (await filt()).out, false);
 await pressFilters();
-check('who list', await ev(`[...document.querySelectorAll('#main-folder .filters select option')].map((o) => o.textContent)`), ['Everyone', 'Alex', 'eldridge', 'Lennox', 'Paul']);
+check('who list', await ev(`[...document.querySelectorAll('#main-folder .filters select option')].map((o) => o.textContent)`), ['Everyone', 'Alex', 'eldridge', 'Lennox', 'Pat']);
 await setFilter('.filters select', 'eldridge');
 check('who filter', [(await tiles()).length, await ev(`document.querySelector('#main-folder .count').textContent`)], [3, '3 of 6']);
 check('a filter set: Clear is blue', (await filt()).clearBlue, true);
@@ -67,7 +67,7 @@ await ev(`(async () => {
   document.querySelector('#main-folder .shot-scroll').dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }));
 })()`);
 await settle(1500);
-check('upload gets a stamped name', (await tree()).includes('screenshots/2026-10-01 21.09.08 Paul.png'), true);
+check('upload gets a stamped name', (await tree()).includes('screenshots/2026-10-01 21.09.08 Pat.png'), true);
 // Pasting one (the clipboard has no file name or date) is named by now.
 await ev(`(() => {
   const dt = new DataTransfer();
@@ -76,7 +76,7 @@ await ev(`(() => {
 })()`);
 await settle(1500);
 const today = await ev(`(() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })()`);
-check('paste gets a stamped name', (await tree()).some((p) => p.startsWith(`screenshots/${today} `) && p.endsWith(' Paul.png')), true);
+check('paste gets a stamped name', (await tree()).some((p) => p.startsWith(`screenshots/${today} `) && p.endsWith(' Pat.png')), true);
 
 // Map art: titles, in name order; no who/from/to (the names aren't stamped).
 await ev(`document.querySelector('.row[data-path="map art"]').click()`);
@@ -95,9 +95,9 @@ await settle(1500);
 check('#shots opens screenshots/', await hash(), '#folder=screenshots');
 
 // The folders themselves stay put (like large/); files in them rename freely.
-const mv = await fetch(`${HUB}/api/move`, { method: 'POST', headers: { cookie: COOKIE.Paul }, body: JSON.stringify({ from: 'map art', to: 'art' }) });
+const mv = await fetch(`${HUB}/api/move`, { method: 'POST', headers: { cookie: COOKIE.Pat }, body: JSON.stringify({ from: 'map art', to: 'art' }) });
 check('map art/ can\'t be renamed', mv.ok, false);
-const rn = await fetch(`${HUB}/api/move`, { method: 'POST', headers: { cookie: COOKIE.Paul }, body: JSON.stringify({ from: `map art/${SEED.mapart[4]}`, to: 'map art/MA-005 The Starry Night.png' }) });
+const rn = await fetch(`${HUB}/api/move`, { method: 'POST', headers: { cookie: COOKIE.Pat }, body: JSON.stringify({ from: `map art/${SEED.mapart[4]}`, to: 'map art/MA-005 The Starry Night.png' }) });
 check('a picture renames', [rn.ok, (await tree()).includes('map art/MA-005 The Starry Night.png')], [true, true]);
 
 await done();

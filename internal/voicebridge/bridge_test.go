@@ -435,7 +435,7 @@ func same(a, b [][]byte) string {
 func TestBothWaysUntouched(t *testing.T) {
 	_, g, room := setup(t)
 	alex := joinMember(t, room, "Alex", false)
-	paul := joinMember(t, room, "Paul", true)
+	pat := joinMember(t, room, "Pat", true)
 	g.roster(true)
 	eventually(t, "Steve's track at Alex", 10*time.Second, func() bool { _, ok := alex.heardFrom(steveIdent); return ok })
 	time.Sleep(300 * time.Millisecond)
@@ -473,18 +473,18 @@ func TestBothWaysUntouched(t *testing.T) {
 		}
 	}
 
-	// Hub to game: Paul says 100 frames.
+	// Hub to game: Pat says 100 frames.
 	said = speech(2, 100)
 	for _, f := range said {
 		<-tick.C
-		paul.send(f, 0)
+		pat.send(f, 0)
 	}
 	ended := time.Now()
-	eventually(t, "Paul's frames and his stop at the game", 5*time.Second, func() bool {
-		f, _ := g.from("Paul")
+	eventually(t, "Pat's frames and his stop at the game", 5*time.Second, func() bool {
+		f, _ := g.from("Pat")
 		return len(f) > len(said)
 	})
-	f, at := g.from("Paul")
+	f, at := g.from("Pat")
 	if why := same(f[:len(said)], said); why != "" {
 		t.Fatalf("hub to game: %s", why)
 	}
@@ -501,22 +501,22 @@ func TestBothWaysUntouched(t *testing.T) {
 // shut. The speech after them arrives whole, from its first frame.
 func TestSilenceStaysOut(t *testing.T) {
 	_, g, room := setup(t)
-	paul := joinMember(t, room, "Paul", true)
-	eventually(t, "the bridge hearing Paul", 10*time.Second, func() bool { names, _ := g.hubRoster(); return slices.Equal(names, []string{"Paul"}) })
+	pat := joinMember(t, room, "Pat", true)
+	eventually(t, "the bridge hearing Pat", 10*time.Second, func() bool { names, _ := g.hubRoster(); return slices.Equal(names, []string{"Pat"}) })
 	time.Sleep(500 * time.Millisecond)
 
 	lone := speech(3, 5)
 	for _, f := range lone {
-		paul.send(f, 20) // 420 ms after the one before
+		pat.send(f, 20) // 420 ms after the one before
 		time.Sleep(420 * time.Millisecond)
 	}
 	for i := 0; i < 5; i++ {
-		paul.send([]byte{0x78}, 0)
+		pat.send([]byte{0x78}, 0)
 		time.Sleep(frameDur)
 	}
-	paul.send(append([]byte{0xf8, 0xff, 0xfe}, make([]byte, 40)...), 0)
+	pat.send(append([]byte{0xf8, 0xff, 0xfe}, make([]byte, 40)...), 0)
 	time.Sleep(200 * time.Millisecond)
-	if f, _ := g.from("Paul"); len(f) != 0 {
+	if f, _ := g.from("Pat"); len(f) != 0 {
 		t.Fatalf("%d messages reached the game from silence alone", len(f))
 	}
 
@@ -528,11 +528,11 @@ func TestSilenceStaysOut(t *testing.T) {
 		if i == 0 {
 			skip = 10
 		}
-		paul.send(f, skip)
+		pat.send(f, skip)
 	}
-	eventually(t, "the speech and its stop at the game", 5*time.Second, func() bool { f, _ := g.from("Paul"); return len(f) > len(said) })
+	eventually(t, "the speech and its stop at the game", 5*time.Second, func() bool { f, _ := g.from("Pat"); return len(f) > len(said) })
 	time.Sleep(300 * time.Millisecond)
-	f, _ := g.from("Paul")
+	f, _ := g.from("Pat")
 	if len(f) != len(said)+1 || f[len(said)] != nil {
 		t.Fatalf("%d messages reached the game, want the %d frames of speech and one \"stopped talking\"", len(f), len(said))
 	}
@@ -550,20 +550,20 @@ func TestRosters(t *testing.T) {
 	if names, _ := g.hubRoster(); len(names) != 0 {
 		t.Fatalf("nobody is in the room, the game was told %v", names)
 	}
-	paul := joinMember(t, room, "Paul", false)
-	eventually(t, "Paul in the hub's roster", 10*time.Second, func() bool { names, _ := g.hubRoster(); return slices.Equal(names, []string{"Paul"}) })
+	pat := joinMember(t, room, "Pat", false)
+	eventually(t, "Pat in the hub's roster", 10*time.Second, func() bool { names, _ := g.hubRoster(); return slices.Equal(names, []string{"Pat"}) })
 
 	g.roster(true)
-	eventually(t, "Steve in the room", 10*time.Second, func() bool { return slices.Equal(paul.sees(), []string{steveIdent}) })
-	if names, _ := g.hubRoster(); !slices.Equal(names, []string{"Paul"}) {
+	eventually(t, "Steve in the room", 10*time.Second, func() bool { return slices.Equal(pat.sees(), []string{steveIdent}) })
+	if names, _ := g.hubRoster(); !slices.Equal(names, []string{"Pat"}) {
 		t.Errorf("a player's participant was told to the game as a hub member: %v", names)
 	}
 	g.roster(false)
-	eventually(t, "Steve gone from the room", 10*time.Second, func() bool { return len(paul.sees()) == 0 })
+	eventually(t, "Steve gone from the room", 10*time.Second, func() bool { return len(pat.sees()) == 0 })
 
-	// A member whose account has a Minecraft name: it goes to the game with them; Paul has none.
+	// A member whose account has a Minecraft name: it goes to the game with them; Pat has none.
 	sam := joinMemberAs(t, room, "sam", "SamInGame", false)
-	eventually(t, "sam in the hub's roster", 10*time.Second, func() bool { names, _ := g.hubRoster(); return slices.Equal(names, []string{"Paul", "sam"}) })
+	eventually(t, "sam in the hub's roster", 10*time.Second, func() bool { names, _ := g.hubRoster(); return slices.Equal(names, []string{"Pat", "sam"}) })
 	if mc := g.hubMinecraftNames(); !maps.Equal(mc, map[string]string{"sam": "SamInGame"}) {
 		t.Errorf("the roster's Minecraft names: %v", mc)
 	}
@@ -584,50 +584,50 @@ func TestRosters(t *testing.T) {
 	eventually(t, "kim's new Minecraft name in the roster", 10*time.Second, func() bool { return g.hubMinecraftNames()["kim"] == "KimRenamed" })
 	kim.room.Disconnect()
 
-	paul.room.Disconnect()
-	eventually(t, "Paul gone from the hub's roster", 10*time.Second, func() bool { names, _ := g.hubRoster(); return len(names) == 0 })
+	pat.room.Disconnect()
+	eventually(t, "Pat gone from the hub's roster", 10*time.Second, func() bool { names, _ := g.hubRoster(); return len(names) == 0 })
 }
 
 // The relay going away and coming back: the bridge joins it again by itself, tells the game
 // who is in the room again, and the players come back when their server says so.
 func TestRelayComesBack(t *testing.T) {
 	r, g, room := setup(t)
-	paul := joinMember(t, room, "Paul", false)
+	pat := joinMember(t, room, "Pat", false)
 	g.roster(true)
-	eventually(t, "Steve in the room", 10*time.Second, func() bool { return slices.Equal(paul.sees(), []string{steveIdent}) })
+	eventually(t, "Steve in the room", 10*time.Second, func() bool { return slices.Equal(pat.sees(), []string{steveIdent}) })
 
 	r.stop()
-	eventually(t, "Steve gone with the relay", 10*time.Second, func() bool { return len(paul.sees()) == 0 })
+	eventually(t, "Steve gone with the relay", 10*time.Second, func() bool { return len(pat.sees()) == 0 })
 	r.start(t)
 	g = joinGame(t, r.url())
-	eventually(t, "the hub's roster after the relay came back", 15*time.Second, func() bool { names, _ := g.hubRoster(); return slices.Equal(names, []string{"Paul"}) })
+	eventually(t, "the hub's roster after the relay came back", 15*time.Second, func() bool { names, _ := g.hubRoster(); return slices.Equal(names, []string{"Pat"}) })
 	g.roster(true)
-	eventually(t, "Steve back in the room", 10*time.Second, func() bool { return slices.Equal(paul.sees(), []string{steveIdent}) })
+	eventually(t, "Steve back in the room", 10*time.Second, func() bool { return slices.Equal(pat.sees(), []string{steveIdent}) })
 }
 
 // Two rosters at once: the older one, slow on its way out, doesn't go after the newer one (the
-// game would think Paul still there). Forced: with Paul in the room, a roster is sent again
-// and held on its way out while Paul leaves.
+// game would think Pat still there). Forced: with Pat in the room, a roster is sent again
+// and held on its way out while Pat leaves.
 func TestOneRosterAtATime(t *testing.T) {
 	var hold, waiting atomic.Bool
 	held, newer := make(chan struct{}), make(chan struct{})
 	_, g, room, b := setupWith(t, func(b *Bridge) {
 		b.beforeSend = func(roster string) {
 			switch {
-			case strings.Contains(roster, `"Paul"`) && hold.CompareAndSwap(true, false):
+			case strings.Contains(roster, `"Pat"`) && hold.CompareAndSwap(true, false):
 				close(held)
 				select { // until the newer roster is on its way (it can't be, one at a time), or 3 s
 				case <-newer:
 					time.Sleep(300 * time.Millisecond)
 				case <-time.After(3 * time.Second):
 				}
-			case !strings.Contains(roster, `"Paul"`) && waiting.CompareAndSwap(true, false):
+			case !strings.Contains(roster, `"Pat"`) && waiting.CompareAndSwap(true, false):
 				close(newer)
 			}
 		}
 	})
-	paul := joinMember(t, room, "Paul", false)
-	eventually(t, "Paul in the hub's roster", 10*time.Second, func() bool { names, _ := g.hubRoster(); return slices.Equal(names, []string{"Paul"}) })
+	pat := joinMember(t, room, "Pat", false)
+	eventually(t, "Pat in the hub's roster", 10*time.Second, func() bool { names, _ := g.hubRoster(); return slices.Equal(names, []string{"Pat"}) })
 	hold.Store(true)
 	b.mu.Lock()
 	b.lastSent = "" // (so the same roster goes again)
@@ -635,10 +635,10 @@ func TestOneRosterAtATime(t *testing.T) {
 	go b.sendRoster()
 	<-held
 	waiting.Store(true)
-	paul.room.Disconnect()
+	pat.room.Disconnect()
 	time.Sleep(5 * time.Second)
 	if names, _ := g.hubRoster(); len(names) != 0 {
-		t.Fatalf("after Paul left, the game's last roster is %v", names)
+		t.Fatalf("after Pat left, the game's last roster is %v", names)
 	}
 }
 
@@ -654,9 +654,9 @@ func TestListenerFollowsRelay(t *testing.T) {
 		}
 		return slices.ContainsFunc(res.Participants, func(p *livekit.ParticipantInfo) bool { return p.Identity == ListenerIdentity })
 	}
-	paul := joinMember(t, room, "Paul", false)
+	pat := joinMember(t, room, "Pat", false)
 	g.roster(true)
-	eventually(t, "Steve in the room", 10*time.Second, func() bool { return slices.Equal(paul.sees(), []string{steveIdent}) })
+	eventually(t, "Steve in the room", 10*time.Second, func() bool { return slices.Equal(pat.sees(), []string{steveIdent}) })
 	if !listening() {
 		t.Fatal("the listener is not in the room")
 	}

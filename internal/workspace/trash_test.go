@@ -122,10 +122,10 @@ func TestPurgeTrash(t *testing.T) {
 	now := time.Now()
 	for _, age := range []int{TrashDays + 1, TrashDays - 1} {
 		p := "large/f.zip"
-		if _, err := w.Write(p, []byte("x"), "", Author{"paul"}); err != nil {
+		if _, err := w.Write(p, []byte("x"), "", Author{"pat"}); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := w.toTrash(p, "delete", Author{"paul"}, now.AddDate(0, 0, -age)); err != nil {
+		if _, err := w.toTrash(p, "delete", Author{"pat"}, now.AddDate(0, 0, -age)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -137,7 +137,7 @@ func TestPurgeTrash(t *testing.T) {
 	for _, e := range entries {
 		names = append(names, e.Name())
 	}
-	if len(names) != 2 || names[0] != now.AddDate(0, 0, -(TrashDays-1)).Format(trashStamp)+" paul" || names[1] != "log.jsonl" {
+	if len(names) != 2 || names[0] != now.AddDate(0, 0, -(TrashDays-1)).Format(trashStamp)+" pat" || names[1] != "log.jsonl" {
 		t.Errorf("after purge: %q", names)
 	}
 }
@@ -150,11 +150,11 @@ func TestTrashListAndRestore(t *testing.T) {
 	root := t.TempDir()
 	w, _ := Open(filepath.Join(root, "workspace"))
 	trash := filepath.Join(root, "trash")
-	paul := Author{"paul"}
+	pat := Author{"pat"}
 	put := func(p, data string) {
 		t.Helper()
 		_, rev, _ := w.Stat(p)
-		if _, err := w.Write(p, []byte(data), rev, paul); err != nil {
+		if _, err := w.Write(p, []byte(data), rev, pat); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -163,7 +163,7 @@ func TestTrashListAndRestore(t *testing.T) {
 		src := filepath.Join(root, "chat", chat, "media", file)
 		os.MkdirAll(filepath.Dir(src), 0o755)
 		os.WriteFile(src, []byte(file), 0o644)
-		if err := w.TrashChat(src, chat, file, public, paul); err != nil {
+		if err := w.TrashChat(src, chat, file, public, pat); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -199,20 +199,20 @@ func TestTrashListAndRestore(t *testing.T) {
 	put("large/w.zip", "world two")
 	put("keep.md", "k")
 	// A chat file trashed before the hub recorded which kind of chat it was in: never listed.
-	os.MkdirAll(filepath.Join(trash, "2026-10-01 10-00-00.000 paul", "chat", "general", "media"), 0o755)
-	os.WriteFile(filepath.Join(trash, "2026-10-01 10-00-00.000 paul", "chat", "general", "media", "old.png"), []byte("o"), 0o644)
+	os.MkdirAll(filepath.Join(trash, "2026-10-01 10-00-00.000 pat", "chat", "general", "media"), 0o755)
+	os.WriteFile(filepath.Join(trash, "2026-10-01 10-00-00.000 pat", "chat", "general", "media", "old.png"), []byte("o"), 0o644)
 	os.WriteFile(filepath.Join(trash, "log.jsonl"), append(mustRead(t, filepath.Join(trash, "log.jsonl")),
-		[]byte(`{"time":"2026-10-01T10:00:00Z","who":"paul","action":"delete","path":"chat/general/media/old.png","trash":"2026-10-01 10-00-00.000 paul/chat/general/media/old.png"}`+"\n")...), 0o644)
+		[]byte(`{"time":"2026-10-01T10:00:00Z","who":"pat","action":"delete","path":"chat/general/media/old.png","trash":"2026-10-01 10-00-00.000 pat/chat/general/media/old.png"}`+"\n")...), 0o644)
 
-	idA, err := w.Delete("docs/a.md", mustRev(t, w, "docs/a.md"), paul)
+	idA, err := w.Delete("docs/a.md", mustRev(t, w, "docs/a.md"), pat)
 	if err != nil {
 		t.Fatal(err)
 	}
-	idSub, err := w.DeleteDir("docs/sub", paul)
+	idSub, err := w.DeleteDir("docs/sub", pat)
 	if err != nil {
 		t.Fatal(err)
 	}
-	ids, err := w.DeleteAll([]string{"large/w.zip", "keep.md"}, paul)
+	ids, err := w.DeleteAll([]string{"large/w.zip", "keep.md"}, pat)
 	if err != nil || len(ids) != 2 {
 		t.Fatalf("DeleteAll: %v %v", ids, err)
 	}
@@ -223,14 +223,14 @@ func TestTrashListAndRestore(t *testing.T) {
 	if names != "#general:d.png keep.md large/w.zip docs/sub/ docs/a.md large/w.zip(replaced)" {
 		t.Fatalf("listed: %s", names)
 	}
-	if it := by["docs/sub/"]; it.ID != idSub || it.Size != 1 || it.Who != "paul" || it.Time == "" {
+	if it := by["docs/sub/"]; it.ID != idSub || it.Size != 1 || it.Who != "pat" || it.Time == "" {
 		t.Fatalf("a folder's row: %+v", it)
 	}
 	idChat := by["#general:d.png"].ID
 
 	// Back where it was, with its history.
 	before := commits(t, w)
-	if got, err := w.Restore([]string{idA}, nil, paul); err != nil || strings.Join(got, " ") != "docs/a.md" {
+	if got, err := w.Restore([]string{idA}, nil, pat); err != nil || strings.Join(got, " ") != "docs/a.md" {
 		t.Fatalf("restore: %v %v", got, err)
 	}
 	h, _ := w.History("docs/a.md")
@@ -240,24 +240,24 @@ func TestTrashListAndRestore(t *testing.T) {
 	if b, _ := w.Read("docs/a.md", h[3].Rev); string(b) != "first" {
 		t.Fatalf("its first version: %q", b)
 	}
-	if _, err := w.Restore([]string{idA}, nil, paul); !errors.Is(err, ErrNotFound) {
+	if _, err := w.Restore([]string{idA}, nil, pat); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("restored twice: %v", err)
 	}
 	// Its name taken meanwhile: "(restored)", then "(restored 2)".
 	for _, want := range []string{"docs/a (restored).md", "docs/a (restored 2).md"} {
-		id, _ := w.Delete("docs/a.md", mustRev(t, w, "docs/a.md"), paul)
+		id, _ := w.Delete("docs/a.md", mustRev(t, w, "docs/a.md"), pat)
 		put("docs/a.md", "someone else's")
-		if got, err := w.Restore([]string{id}, nil, paul); err != nil || got[0] != want {
+		if got, err := w.Restore([]string{id}, nil, pat); err != nil || got[0] != want {
 			t.Fatalf("restore onto a taken name: %v %v, want %s", got, err, want)
 		}
 	}
 	// Its folder gone meanwhile: made again. Two at once: one commit.
-	if _, err := w.DeleteDir("docs", paul); err != nil {
+	if _, err := w.DeleteDir("docs", pat); err != nil {
 		t.Fatal(err)
 	}
 	os.Remove(w.abs("docs"))
 	before = commits(t, w)
-	got, err := w.Restore([]string{idSub, ids[1]}, nil, paul)
+	got, err := w.Restore([]string{idSub, ids[1]}, nil, pat)
 	if err != nil || strings.Join(got, " ") != "docs/sub keep.md" || commits(t, w)-before != 1 {
 		t.Fatalf("restore a folder and a file: %v %v", got, err)
 	}
@@ -266,16 +266,16 @@ func TestTrashListAndRestore(t *testing.T) {
 	}
 	// Into a folder that is named (dragged out of the Trash): from outside git into git.
 	to := "notes"
-	if got, err := w.Restore([]string{ids[0]}, &to, paul); err != nil || got[0] != "notes/w.zip" || !strings.Contains(tracked(w), "notes/w.zip") {
+	if got, err := w.Restore([]string{ids[0]}, &to, pat); err != nil || got[0] != "notes/w.zip" || !strings.Contains(tracked(w), "notes/w.zip") {
 		t.Fatalf("restore into a folder: %v %v", got, err)
 	}
 	// A chat file has no place in Files: it needs a folder. A private chat's is never found.
 	var refused *RefusedError
-	if _, err := w.Restore([]string{idChat}, nil, paul); !errors.As(err, &refused) {
+	if _, err := w.Restore([]string{idChat}, nil, pat); !errors.As(err, &refused) {
 		t.Fatalf("a chat file with no folder: %v", err)
 	}
 	to = ""
-	if got, err := w.Restore([]string{idChat}, &to, paul); err != nil || got[0] != "d.png" {
+	if got, err := w.Restore([]string{idChat}, &to, pat); err != nil || got[0] != "d.png" {
 		t.Fatalf("a chat file to the top: %v %v", got, err)
 	}
 	var hidden []string
@@ -289,15 +289,15 @@ func TestTrashListAndRestore(t *testing.T) {
 		t.Fatalf("the two unlisted chat files should still be on disk: %v", hidden)
 	}
 	for _, id := range hidden {
-		if _, err := w.Restore([]string{id}, &to, paul); !errors.Is(err, ErrNotFound) {
+		if _, err := w.Restore([]string{id}, &to, pat); !errors.Is(err, ErrNotFound) {
 			t.Fatalf("an unlisted chat file was restored: %v", err)
 		}
-		if n, err := w.DeleteForever([]string{id}, paul); n != 0 || !errors.Is(err, ErrNotFound) {
+		if n, err := w.DeleteForever([]string{id}, pat); n != 0 || !errors.Is(err, ErrNotFound) {
 			t.Fatalf("an unlisted chat file was erased: %d %v", n, err)
 		}
 	}
 	to = "media/x"
-	if _, err := w.Restore([]string{by["large/w.zip(replaced)"].ID}, &to, paul); err == nil {
+	if _, err := w.Restore([]string{by["large/w.zip(replaced)"].ID}, &to, pat); err == nil {
 		t.Fatal("restored into media/")
 	}
 
@@ -306,13 +306,13 @@ func TestTrashListAndRestore(t *testing.T) {
 	if names != "docs/ large/w.zip(replaced)" {
 		t.Fatalf("listed before erasing: %s", names)
 	}
-	if n, err := w.DeleteForever([]string{by["docs/"].ID, "../workspace"}, paul); n != 1 || !errors.Is(err, ErrNotFound) {
+	if n, err := w.DeleteForever([]string{by["docs/"].ID, "../workspace"}, pat); n != 1 || !errors.Is(err, ErrNotFound) {
 		t.Fatalf("delete forever with a bad id: %d %v", n, err)
 	}
 	if _, err := os.Stat(w.abs("keep.md")); err != nil {
 		t.Fatal("a bad id reached outside the trash")
 	}
-	if n, err := w.DeleteForever(nil, paul); n != 1 || err != nil {
+	if n, err := w.DeleteForever(nil, pat); n != 1 || err != nil {
 		t.Fatalf("empty trash: %d %v", n, err)
 	}
 	if names, _ = list(); names != "" {

@@ -36,12 +36,12 @@ func exists(w *Workspace, p string) bool {
 // counts once; and when one of them can't move, none does.
 func TestMoveAll(t *testing.T) {
 	w, _ := Open(t.TempDir())
-	paul := Author{"paul"}
+	pat := Author{"pat"}
 	for _, p := range []string{"a.md", "docs/b.md", "notes/n.md", "notes/deep/d.md", "dest/keep.md", "# odd.md", "large/w.zip"} {
-		w.Write(p, []byte(p), "", paul)
+		w.Write(p, []byte(p), "", pat)
 	}
 	before := commits(t, w)
-	if err := w.MoveAll([]string{"a.md", "docs/b.md", "notes", "notes/deep/d.md", "# odd.md", "large/w.zip"}, "dest", paul); err != nil {
+	if err := w.MoveAll([]string{"a.md", "docs/b.md", "notes", "notes/deep/d.md", "# odd.md", "large/w.zip"}, "dest", pat); err != nil {
 		t.Fatal(err)
 	}
 	if got := commits(t, w) - before; got != 1 {
@@ -58,7 +58,7 @@ func TestMoveAll(t *testing.T) {
 	for _, m := range moves {
 		got = append(got, m.From+">"+m.To+" "+m.Author)
 	}
-	want := "a.md>dest/a.md paul, docs/b.md>dest/b.md paul, notes>dest/notes paul, # odd.md>dest/# odd.md paul, large/w.zip>dest/w.zip paul"
+	want := "a.md>dest/a.md pat, docs/b.md>dest/b.md pat, notes>dest/notes pat, # odd.md>dest/# odd.md pat, large/w.zip>dest/w.zip pat"
 	if strings.Join(got, ", ") != want {
 		t.Fatalf("moves: %s", strings.Join(got, ", "))
 	}
@@ -67,9 +67,9 @@ func TestMoveAll(t *testing.T) {
 	}
 
 	// All or nothing: b.md is free at the top, keep.md is not.
-	w.Write("keep.md", []byte("top"), "", paul)
+	w.Write("keep.md", []byte("top"), "", pat)
 	before = commits(t, w)
-	err := w.MoveAll([]string{"dest/b.md", "dest/keep.md"}, "", paul)
+	err := w.MoveAll([]string{"dest/b.md", "dest/keep.md"}, "", pat)
 	var clash *ClashError
 	if !errors.Is(err, ErrExists) || !errors.As(err, &clash) || clash.Name != "keep.md" || err.Error() != "keep.md already exists at the top" {
 		t.Fatalf("clash: %v", err)
@@ -85,14 +85,14 @@ func TestMoveAll(t *testing.T) {
 		"same name twice": {[]string{"dest/keep.md", "keep.md"}, "dest/notes"},
 		"into media":      {[]string{"dest/b.md"}, "media/x"},
 	} {
-		if err := w.MoveAll(c.from, c.to, paul); !errors.As(err, &refused) {
+		if err := w.MoveAll(c.from, c.to, pat); !errors.As(err, &refused) {
 			t.Errorf("%s: %v", name, err)
 		}
 	}
-	if err := w.MoveAll([]string{"dest/b.md", "gone.md"}, "dest/notes", paul); !errors.Is(err, ErrNotFound) {
+	if err := w.MoveAll([]string{"dest/b.md", "gone.md"}, "dest/notes", pat); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("missing: %v", err)
 	}
-	if err := w.MoveAll(nil, "", paul); !errors.Is(err, ErrBadPath) {
+	if err := w.MoveAll(nil, "", pat); !errors.Is(err, ErrBadPath) {
 		t.Fatalf("nothing listed: %v", err)
 	}
 	if !exists(w, "dest/b.md") || exists(w, "b.md") || commits(t, w) != before {
@@ -104,21 +104,21 @@ func TestMoveAll(t *testing.T) {
 // one can't be deleted, none is.
 func TestDeleteAll(t *testing.T) {
 	w, _ := Open(t.TempDir())
-	paul := Author{"paul"}
+	pat := Author{"pat"}
 	for _, p := range []string{"a.md", "docs/b.md", "docs/c.md", "notes/n.md", "keep.md", "large/w.zip", "large/x.zip"} {
-		w.Write(p, []byte(p), "", paul)
+		w.Write(p, []byte(p), "", pat)
 	}
 	before := commits(t, w)
-	if _, err := w.DeleteAll([]string{"a.md", "large"}, paul); err == nil {
+	if _, err := w.DeleteAll([]string{"a.md", "large"}, pat); err == nil {
 		t.Fatal("deleted large/ itself")
 	}
-	if _, err := w.DeleteAll([]string{"a.md", "gone.md"}, paul); !errors.Is(err, ErrNotFound) {
+	if _, err := w.DeleteAll([]string{"a.md", "gone.md"}, pat); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("missing: %v", err)
 	}
 	if !exists(w, "a.md") || commits(t, w) != before {
 		t.Fatal("a refused delete deleted something")
 	}
-	if _, err := w.DeleteAll([]string{"a.md", "docs/b.md", "notes", "notes/n.md", "large/w.zip"}, paul); err != nil {
+	if _, err := w.DeleteAll([]string{"a.md", "docs/b.md", "notes", "notes/n.md", "large/w.zip"}, pat); err != nil {
 		t.Fatal(err)
 	}
 	if got := commits(t, w) - before; got != 1 {
@@ -135,7 +135,7 @@ func TestDeleteAll(t *testing.T) {
 		t.Fatalf("not in the trash log: %s", log)
 	}
 	out, _ := w.git(nil, "log", "-1", "--format=%an|%s|%b")
-	if got := strings.TrimSpace(string(out)); got != "paul|Delete 4 items|a.md\ndocs/b.md\nnotes/\nlarge/w.zip" {
+	if got := strings.TrimSpace(string(out)); got != "pat|Delete 4 items|a.md\ndocs/b.md\nnotes/\nlarge/w.zip" {
 		t.Fatalf("commit: %q", got)
 	}
 }
@@ -144,20 +144,20 @@ func TestDeleteAll(t *testing.T) {
 // one commit; a folder can't be copied into itself.
 func TestCopyAll(t *testing.T) {
 	w, _ := Open(t.TempDir())
-	paul := Author{"paul"}
+	pat := Author{"pat"}
 	for _, p := range []string{"a.md", "notes/n.md", "notes/deep/d.md", ".env", "large/w.zip"} {
-		w.Write(p, []byte(p), "", paul)
+		w.Write(p, []byte(p), "", pat)
 	}
-	w.Write("a.md", []byte("second"), mustRev(t, w, "a.md"), paul)
+	w.Write("a.md", []byte("second"), mustRev(t, w, "a.md"), pat)
 	before := commits(t, w)
-	to, err := w.CopyAll([]string{"a.md", "notes", "notes/n.md", ".env"}, "", paul)
+	to, err := w.CopyAll([]string{"a.md", "notes", "notes/n.md", ".env"}, "", pat)
 	if err != nil || strings.Join(to, "|") != "a copy.md|notes copy|.env copy" {
 		t.Fatalf("duplicate: %v %v", to, err)
 	}
 	if got := commits(t, w) - before; got != 1 {
 		t.Fatalf("%d commits, want 1", got)
 	}
-	if to, _ = w.CopyAll([]string{"a.md", "notes"}, "", paul); strings.Join(to, "|") != "a copy 2.md|notes copy 2" {
+	if to, _ = w.CopyAll([]string{"a.md", "notes"}, "", pat); strings.Join(to, "|") != "a copy 2.md|notes copy 2" {
 		t.Fatalf("second duplicate: %v", to)
 	}
 	if b, _ := w.Read("notes copy/deep/d.md", ""); string(b) != "notes/deep/d.md" {
@@ -169,22 +169,22 @@ func TestCopyAll(t *testing.T) {
 	// History follows a copy back to the original (git finds the exact copy), so the
 	// original's earlier versions can be opened from the copy too.
 	h, _ := w.History("a copy.md")
-	if len(h) != 3 || h[0].Message != "Copy 3 items → /" || h[0].Author != "paul" || h[2].Message != "Add a.md" {
+	if len(h) != 3 || h[0].Message != "Copy 3 items → /" || h[0].Author != "pat" || h[2].Message != "Add a.md" {
 		t.Fatalf("a copy's history: %+v", h)
 	}
 	if b, err := w.Read("a copy.md", h[2].Rev); err != nil || string(b) != "a.md" {
 		t.Fatalf("the original's first version, from the copy: %q %v", b, err)
 	}
 	// Somewhere else, the name is kept; two with one name there get told apart.
-	if to, err = w.CopyAll([]string{"a.md", "notes/n.md", "large/w.zip"}, "new/place", paul); err != nil || strings.Join(to, "|") != "new/place/a.md|new/place/n.md|new/place/w.zip" {
+	if to, err = w.CopyAll([]string{"a.md", "notes/n.md", "large/w.zip"}, "new/place", pat); err != nil || strings.Join(to, "|") != "new/place/a.md|new/place/n.md|new/place/w.zip" {
 		t.Fatalf("copy elsewhere: %v %v", to, err)
 	}
-	if to, _ = w.CopyAll([]string{"notes/n.md", "new/place/n.md"}, "x", paul); strings.Join(to, "|") != "x/n.md|x/n copy.md" {
+	if to, _ = w.CopyAll([]string{"notes/n.md", "new/place/n.md"}, "x", pat); strings.Join(to, "|") != "x/n.md|x/n copy.md" {
 		t.Fatalf("same name twice: %v", to)
 	}
 	// Into an area outside git: on disk, not in git, no commit.
 	before = commits(t, w)
-	if to, err = w.CopyAll([]string{"a.md", "large/w.zip"}, "large", paul); err != nil || strings.Join(to, "|") != "large/a.md|large/w copy.zip" {
+	if to, err = w.CopyAll([]string{"a.md", "large/w.zip"}, "large", pat); err != nil || strings.Join(to, "|") != "large/a.md|large/w copy.zip" {
 		t.Fatalf("copy into large/: %v %v", to, err)
 	}
 	if commits(t, w) != before || strings.Contains(tracked(w), "large/") {
@@ -192,17 +192,17 @@ func TestCopyAll(t *testing.T) {
 	}
 
 	var refused *RefusedError
-	if _, err := w.CopyAll([]string{"notes"}, "notes/deep", paul); !errors.As(err, &refused) {
+	if _, err := w.CopyAll([]string{"notes"}, "notes/deep", pat); !errors.As(err, &refused) {
 		t.Fatalf("into itself: %v", err)
 	}
-	if _, err := w.CopyAll([]string{"a.md"}, "media", paul); !errors.As(err, &refused) {
+	if _, err := w.CopyAll([]string{"a.md"}, "media", pat); !errors.As(err, &refused) {
 		t.Fatalf("into media: %v", err)
 	}
-	if _, err := w.CopyAll([]string{"a.md", "gone.md"}, "y", paul); !errors.Is(err, ErrNotFound) || exists(w, "y") {
+	if _, err := w.CopyAll([]string{"a.md", "gone.md"}, "y", pat); !errors.Is(err, ErrNotFound) || exists(w, "y") {
 		t.Fatalf("missing: %v", err)
 	}
 	os.WriteFile(w.abs("large/huge.bin"), make([]byte, MaxVersioned+1), 0o644)
-	if _, err := w.CopyAll([]string{"large/huge.bin"}, "", paul); !errors.As(err, &refused) || exists(w, "huge.bin") {
+	if _, err := w.CopyAll([]string{"large/huge.bin"}, "", pat); !errors.As(err, &refused) || exists(w, "huge.bin") {
 		t.Fatalf("huge file out of large/: %v", err)
 	}
 	if left, _ := os.ReadDir(w.abs(".git")); strings.Contains(joinNames(left), "mthub-copy") {
@@ -225,9 +225,9 @@ func joinNames(d []os.DirEntry) string {
 // path when they don't.
 func TestZipAll(t *testing.T) {
 	w, _ := Open(t.TempDir())
-	paul := Author{"paul"}
+	pat := Author{"pat"}
 	for _, p := range []string{"docs/a.md", "docs/b.md", "docs/sub/c.md", "notes/n.md"} {
-		w.Write(p, []byte(p), "", paul)
+		w.Write(p, []byte(p), "", pat)
 	}
 	names := func(paths ...string) string {
 		t.Helper()
@@ -261,21 +261,21 @@ func TestZipAll(t *testing.T) {
 // or several at once, in git or outside it, leaves the folder (empty) in the tree.
 func TestDeleteLeavesTheFolder(t *testing.T) {
 	w, _ := Open(t.TempDir())
-	paul := Author{"paul"}
+	pat := Author{"pat"}
 	for _, p := range []string{"one/a.md", "many/a.md", "many/b.md", "outer/inner/a.md", "large/pack/w.zip", "large/packs/a.zip", "large/packs/b.zip"} {
-		w.Write(p, []byte(p), "", paul)
+		w.Write(p, []byte(p), "", pat)
 	}
-	if _, err := w.Delete("one/a.md", mustRev(t, w, "one/a.md"), paul); err != nil {
+	if _, err := w.Delete("one/a.md", mustRev(t, w, "one/a.md"), pat); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := w.DeleteAll([]string{"many/a.md", "many/b.md", "large/packs/a.zip", "large/packs/b.zip"}, paul); err != nil {
+	if _, err := w.DeleteAll([]string{"many/a.md", "many/b.md", "large/packs/a.zip", "large/packs/b.zip"}, pat); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := w.DeleteDir("outer/inner", paul); err != nil {
+	if _, err := w.DeleteDir("outer/inner", pat); err != nil {
 		t.Fatal(err)
 	}
 	_, rev, _ := w.Stat("large/pack/w.zip")
-	if _, err := w.Delete("large/pack/w.zip", rev, paul); err != nil {
+	if _, err := w.Delete("large/pack/w.zip", rev, pat); err != nil {
 		t.Fatal(err)
 	}
 	tree, _ := w.Tree()

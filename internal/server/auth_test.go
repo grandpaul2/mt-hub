@@ -19,10 +19,10 @@ func TestLogin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	us.SetPassword("grandpaul", "right password")
+	us.SetPassword("patmc", "right password")
 	s := &Server{users: us, logins: newLimiter(loginTries, loginWindow), accounts: newLimiter(accountTries, accountWindow)}
 	try := func(pw, remote string, hdr map[string]string) *httptest.ResponseRecorder {
-		r := httptest.NewRequest("POST", "/api/login", strings.NewReader(`{"name":"grandpaul","password":"`+pw+`"}`))
+		r := httptest.NewRequest("POST", "/api/login", strings.NewReader(`{"name":"patmc","password":"`+pw+`"}`))
 		r.RemoteAddr = remote
 		for k, v := range hdr {
 			r.Header.Set(k, v)
@@ -77,10 +77,10 @@ func TestGuessLimits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	us.SetPassword("grandpaul", "right password")
+	us.SetPassword("patmc", "right password")
 	s := &Server{users: us, logins: newLimiter(loginTries, loginWindow), accounts: newLimiter(accountTries, accountWindow)}
 	try := func(remote string) int {
-		r := httptest.NewRequest("POST", "/api/login", strings.NewReader(`{"name":"grandpaul","password":"wrong"}`))
+		r := httptest.NewRequest("POST", "/api/login", strings.NewReader(`{"name":"patmc","password":"wrong"}`))
 		r.RemoteAddr = remote
 		w := httptest.NewRecorder()
 		s.login(w, r)
@@ -118,7 +118,7 @@ func TestGuessLimits(t *testing.T) {
 	for i := range accountTries + 1 {
 		r := httptest.NewRequest("POST", "/api/password", strings.NewReader(`{"old":"wrong","new":"whatever123"}`))
 		r.RemoteAddr = "192.168.1." + strconv.Itoa(20+i) + ":5000"
-		r = r.WithContext(context.WithValue(r.Context(), userKey{}, account{Name: "grandpaul"}))
+		r = r.WithContext(context.WithValue(r.Context(), userKey{}, account{Name: "patmc"}))
 		w := httptest.NewRecorder()
 		s.password(w, r)
 		if want := map[bool]int{true: 403, false: 429}[i < accountTries]; w.Code != want {
@@ -191,10 +191,10 @@ func TestLogoutAll(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	us.SetPassword("grandpaul", "right password")
+	us.SetPassword("patmc", "right password")
 	s := &Server{users: us, logins: newLimiter(loginTries, loginWindow), accounts: newLimiter(accountTries, accountWindow), bus: newBroker(), mux: http.NewServeMux()}
 	s.accountRoutes()
-	old, _ := us.Login("grandpaul", "right password")
+	old, _ := us.Login("patmc", "right password")
 	call := func(method, path, cookie string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(method, path, nil)
 		r.AddCookie(&http.Cookie{Name: sessionCookie, Value: cookie})

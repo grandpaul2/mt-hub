@@ -23,7 +23,7 @@ const before = await sent();
 await typeText('hi @');
 await settle(150);
 let p = await popup();
-check('@ lists people', [p?.head, ['Alex', 'Paul', 'Steve'].every((n) => p.rows.includes(n))], ['Members', true]);
+check('@ lists people', [p?.head, ['Alex', 'Pat', 'Steve'].every((n) => p.rows.includes(n))], ['Members', true]);
 await typeText('al');
 await settle(150);
 p = await popup();

@@ -3,7 +3,7 @@
 // keyboard in menus, error toasts, toasts above the viewer, focus rings, Keyboard Shortcuts.
 import { api, check, done, ev, HUB, key, send, settle, STILL, typeText } from './lib.mjs';
 
-await api('POST', '/api/channels/general/messages', { text: 'hello' }, 'Paul');
+await api('POST', '/api/channels/general/messages', { text: 'hello' }, 'Pat');
 await send('Page.navigate', { url: `${HUB}/#folder=notes` });
 await settle(2500);
 const overlay = () => ev(`!document.getElementById('overlay').hidden`);
@@ -43,7 +43,7 @@ check('delete question', await ev(`[document.querySelector('#dialog h2').textCon
 check('the confirm is red', await ev(`getComputedStyle(document.querySelector('#dialog .danger')).backgroundColor`), 'rgb(161, 38, 13)');
 await key('Escape');
 await settle(300);
-check('Esc answers Cancel', [await overlay(), (await (await fetch(`${HUB}/api/channels`, { headers: { cookie: (await import('./lib.mjs')).COOKIE.Paul } })).json()).length], [false, 1]);
+check('Esc answers Cancel', [await overlay(), (await (await fetch(`${HUB}/api/channels`, { headers: { cookie: (await import('./lib.mjs')).COOKIE.Pat } })).json()).length], [false, 1]);
 
 // An error toast: its own look.
 await send('Page.navigate', { url: `${HUB}/?r=1#chan=general` });

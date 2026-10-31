@@ -26,10 +26,10 @@ func TestMessagesGoOutInOrder(t *testing.T) {
 	ws, _ := workspace.Open(filepath.Join(dir, "workspace"))
 	cs, _ := chat.Open(filepath.Join(dir, "chat"))
 	ls, _ := preview.Open(filepath.Join(dir, "previews"))
-	us.SetPassword("Paul", "Paul-password")
+	us.SetPassword("Pat", "Pat-password")
 	srv := httptest.NewServer(New(us, ws, cs, ls, filepath.Join(dir, "thumbs"), fstest.MapFS{}, nil))
 	defer srv.Close()
-	cookie, _ := us.Login("Paul", "Paul-password")
+	cookie, _ := us.Login("Pat", "Pat-password")
 	do := func(method, path, body string) *http.Response {
 		r, _ := http.NewRequest(method, srv.URL+path, strings.NewReader(body))
 		r.AddCookie(&http.Cookie{Name: sessionCookie, Value: cookie})

@@ -5,7 +5,7 @@ import { api, check, done, ev, HUB, key, send, settle, typeText } from './lib.mj
 
 for (let i = 0; i < 30; i++) await api('POST', '/api/channels/general/messages', { text: `filler ${i}` }, 'Alex');
 const long = Array.from({ length: 60 }, (_, i) => `line ${i} of a long message that someone is going to edit`).join('\n');
-await api('POST', '/api/channels/general/messages', { text: long }, 'Paul');
+await api('POST', '/api/channels/general/messages', { text: long }, 'Pat');
 await send('Page.navigate', { url: `${HUB}/#README.md` });
 await settle(2000);
 const L = `document.querySelector('#chat .messages')`;

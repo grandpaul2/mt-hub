@@ -103,7 +103,7 @@ check('folder deleted', (await tree()).includes('boards'), false);
 
 // Any folder opens the folder view: folders first, then files by name. A README is just a
 // file in it. The folder stays the highlighted row and doesn't expand.
-const put = (p, body) => fetch(`${HUB}/api/file/${p}?base=`, { method: 'PUT', headers: { cookie: COOKIE.Paul }, body });
+const put = (p, body) => fetch(`${HUB}/api/file/${p}?base=`, { method: 'PUT', headers: { cookie: COOKIE.Pat }, body });
 await put('notes/ReadMe.md', '# Notes folder');
 await put('notes/b.md', 'b');
 await put('notes/a/x.md', 'x');

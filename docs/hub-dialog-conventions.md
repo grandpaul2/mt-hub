@@ -155,7 +155,7 @@ No change needed: the red/blue rules (they are currently broken by the code: Sto
 - Slider readout: 12 px `--chat-muted`, right-aligned, fixed 52 px, tabular figures, so "+24 dB" and "70%" never wrap.
 - Narrow (under 560 px viewport): grid becomes one column, control under the text, full width. (Phones don't reach these, but nothing may overflow.)
 
-**Switch** (new, `button[role=switch][aria-checked]`): 36x20, radius 10, off `--panel-2` with `--border`, on `--accent`... note: guide 3.2 says blue is the one primary next step; a switch's on state is state, not a call to action, and every system draws it in the accent colour. If Paul would rather not, on-state is `--chat-muted`-grey with white knob. Recommend accent blue (Discord/Windows/Apple all do) and ask Paul. Focus ring `--focus`. Space/Enter toggles. Click target is the whole row's switch area (36x20 plus 4 px padding), label is a `<label for>`.
+**Switch** (new, `button[role=switch][aria-checked]`): 36x20, radius 10, off `--panel-2` with `--border`, on `--accent`... note: guide 3.2 says blue is the one primary next step; a switch's on state is state, not a call to action, and every system draws it in the accent colour. The alternative on-state is `--chat-muted`-grey with white knob. Accent blue is recommended (Discord, Windows and Apple all use it). Focus ring `--focus`. Space/Enter toggles. Click target is the whole row's switch area (36x20 plus 4 px padding), label is a `<label for>`.
 
 **Slider:** keep `accent-color:var(--chat-muted)` and the default tick. Height 16 px.
 
@@ -203,7 +203,7 @@ Structure, top to bottom:
 +----------------------------------------------------------+
 ```
 
-Why a menu rather than three buttons: A1-A2 (and 15 rows x 3 buttons is the problem seen in the screenshot: four equal-weight buttons make the destructive action as inviting as the routine one). If Paul prefers fewer clicks, the alternative is one visible grey "Reset password" button plus "..."; I would not keep Ban/Delete visible.
+Why a menu rather than three buttons: A1-A2 (and 15 rows x 3 buttons is the problem seen in the screenshot: four equal-weight buttons make the destructive action as inviting as the routine one). For fewer clicks, the alternative is one visible grey "Reset password" button plus "..."; Ban and Delete should not stay visible.
 
 ### 5.2 Voice (520 px)
 
@@ -285,7 +285,7 @@ Reasons:
 
 Counter-points (honest): with two sections the nav is more chrome than content (the rule of thumb in 2.5 says a nav starts to pay at 5-6 sections), it adds a layer (principle 4), and the design record explicitly split Sound out of Voice on purpose. Opening a specific page from the menu would need "Voice Settings" / "Sound Settings" to remain as direct links into sections (menu keeps both entries, both open the Settings dialog on that section), which costs a little code.
 
-**Cheaper alternative: keep two dialogs, 520 px, with the shared row/group/switch parts from section 5.** It fixes everything that was called amateur, needs no nav and no menu change, and the merge can be added later by wrapping the same two bodies in a nav. If Paul wants the least work now, take this and revisit the merge when a third section (Account, Notifications ...) appears.
+**Cheaper alternative: keep two dialogs, 520 px, with the shared row/group/switch parts from section 5.** It fixes everything that was called amateur, needs no nav and no menu change, and the merge can be added later by wrapping the same two bodies in a nav. For the least work now, take this and revisit the merge when a third section (Account, Notifications ...) appears.
 
 Either way the Admin dialog and the two small forms follow the same frame (padding 24, header with close, groups).
 

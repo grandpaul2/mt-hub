@@ -36,7 +36,7 @@ export const SEED = {
     'boards/handheld-device/parts.md', 'docs/guide.md', 'notes/todo.md', 'README.md', 'large/world.zip'],
   // Files in screenshots/, named "<date> <time> <poster>"; two share a second, so the
   // second is " (2)".
-  shots: ['2026-09-01 15.00.01 Paul.png', '2026-09-02 15.00.02 Alex.png', '2026-09-03 15.00.03 eldridge.png',
+  shots: ['2026-09-01 15.00.01 Pat.png', '2026-09-02 15.00.02 Alex.png', '2026-09-03 15.00.03 eldridge.png',
     '2026-09-04 15.00.04 eldridge.png', '2026-09-04 15.00.04 eldridge (2).png', '2026-09-05 15.00.05 Lennox.png'],
   // Files in map art/, named by their titles.
   mapart: ['MA-001 Logo.png', 'MA-002 Album art.png', 'MA-003 Keyboard.png', 'MA-004 Flag.png', 'MA-005 Starry Night.png'],
@@ -44,7 +44,7 @@ export const SEED = {
   // have a render (1.png). Build 6 is the newest.
   schems: [['Build 1', 'farm.litematic', '2026-07-01', 'Glowsquid'], ['Build 2', 'sorter.litematic', '2026-07-02', ''],
     ['Build 3', 'farm.litematic', '2026-07-03', 'Flutter'], ['Build 4', 'door.schem', '2026-07-04', ''],
-    ['Build 5', 'wither cage.litematic', '2026-07-05', ''], ['Build 6', 'tnt duper.litematic', '2026-07-06', 'Paul']],
+    ['Build 5', 'wither cage.litematic', '2026-07-05', ''], ['Build 6', 'tnt duper.litematic', '2026-07-06', 'Pat']],
 };
 
 // png makes a small solid-colour PNG, so the picture folders have real images without fixture files.
@@ -64,14 +64,14 @@ export function png(w, h, [r, g, b]) {
 
 // The hub.
 const serverLog = join(tmp, 'server.log');
-// Accounts: Paul is the owner (an admin), Alex and Steve aren't admins. Each password is
+// Accounts: Pat is the owner (an admin), Alex and Steve aren't admins. Each password is
 // "<name>-password".
 export const DATA = join(tmp, 'data');
-const USERS = { Paul: true, Alex: false, Steve: false };
+const USERS = { Pat: true, Alex: false, Steve: false };
 for (const [name, admin] of Object.entries(USERS)) {
   execFileSync(BIN, ['passwd', '-data', DATA, `-admin=${admin}`, name], { input: `${name}-password\n`, stdio: ['pipe', 'ignore', 'inherit'] });
 }
-execFileSync(BIN, ['user', '-data', DATA, '-owner=true', 'Paul'], { stdio: ['ignore', 'ignore', 'inherit'] });
+execFileSync(BIN, ['user', '-data', DATA, '-owner=true', 'Pat'], { stdio: ['ignore', 'ignore', 'inherit'] });
 // Suites start side by side, so another one can take the free port first. A hub that can't
 // have its port exits at once; then try another, and never talk to someone else's hub.
 const logChunks = [];
@@ -110,19 +110,19 @@ globalThis.fetch = (url, init) => {
   return nodeFetch(url, init);
 };
 
-// COOKIE.<name> is a logged-in session for API calls: headers: { cookie: COOKIE.Paul }.
+// COOKIE.<name> is a logged-in session for API calls: headers: { cookie: COOKIE.Pat }.
 export const COOKIE = {};
 for (const name of Object.keys(USERS)) {
   const r = await fetch(`${HUB}/api/login`, { method: 'POST', body: JSON.stringify({ name, password: `${name}-password` }) });
   COOKIE[name] = r.headers.getSetCookie()[0].split(';')[0];
 }
-// hub is fetch on the hub, as Paul unless init.headers says otherwise.
-export const hub = (path, init = {}) => fetch(HUB + path, { ...init, headers: { cookie: COOKIE.Paul, ...init.headers } });
+// hub is fetch on the hub, as Pat unless init.headers says otherwise.
+export const hub = (path, init = {}) => fetch(HUB + path, { ...init, headers: { cookie: COOKIE.Pat, ...init.headers } });
 export const api = (method, path, body, who = 'Alex') =>
   fetch(HUB + path, { method, body: body && JSON.stringify(body), headers: { cookie: COOKIE[who] } });
 const ok = async (what, res) => { if (!(await res).ok) throw new Error(`seed: ${what} failed`); };
-for (const p of SEED.files) await ok(p, fetch(`${HUB}/api/file/${p}?base=`, { method: 'PUT', headers: { cookie: COOKIE.Paul }, body: 'x' }));
-const putPic = (p, body) => fetch(`${HUB}/api/file/${encodeURIComponent(p).replace(/%2F/g, '/')}?base=`, { method: 'PUT', headers: { cookie: COOKIE.Paul }, body });
+for (const p of SEED.files) await ok(p, fetch(`${HUB}/api/file/${p}?base=`, { method: 'PUT', headers: { cookie: COOKIE.Pat }, body: 'x' }));
+const putPic = (p, body) => fetch(`${HUB}/api/file/${encodeURIComponent(p).replace(/%2F/g, '/')}?base=`, { method: 'PUT', headers: { cookie: COOKIE.Pat }, body });
 for (const [i, name] of SEED.shots.entries()) await ok('shot', putPic(`screenshots/${name}`, png(160, 90, [40 * i, 120, 200])));
 for (const [i, name] of SEED.mapart.entries()) await ok('map art', putPic(`map art/${name}`, png(128, 128, [200, 40 * i, 80])));
 for (const [i, [title, file, date, credit]] of SEED.schems.entries()) {
@@ -324,9 +324,9 @@ await send('Page.addScriptToEvaluateOnNewDocument', { source: `{
 export const answerDialogs = (yes) => ev(yes === null ? `sessionStorage.removeItem('__answer')` : `sessionStorage.setItem('__answer', '${yes ? 'yes' : 'no'}')`);
 export const asked = () => ev(`(() => { const a = JSON.parse(sessionStorage.getItem('__asked') ?? '[]'); sessionStorage.removeItem('__asked'); return a; })()`);
 
-// as logs the browser in as someone (reload the page to see it); suites start as Paul.
+// as logs the browser in as someone (reload the page to see it); suites start as Pat.
 export const as = (who) => send('Network.setCookie', { name: 'mt_session', value: COOKIE[who].split('=')[1], url: HUB });
-await as('Paul');
+await as('Pat');
 
 // shot saves a screenshot to out/<suite>-<name>.png for a person to look at; nothing checks it.
 // Pass a clip ({ x, y, width, height }) for part of the page; the default is the whole view.

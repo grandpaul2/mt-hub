@@ -46,11 +46,11 @@ func TestSearch(t *testing.T) {
 		}
 		return m
 	}
-	post("general", "grandpaul", "the iron farm works")
-	post("general", "eldridge", "@grandpaul look at #[screenshots/2026-09-30 20.40.19 eldridge.png]")
+	post("general", "patmc", "the iron farm works")
+	post("general", "eldridge", "@patmc look at #[screenshots/2026-09-30 20.40.19 eldridge.png]")
 	post("builds", "eldridge", "flying machine plan https://example.com/plan")
-	pinned := post("builds", "grandpaul", "iron farm design #schematics/x.litematic")
-	cs.SetPinned("builds", pinned.ID, "grandpaul", true)
+	pinned := post("builds", "patmc", "iron farm design #schematics/x.litematic")
+	cs.SetPinned("builds", pinned.ID, "patmc", true)
 	post("general", "steve", "Iron golems spawn #1")
 
 	s := &Server{ws: ws, chat: cs}
@@ -95,12 +95,12 @@ func TestSearch(t *testing.T) {
 	}
 	check("quoted phrase", texts(search(`"farm works"`)), []string{"general: the iron farm works"})
 
-	check("from", texts(search("from:eldridge")), []string{"builds: flying machine plan https://example.com/plan", "general: @grandpaul look at #[screenshots/2026-09-30 20.40.19 eldridge.png]"})
-	check("from + in", texts(search("from:eldridge in:#general")), []string{"general: @grandpaul look at #[screenshots/2026-09-30 20.40.19 eldridge.png]"})
+	check("from", texts(search("from:eldridge")), []string{"builds: flying machine plan https://example.com/plan", "general: @patmc look at #[screenshots/2026-09-30 20.40.19 eldridge.png]"})
+	check("from + in", texts(search("from:eldridge in:#general")), []string{"general: @patmc look at #[screenshots/2026-09-30 20.40.19 eldridge.png]"})
 	check("in without #", texts(search("iron in:builds")), []string{"builds: iron farm design #schematics/x.litematic"})
-	check("mentions", texts(search("mentions:grandpaul")), []string{"general: @grandpaul look at #[screenshots/2026-09-30 20.40.19 eldridge.png]"})
+	check("mentions", texts(search("mentions:patmc")), []string{"general: @patmc look at #[screenshots/2026-09-30 20.40.19 eldridge.png]"})
 	check("has:link", texts(search("has:link")), []string{"builds: flying machine plan https://example.com/plan"})
-	check("has:image", texts(search("has:image")), []string{"general: @grandpaul look at #[screenshots/2026-09-30 20.40.19 eldridge.png]"})
+	check("has:image", texts(search("has:image")), []string{"general: @patmc look at #[screenshots/2026-09-30 20.40.19 eldridge.png]"})
 	check("has:schematic", texts(search("has:schematic")), []string{"builds: iron farm design #schematics/x.litematic"})
 	check("has:pin", texts(search("has:pin")), []string{"builds: iron farm design #schematics/x.litematic"})
 	check("#1 is not a file", texts(search("golems has:file")), nil)

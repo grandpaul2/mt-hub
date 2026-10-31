@@ -1,6 +1,6 @@
 // Relay streams, end to end: a local MediaMTX (fetched/mediamtx) stands in for the stream
 // relay and ffmpeg (on the PATH) for OBS, publishing a moving picture and a tone as
-// "<channel>-web", which is what the relay's own conversion produces. Paul watches Alex's
+// "<channel>-web", which is what the relay's own conversion produces. Pat watches Alex's
 // stream: the row in LIVE with its own icon, #stream=, picture and sound, the viewer count,
 // the volume kept, playing on behind a chat (the bar in the sidebar, Stop Watching on the row),
 // the full-screen bar, a dropped connection reconnecting, sound refused without a click, a
@@ -77,7 +77,7 @@ const publish = (channel, bframes) => run('ffmpeg', ['-nostdin', '-loglevel', 'e
   '-c:v', 'libx264', ...(bframes ? ['-preset', 'veryfast', '-bf', String(bframes), '-b_strategy', '0'] : ['-preset', 'ultrafast', '-tune', 'zerolatency', '-bf', '0']), '-g', '30', '-pix_fmt', 'yuv420p', '-c:a', 'libopus', '-b:a', '64k',
   '-f', 'rtsp', '-rtsp_transport', 'tcp', `rtsp://obs:obs-pass@127.0.0.1:${rtsp}/${channel}-web`]);
 writeFileSync(join(DATA, 'relay.json'), JSON.stringify({ url: `http://127.0.0.1:${whep}`, api: `http://127.0.0.1:${apiPort}`, user: 'hub', pass: 'hub-pass',
-  channels: { alexcam: 'Alex', stevecam: 'Steve', paulcam: 'Paul' }, delay_ms: 300 }));
+  channels: { alexcam: 'Alex', stevecam: 'Steve', patcam: 'Pat' }, delay_ms: 300 }));
 
 const until = async (what, fn, ms = 15000) => {
   for (const end = Date.now() + ms; Date.now() < end; await settle(150)) if (await fn()) return true;
@@ -146,7 +146,7 @@ check('the stream’s bar follows the single-item bar', await ev(`(() => { const
   return [b.classList.contains('single-bar'), [...b.children].filter((e) => !e.hidden).slice(0, 2).map((e) => e.className.split(' ')[0]), acts.map((e) => e.tagName === 'BUTTON' ? e.textContent : e.className),
     [...b.querySelectorAll('.vtool')].map((v) => v.title.split(' (')[0]), b.querySelector('.single-full .vtool').getBoundingClientRect().width]; })()`),
   [true, ['single-name', 'single-info'], ['Stop watching', 'live-sound viewer-tools', 'viewer-tools single-full'], ['Mute', 'Full screen'], 30]);
-check('Paul is counted', [(await panel())?.count, await ev(`document.querySelector('.live-count').title`), (await (await api('GET', '/api/streams')).json()).relay[0].viewers], ['1 watching', 'Paul', ['Paul']]);
+check('Pat is counted', [(await panel())?.count, await ev(`document.querySelector('.live-count').title`), (await (await api('GET', '/api/streams')).json()).relay[0].viewers], ['1 watching', 'Pat', ['Pat']]);
 // A stream sent with OBS takes a tag too; an admin's menu on someone's row can remove it.
 await api('PUT', '/api/streams/tags/Alex', { tag: 'wither rose farm' }, 'Alex');
 const tag = () => ev(`[[...document.querySelectorAll('#live-list .live-tag .live-chip')].map((c) => c.textContent), (() => { const c = document.querySelector('#main-live .live-head .live-chip'); return c && !c.hidden ? c.textContent : null; })()]`);
@@ -176,7 +176,7 @@ await ev(`location.hash = '#chan=general'`);
 await until('the chat', () => ev(`!document.getElementById('main-chat').hidden`));
 check('behind a chat: still drawn, still playing, same connection', [await ev(`document.getElementById('main-live').classList.contains('behind') && getComputedStyle(document.getElementById('main-live')).display !== 'none'`), await moving(), (await video()).muted, await sessions(), (await media()) === first], [true, true, false, 1, true]);
 check('the bar says what is playing; the row is outlined, the chat’s row is the grey one', [await bar(), await rowMark(), await ev(`getComputedStyle(document.querySelector('#live-list .row.relay')).boxShadow !== 'none'`), await ev(`document.querySelectorAll('#side .row.active, #sidebar .row.active, .row.channel.active').length`)], [['Watching', 'Alex’s stream'], ['playing'], true, 1]);
-check('still counted as watching', (await (await api('GET', '/api/streams')).json()).relay[0].viewers, ['Paul']);
+check('still counted as watching', (await (await api('GET', '/api/streams')).json()).relay[0].viewers, ['Pat']);
 await ev(`document.querySelector('#watch-bar > button.tool').click()`);
 check('the bar mutes', [(await video()).muted, await ev(`document.querySelector('#watch-bar > button.tool').title`)], [true, 'Unmute']);
 await ev(`document.querySelector('#watch-bar > button.tool').click()`);
@@ -264,7 +264,7 @@ await until('the note after one frame', async () => (await panel())?.note.includ
 check('one frame that got through, then nothing: the same answer, not Reconnecting…', [await ev(`window.oneFrame`), (await panel())?.note], [true, 'Steve’s stream can’t be shown in the hub: it needs the OBS setting bframes=0.']);
 await ev(`delete document.querySelector('#main-live video').videoWidth`);
 
-// Someone who isn't streaming; then Alex's stream ends while Paul watches.
+// Someone who isn't streaming; then Alex's stream ends while Pat watches.
 await ev(`location.hash = '#stream=Eve'`);
 await until('the note', async () => (await panel())?.note.includes('isn’t streaming'));
 check('nobody by that name streaming', (await panel())?.note, 'Eve isn’t streaming right now.');
@@ -298,14 +298,14 @@ await until('the bar gone', async () => (await bar()) === null, 30000);
 check('ended behind a chat: a toast, no bar, the panel put away', [await ev(`document.getElementById('toast').textContent`), await bar(), await ev(`document.getElementById('main-live').hidden`)], ['Alex stopped streaming.', null, true]);
 
 // Your own stream, and a phone: the strip names other people's streams.
-publish('paulcam', 0);
-await until('Paul listed', async () => (await live())?.includes('Paul (stream)*'), 20000);
+publish('patcam', 0);
+await until('Pat listed', async () => (await live())?.includes('Pat (stream)*'), 20000);
 check('your own row', await ev(`document.querySelector('#live-list .row.relay.here').title`), 'You’re streaming');
 await send('Emulation.setDeviceMetricsOverride', { width: 400, height: 800, deviceScaleFactor: 1, mobile: true });
 await send('Page.navigate', { url: HUB + '/?phone#chan=general' });
 await until('the strip', () => quiet(`!document.getElementById('live-strip').hidden && getComputedStyle(document.getElementById('live-strip')).display !== 'none'`), 20000);
 check('phone: the strip lists other people’s streams', await quiet(`[...document.querySelectorAll('.live-strip-item')].map((b) => b.textContent)`), ['Steve is streamingWatch']);
-await ev(`location.hash = '#stream=Paul'`);
+await ev(`location.hash = '#stream=Pat'`);
 await until('phone picture', async () => (await video()).picture, 20000);
 check('phone: your stream, a mute button and no volume bar', [(await panel())?.title, await ev(`getComputedStyle(document.querySelector('.live-sound input')).display`), await ev(`getComputedStyle(document.querySelector('.live-sound button')).display !== 'none'`)], ['Your stream', 'none', true]);
 await shot('phone');

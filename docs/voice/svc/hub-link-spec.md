@@ -52,8 +52,8 @@ The lab below checked that byte for byte.
 **In game** (no change to the mod for this part)
 
 - The hub is one more server in Voice Link, named **Hub**. Players in the group get the chat
-  lines they get for the other server: the list when they join ("Paul, Alex on Hub; nobody on
-  Creative"), and "Paul joined on Hub" / "Paul left on Hub".
+  lines they get for the other server: the list when they join ("Pat, Alex on Hub; nobody on
+  Creative"), and "Pat joined on Hub" / "Pat left on Hub".
 - Hub voices play like the other server's, under "Hub (Link)" in SVC's Adjust volumes.
   **From MT Utils 2.4.0:** every member elsewhere, the hub's included, is a member of the group in game with their own
   slider and talking mark, and the per-server sliders are gone. A hub member whose account has

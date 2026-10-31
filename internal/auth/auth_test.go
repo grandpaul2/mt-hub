@@ -19,23 +19,23 @@ func TestSessions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.SetPassword("Paul", "correct horse"); err != nil {
+	if err := s.SetPassword("Pat", "correct horse"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Change("Paul", func(u *User) { u.Admin = true }); err != nil {
+	if err := s.Change("Pat", func(u *User) { u.Admin = true }); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.Login("Paul", "wrong"); err != ErrBadLogin {
+	if _, err := s.Login("Pat", "wrong"); err != ErrBadLogin {
 		t.Fatalf("wrong password: %v", err)
 	}
 	if _, err := s.Login("Nobody", "correct horse"); err != ErrBadLogin {
 		t.Fatalf("no such user: %v", err)
 	}
-	c, err := s.Login("Paul", "correct horse")
+	c, err := s.Login("Pat", "correct horse")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if name, u, ok := s.Check(c); !ok || name != "Paul" || !u.Admin {
+	if name, u, ok := s.Check(c); !ok || name != "Pat" || !u.Admin {
 		t.Fatalf("check: %q %v %v", name, u, ok)
 	}
 
@@ -46,7 +46,7 @@ func TestSessions(t *testing.T) {
 		t.Fatal("tampered name accepted")
 	}
 	// An expired one fails.
-	if _, _, ok := s.Check(s.session("Paul", mustGet(t, s, "Paul"), time.Now().Add(-time.Minute))); ok {
+	if _, _, ok := s.Check(s.session("Pat", mustGet(t, s, "Pat"), time.Now().Add(-time.Minute))); ok {
 		t.Fatal("expired session accepted")
 	}
 
@@ -61,7 +61,7 @@ func TestSessions(t *testing.T) {
 
 	// A new password ends old sessions.
 	time.Sleep(10 * time.Millisecond) // a new mtime for the reload
-	s2.SetPassword("Paul", "battery staple")
+	s2.SetPassword("Pat", "battery staple")
 	if _, _, ok := s.Check(c); ok {
 		t.Fatal("old session survived a password change")
 	}
@@ -69,7 +69,7 @@ func TestSessions(t *testing.T) {
 	// Removing the user from users.json (by hand) ends their sessions too.
 	c, _ = s.Login("Alex", "alex alex")
 	time.Sleep(10 * time.Millisecond)
-	os.WriteFile(filepath.Join(dir, "users.json"), []byte(`{"Paul": {"admin": true, "hash": "x"}}`), 0o600)
+	os.WriteFile(filepath.Join(dir, "users.json"), []byte(`{"Pat": {"admin": true, "hash": "x"}}`), 0o600)
 	if _, _, ok := s.Check(c); ok {
 		t.Fatal("deleted user's session accepted")
 	}
@@ -126,18 +126,18 @@ func TestAccounts(t *testing.T) {
 	}
 
 	// The admin log reads back newest first.
-	s.Log("Paul", "ban", "Steve")
-	s.Log("Paul", "unban", "Steve")
+	s.Log("Pat", "ban", "Steve")
+	s.Log("Pat", "unban", "Steve")
 	log, err := s.ReadLog(10)
-	if err != nil || len(log) != 2 || log[0].Action != "unban" || log[1].By != "Paul" {
+	if err != nil || len(log) != 2 || log[0].Action != "unban" || log[1].By != "Pat" {
 		t.Fatalf("log: %+v %v", log, err)
 	}
 
 	// Last seen is saved and survives a reopen.
-	s.Touch("Paul")
+	s.Touch("Pat")
 	s2, _ := Open(dir)
-	if time.Since(s2.Seen("Paul")) > time.Minute {
-		t.Fatalf("seen after reopen: %v", s2.Seen("Paul"))
+	if time.Since(s2.Seen("Pat")) > time.Minute {
+		t.Fatalf("seen after reopen: %v", s2.Seen("Pat"))
 	}
 }
 
@@ -156,14 +156,14 @@ func TestRenewAndLogOutEverywhere(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.SetPassword("Paul", "correct horse")
-	u := mustGet(t, s, "Paul")
-	fresh := s.session("Paul", u, time.Now().Add(SessionTTL))
+	s.SetPassword("Pat", "correct horse")
+	u := mustGet(t, s, "Pat")
+	fresh := s.session("Pat", u, time.Now().Add(SessionTTL))
 	if s.Renew(fresh) != "" {
 		t.Fatal("renewed a new session")
 	}
 	for _, exp := range []time.Time{time.Now().Add(SessionTTL - 25*time.Hour), time.Now().Add(365 * 24 * time.Hour)} {
-		c := s.Renew(s.session("Paul", u, exp))
+		c := s.Renew(s.session("Pat", u, exp))
 		if _, _, ok := s.Check(c); !ok {
 			t.Fatalf("no renewal for expiry %v", exp)
 		}
@@ -172,17 +172,17 @@ func TestRenewAndLogOutEverywhere(t *testing.T) {
 		t.Fatal("renewed junk")
 	}
 
-	if err := s.LogOutEverywhere("Paul"); err != nil {
+	if err := s.LogOutEverywhere("Pat"); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, ok := s.Check(fresh); ok {
 		t.Fatal("session survived Log Out Everywhere")
 	}
-	c, _ := s.Session("Paul")
+	c, _ := s.Session("Pat")
 	if _, _, ok := s.Check(c); !ok {
 		t.Fatal("new session after Log Out Everywhere")
 	}
-	s.LogOutEverywhere("Paul") // twice in one second still ends the one before
+	s.LogOutEverywhere("Pat") // twice in one second still ends the one before
 	if _, _, ok := s.Check(c); ok {
 		t.Fatal("second Log Out Everywhere in the same second")
 	}

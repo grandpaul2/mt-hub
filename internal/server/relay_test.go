@@ -31,7 +31,7 @@ func TestRelay(t *testing.T) {
 	ws, _ := workspace.Open(filepath.Join(dir, "workspace"))
 	cs, _ := chat.Open(filepath.Join(dir, "chat"))
 	ls, _ := preview.Open(filepath.Join(dir, "previews"))
-	names := []string{"Paul", "Steve", "Alex", "Eve"}
+	names := []string{"Pat", "Steve", "Alex", "Eve"}
 	for _, n := range names {
 		us.SetPassword(n, n+"-password")
 	}
@@ -150,12 +150,12 @@ func TestRelay(t *testing.T) {
 	if l := list(); len(l.Relay) != 0 {
 		t.Fatalf("without relay.json: %s", namesOf(l))
 	}
-	if code, _ := call("Alex", "POST", "/api/relay/Paul/watch", offer); code != 404 {
+	if code, _ := call("Alex", "POST", "/api/relay/Pat/watch", offer); code != 404 {
 		t.Fatalf("watch without relay.json: %d", code)
 	}
 
 	conf := func(delay string) {
-		os.WriteFile(filepath.Join(dir, "relay.json"), []byte(`{"url":"`+stub.URL+`","user":"hub","pass":"hub-pass","channels":{"live":"Paul","steve":"Steve","gone":"Nobody"}`+delay+`}`), 0o600)
+		os.WriteFile(filepath.Join(dir, "relay.json"), []byte(`{"url":"`+stub.URL+`","user":"hub","pass":"hub-pass","channels":{"live":"Pat","steve":"Steve","gone":"Nobody"}`+delay+`}`), 0o600)
 		os.Chtimes(filepath.Join(dir, "relay.json"), time.Now(), time.Now().Add(time.Duration(len(delay))*time.Second)) // a new mod time each time
 	}
 	conf("")
@@ -166,7 +166,7 @@ func TestRelay(t *testing.T) {
 	ready["live"], ready["steve-web"], ready["other-web"], ready["gone-web"] = true, false, true, true
 	mu.Unlock()
 	l := list()
-	if namesOf(l) != "Paul()" || !l.Relay[0].Started.Equal(started) || l.RelayDelay != 700 {
+	if namesOf(l) != "Pat()" || !l.Relay[0].Started.Equal(started) || l.RelayDelay != 700 {
 		t.Fatalf("list: %s started %v delay %d", namesOf(l), l.Relay, l.RelayDelay)
 	}
 	conf(`,"delay_ms":450`)
@@ -175,10 +175,10 @@ func TestRelay(t *testing.T) {
 	}
 
 	// Watching: a login, a real offer, someone live.
-	if code, _ := call("", "POST", "/api/relay/Paul/watch", offer); code != 401 {
+	if code, _ := call("", "POST", "/api/relay/Pat/watch", offer); code != 401 {
 		t.Fatalf("watch without a login: %d", code)
 	}
-	if code, _ := call("Alex", "POST", "/api/relay/Paul/watch", `{"sdp":"hello"}`); code != 400 {
+	if code, _ := call("Alex", "POST", "/api/relay/Pat/watch", `{"sdp":"hello"}`); code != 400 {
 		t.Fatalf("watch with no offer: %d", code)
 	}
 	if code, body := call("Alex", "POST", "/api/relay/Steve/watch", offer); code != 404 || !strings.Contains(body, "Steve isn't streaming") {
@@ -189,7 +189,7 @@ func TestRelay(t *testing.T) {
 	}
 	watch := func(who string) string {
 		t.Helper()
-		code, body := call(who, "POST", "/api/relay/Paul/watch", offer)
+		code, body := call(who, "POST", "/api/relay/Pat/watch", offer)
 		var out struct{ ID, SDP string }
 		if code != 200 || json.Unmarshal([]byte(body), &out) != nil || out.ID == "" || out.SDP != "v=0 answer for live-web" {
 			t.Fatalf("%s watching: %d %s", who, code, body)
@@ -199,7 +199,7 @@ func TestRelay(t *testing.T) {
 	alex := watch("Alex")
 	eve := watch("Eve")
 	watch("Alex") // a second tab: counted once
-	if n := namesOf(list()); n != "Paul(Alex,Eve)" {
+	if n := namesOf(list()); n != "Pat(Alex,Eve)" {
 		t.Fatalf("viewers: %s", n)
 	}
 	mu.Lock()
@@ -210,7 +210,7 @@ func TestRelay(t *testing.T) {
 
 	// Ending a session: only your own.
 	call("Alex", "DELETE", "/api/relay/sessions/"+eve, "")
-	if n := namesOf(list()); n != "Paul(Alex,Eve)" {
+	if n := namesOf(list()); n != "Pat(Alex,Eve)" {
 		t.Fatalf("Alex ended Eve's session: %s", n)
 	}
 	call("Eve", "DELETE", "/api/relay/sessions/"+eve, "")
@@ -219,7 +219,7 @@ func TestRelay(t *testing.T) {
 		t.Fatalf("sessions ended on the relay: %v", deleted)
 	}
 	mu.Unlock()
-	if n := namesOf(list()); n != "Paul(Alex)" {
+	if n := namesOf(list()); n != "Pat(Alex)" {
 		t.Fatalf("after Eve left: %s", n)
 	}
 	_ = alex
@@ -227,7 +227,7 @@ func TestRelay(t *testing.T) {
 	// A banned viewer's sessions are ended on the relay; a banned streamer isn't listed.
 	us.Change("Alex", func(u *auth.User) { u.Banned = true })
 	cookie["Alex"], _ = us.Login("Steve", "Steve-password") // someone still allowed asks from here on
-	if n := namesOf(list()); n != "Paul()" {
+	if n := namesOf(list()); n != "Pat()" {
 		t.Fatalf("a banned viewer still counted: %s", n)
 	}
 	mu.Lock()
@@ -235,14 +235,14 @@ func TestRelay(t *testing.T) {
 		t.Fatalf("a banned viewer's sessions: ended %v, left %v", deleted, sessions)
 	}
 	mu.Unlock()
-	us.Change("Paul", func(u *auth.User) { u.Banned = true })
+	us.Change("Pat", func(u *auth.User) { u.Banned = true })
 	if n := namesOf(list()); n != "" {
 		t.Fatalf("a banned streamer listed: %s", n)
 	}
-	us.Change("Paul", func(u *auth.User) { u.Banned = false })
+	us.Change("Pat", func(u *auth.User) { u.Banned = false })
 
 	// The relay unreachable: nothing listed, and back when it is.
-	if n := namesOf(list()); n != "Paul()" {
+	if n := namesOf(list()); n != "Pat()" {
 		t.Fatalf("unbanned: %s", n)
 	}
 	mu.Lock()
@@ -251,13 +251,13 @@ func TestRelay(t *testing.T) {
 	if n := namesOf(list()); n != "" {
 		t.Fatalf("relay down: %s", n)
 	}
-	if code, _ := call("Eve", "POST", "/api/relay/Paul/watch", offer); code != 502 {
+	if code, _ := call("Eve", "POST", "/api/relay/Pat/watch", offer); code != 502 {
 		t.Fatalf("watch with the relay down: %d", code)
 	}
 	mu.Lock()
 	down = false
 	mu.Unlock()
-	if n := namesOf(list()); n != "Paul()" {
+	if n := namesOf(list()); n != "Pat()" {
 		t.Fatalf("relay back: %s", n)
 	}
 

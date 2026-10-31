@@ -5,11 +5,11 @@
 // taking its files along, and deleting a message with its files.
 import { api, check, COOKIE, done, ev, HUB, hub, key, png, SEED, send, settle, shot } from './lib.mjs';
 
-const paul = (method, path, body) => api(method, path, body, 'Paul');
+const pat = (method, path, body) => api(method, path, body, 'Pat');
 const tree = async () => (await (await hub(`/api/tree`)).json()).map((e) => e.path);
 const msgs = async (ch) => (await (await hub(`/api/channels/${ch}/messages`)).json());
 const postFile = async (chat, name, body) =>
-  (await (await fetch(`${HUB}/api/channels/${chat}/media?name=${encodeURIComponent(name)}`, { method: 'POST', headers: { cookie: COOKIE.Paul }, body })).json()).path;
+  (await (await fetch(`${HUB}/api/channels/${chat}/media?name=${encodeURIComponent(name)}`, { method: 'POST', headers: { cookie: COOKIE.Pat }, body })).json()).path;
 await api('POST', '/api/channels/general/messages', { text: 'hi all' }); // Alex has posted: a known name
 
 await send('Page.navigate', { url: HUB });
@@ -58,7 +58,7 @@ await ev(`(async () => {
 await dropFiles(['notes.txt']);
 await settle(500);
 const waiting = await ev(`[...document.querySelectorAll('${M} .pend-tray .pend-name')].map((n) => n.textContent)`);
-check('waiting in the tray', [waiting.length, waiting[0], /^\d{4}-\d\d-\d\d \d\d\.\d\d\.\d\d Paul\.png$/.test(waiting[1]), waiting[2], await compose()], [3, 'farm.png', true, 'notes.txt', '']);
+check('waiting in the tray', [waiting.length, waiting[0], /^\d{4}-\d\d-\d\d \d\d\.\d\d\.\d\d Pat\.png$/.test(waiting[1]), waiting[2], await compose()], [3, 'farm.png', true, 'notes.txt', '']);
 await ev(`document.querySelector('${M} .compose').value = 'look at these'`);
 await enter();
 await settle(800);
@@ -82,13 +82,13 @@ await settle(2000);
 
 // A video and a screenshot link: a player, and the screenshot's picture, no chips.
 const clip = await postFile('general', 'clip.mp4', 'not really a video');
-await paul('POST', '/api/channels/general/messages', { text: `#${clip} #[screenshots/${SEED.shots[0]}]` });
+await pat('POST', '/api/channels/general/messages', { text: `#${clip} #[screenshots/${SEED.shots[0]}]` });
 await settle(1000);
 const vid = (await msgs('general')).pop();
 check('video player + screenshot', await ev(`[[...${msgEl(vid.id)}.querySelectorAll('.refs > *')].map((e) => e.className), !!${msgEl(vid.id)}.querySelector('video[controls]'), !!${msgEl(vid.id)}.querySelector('.msg-body')]`), [['ref-video', 'ref-pic'], true, false]);
 // Files posted in chat get Save to Files on the toolbar; pictures in Files get Open folder.
 check('save to Files on the toolbar', await ev(`[...${msgEl(vid.id)}.querySelectorAll('.msg-tools button')].map((b) => b.dataset.tool).includes('save')`), true);
-await paul('POST', '/api/channels/general/messages', { text: `#[screenshots/${SEED.shots[0]}]` });
+await pat('POST', '/api/channels/general/messages', { text: `#[screenshots/${SEED.shots[0]}]` });
 await settle(1000);
 const shotMsg = (await msgs('general')).pop();
 await ev(`${msgEl(shotMsg.id)}.querySelector('.msg-tools [data-tool="folder"]').click()`);
@@ -106,7 +106,7 @@ const quoteText = await ev(`${msgEl(reply.id)}.querySelector('.reply-quote .text
 check('quote names media, no codes', [quoteText.startsWith('[clip.mp4] [2026-'), quoteText.endsWith('.png]'), quoteText.includes('#')], [true, true, false]);
 
 // Mentions: someone who has posted, and @everyone, get the highlight; unknown names don't.
-await paul('POST', '/api/channels/general/messages', { text: '@Alex and @everyone, not @nobody or me@mail' });
+await pat('POST', '/api/channels/general/messages', { text: '@Alex and @everyone, not @nobody or me@mail' });
 await settle(800);
 const men = (await msgs('general')).pop();
 check('mention highlights', await ev(`[...${msgEl(men.id)}.querySelectorAll('.mention')].map((s) => s.textContent)`), ['@Alex', '@everyone']);
@@ -117,8 +117,8 @@ const tinted = async (who, body) => {
   await settle(700);
   return ev(`${msgEl(m.id)}.classList.contains('mentions-me')`);
 };
-check('rows meant for you are tinted', [await tinted('Alex', { text: 'hey @paul look' }), await tinted('Alex', { text: '@here now' }), await tinted('Alex', { text: 'answering', reply_to: posted.id }),
-  await tinted('Alex', { text: 'type `@Paul` to ping' }), await tinted('Alex', { text: 'nothing for anyone' }), await ev(`${msgEl(men.id)}.classList.contains('mentions-me')`)],
+check('rows meant for you are tinted', [await tinted('Alex', { text: 'hey @pat look' }), await tinted('Alex', { text: '@here now' }), await tinted('Alex', { text: 'answering', reply_to: posted.id }),
+  await tinted('Alex', { text: 'type `@Pat` to ping' }), await tinted('Alex', { text: 'nothing for anyone' }), await ev(`${msgEl(men.id)}.classList.contains('mentions-me')`)],
   [true, true, true, false, false, false]);
 check('the tint: a wash and a line down the left', await ev(`(() => { const s = getComputedStyle(document.querySelector('${M} .msg.mentions-me')); return [s.backgroundColor, s.boxShadow.includes('2px 0px 0px 0px inset')]; })()`), ['rgba(88, 101, 242, 0.08)', true]);
 await shot('mentions');
@@ -134,16 +134,16 @@ check('header buttons: files, then pins', await ev(`['#main-chat', '#chat'].map(
 await ev(`document.querySelector('#main-chat .files-btn').click()`);
 await settle(600);
 const listed = await ev(`[...document.querySelectorAll('.pins-pop .file-item .file-name')].map((n) => n.textContent)`);
-check('file list', [listed?.length, listed?.[0], listed?.[1], /Paul\.png$/.test(listed?.[2]), listed?.[3]], [4, 'clip.mp4', 'notes.txt', true, 'farm (2).png']);
+check('file list', [listed?.length, listed?.[0], listed?.[1], /Pat\.png$/.test(listed?.[2]), listed?.[3]], [4, 'clip.mp4', 'notes.txt', true, 'farm (2).png']);
 await shot('file-list');
 await ev(`[...document.querySelectorAll('.pins-pop .file-item')].at(-1).click()`);
 await settle(800);
 check('click jumps to its message', await ev(`[!document.querySelector('.pins-pop'), ${msgEl(posted.id)}.classList.contains('flash')]`), [true, true]);
 // Files can't use the name media/.
-check('Files keeps media/ free', (await fetch(`${HUB}/api/file/media/x.txt?base=`, { method: 'PUT', headers: { cookie: COOKIE.Paul }, body: 'x' })).status, 400);
+check('Files keeps media/ free', (await fetch(`${HUB}/api/file/media/x.txt?base=`, { method: 'PUT', headers: { cookie: COOKIE.Pat }, body: 'x' })).status, 400);
 
 // Renaming the chat takes its files along; the old links still show their pictures.
-await paul('PATCH', '/api/channels/general', { name: 'lobby' });
+await pat('PATCH', '/api/channels/general', { name: 'lobby' });
 await settle(1500);
 check('old links still preview', await ev(`[...${msgEl(posted.id)}?.querySelectorAll('.ref-pic img') ?? []].map((i) => i.getAttribute('src').startsWith('/api/channels/lobby/thumb/'))`), [true, true]);
 
@@ -152,11 +152,11 @@ check('old links still preview', await ev(`[...${msgEl(posted.id)}?.querySelecto
 // a file gets its own copy there.
 const solo = await postFile('lobby', 'solo.png', 'x');
 const sharedFile = await postFile('lobby', 'shared.zip', 'x');
-await paul('POST', '/api/channels', { name: 'builds' });
-const soloMsg = await (await paul('POST', '/api/channels/lobby/messages', { text: `just mine #${solo}` })).json();
-const shared = await (await paul('POST', '/api/channels/lobby/messages', { text: `#${sharedFile}` })).json();
-await paul('POST', '/api/channels/lobby/messages', { text: `again #[${sharedFile}]` });
-const copied = await (await paul('POST', '/api/channels/builds/messages', { text: `also here #[${sharedFile}]` })).json();
+await pat('POST', '/api/channels', { name: 'builds' });
+const soloMsg = await (await pat('POST', '/api/channels/lobby/messages', { text: `just mine #${solo}` })).json();
+const shared = await (await pat('POST', '/api/channels/lobby/messages', { text: `#${sharedFile}` })).json();
+await pat('POST', '/api/channels/lobby/messages', { text: `again #[${sharedFile}]` });
+const copied = await (await pat('POST', '/api/channels/builds/messages', { text: `also here #[${sharedFile}]` })).json();
 check('linked from another chat: its own copy', [copied.text, (await hub(`/api/channels/builds/media/shared.zip`)).status], ['also here #media/builds/shared.zip', 200]);
 await settle(1000);
 await ev(`${msgEl(soloMsg.id)}.querySelector('[data-tool="trash"]').click()`);
@@ -175,7 +175,7 @@ await settle(800);
 check('still linked elsewhere: file kept', [await ev(`document.getElementById('overlay').hidden`), (await msgs('lobby')).some((m) => m.id === shared.id), (await hub(`/api/channels/lobby/media/shared.zip`)).status], [true, false, 200]);
 
 // Deleting a chat: one plain question; its files go with it.
-await paul('POST', '/api/channels', { name: 'trash-me' });
+await pat('POST', '/api/channels', { name: 'trash-me' });
 await settle(1000);
 await ev(`[...document.querySelectorAll('#channels .row.channel')].find((r) => r.textContent.includes('trash-me')).dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 100, clientY: 300 }))`);
 await ev(`[...document.querySelectorAll('#menu button')].find((b) => b.textContent.startsWith('Delete')).click()`);

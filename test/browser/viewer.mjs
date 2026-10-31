@@ -4,7 +4,7 @@
 // which lands on the file in its folder, and "Save to Files…" for a picture posted in chat.
 import { api, check, COOKIE, done, ev, HUB, hub, key, png, send, settle, shot } from './lib.mjs';
 
-const putFile = (p, body) => fetch(`${HUB}/api/file/${p}?base=`, { method: 'PUT', headers: { cookie: COOKIE.Paul }, body });
+const putFile = (p, body) => fetch(`${HUB}/api/file/${p}?base=`, { method: 'PUT', headers: { cookie: COOKIE.Pat }, body });
 await putFile('pics/a.png', png(400, 300, [200, 60, 60]));
 await settle(50);
 await putFile('pics/b.png', png(1600, 1200, [60, 60, 200])); // bigger than the window: zoom shows it at full size
@@ -31,7 +31,7 @@ check('folder preview', [await hash(), await ev(`document.querySelector('#main-f
   await ev(`document.querySelector('.row[data-path="pics"]').classList.contains('active')`)],
   ['#folder=pics', 'pics/', ['a.png', 'b.png', 'clip.mp4'], true]);
 // ← is drawn as an icon: our fonts don't have it, and the system font standing in made the
-// button taller with its text lower in Firefox (S56).
+// button taller with its text lower in Firefox.
 check('back arrow is an icon, text unchanged', await ev(`(() => { const b = document.querySelector('#main-folder .shot-bar > button'); return [!!b.querySelector('.glyph svg'), b.textContent, b.innerText.includes('←')]; })()`),
   [true, '← Back to Files', false]);
 check('row click doesn’t expand', await ev(`document.querySelector('.row[data-path="pics"]').classList.contains('open')`), false);
@@ -150,7 +150,7 @@ check('file toolbar buttons', await ev(`[[...document.querySelectorAll('#toolbar
   document.querySelector('#toolbar .single-name').textContent,
   [...document.querySelectorAll('#toolbar .single-bar .vtool')].map((b) => b.title)]`),
   [['← Back to pics/', 'History'], 'a.png', ['Forward', 'Download', 'Open in new tab', 'Move to Trash', 'Previous (←)', 'Next (→)', 'Full window']]);
-// Delete sits with the others and turns red only on hover, as in chat (Paul, S56). The bar has
+// Delete sits with the others and turns red only on hover, as in chat. The bar has
 // no ⋯: every action is already a button on it.
 check('Delete is quiet until hovered', await ev(`(() => { const b = document.querySelector('#toolbar [title="Move to Trash"]');
   return [getComputedStyle(b).backgroundColor, b.classList.contains('danger')]; })()`), ['rgba(0, 0, 0, 0)', false]);
@@ -170,7 +170,7 @@ check('arrows step through the folder', [after !== before, await fileShown()], [
 await ev(`document.querySelector('#toolbar [title="Back to the folder (Esc)"]').click()`);
 await settle(500);
 check('back to the folder preview', [await hash(), await ev(`document.getElementById('main-folder').hidden`)], ['#folder=pics', false]);
-await fetch(`${HUB}/api/file/notes.txt?base=`, { method: 'PUT', headers: { cookie: COOKIE.Paul }, body: 'hi' });
+await fetch(`${HUB}/api/file/notes.txt?base=`, { method: 'PUT', headers: { cookie: COOKIE.Pat }, body: 'hi' });
 await ev(`location.hash = '#notes.txt'`);
 await settle(1200);
 // A text file has the same bar, with Edit, History and its text size.

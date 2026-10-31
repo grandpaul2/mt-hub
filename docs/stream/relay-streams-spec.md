@@ -10,7 +10,7 @@ Nothing changes in the game or the mod. The streamer changes one OBS setting, on
 This is separate from screen sharing ([`screen-share-spec.md`](screen-share-spec.md)), which
 goes browser to browser through LiveKit and has no sound. The two sit side by side in LIVE.
 
-## Decisions (Paul, 2026-10-11)
+## Decisions
 
 - Relay streams are rows in the existing **LIVE** section and play in the same main panel.
 - Watching needs a hub login, like everything else.
@@ -65,7 +65,7 @@ OBS ──RTMP (H.264 + AAC)──► relay: channel "live" ──► the game's
 ## The hub (`internal/server/relay.go`)
 
 - **`<data>/relay.json`**: `{"url": "https://…/relay", "user": "hub", "pass": "…",
-  "channels": {"live": "grandpaul", "emptropy": "emptropy"}, "delay_ms": 700}`. Without the file the feature is
+  "channels": {"live": "patmc", "quinn": "quinn"}, "delay_ms": 700}`. Without the file the feature is
   off and nothing in the page changes. Adding a streamer is a line here and a channel on the
   relay.
 - **Every 5 seconds** the hub asks the relay which `-web` channels are ready and which WebRTC
@@ -109,7 +109,7 @@ OBS ──RTMP (H.264 + AAC)──► relay: channel "live" ──► the game's
   connect: …", "<name> isn't streaming right now.", and when the relay ends the connection
   before any picture, or none comes within 10 seconds (what a stream with B-frames does):
   "<name>'s stream can't be shown in the hub: it needs the OBS setting bframes=0."
-- **It plays behind everything** (Paul, 2026-10-13). Opening a folder, a file or a chat
+- **It plays behind everything**. Opening a folder, a file or a chat
   leaves the stream playing: the sound goes on, and so does the browser's own pop-out player
   (Firefox's Picture-in-Picture). The panel is moved out of sight, not hidden, because a
   browser may stop a video it does not draw. For as long as you watch, in the
