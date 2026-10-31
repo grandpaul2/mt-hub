@@ -75,7 +75,16 @@ const CHEVRON = '<svg viewBox="0 0 16 16"><path d="M6 3.5 10.5 8 6 12.5" fill="n
 
 let entries: Entry[] = [];
 let treeJSON = '';
+// Open folders, of two kinds (Paul, S98). expanded: yours, opened by hand (chevron, →, Enter),
+// open until you close them, and the only ones kept per browser. auto: the hub's, opened to
+// show where the thing in the main panel is (expandParents); they close when it shows
+// something not inside them (pruneAuto). hovered: opened by hovering a drag over them, shut
+// again when the drag ends.
 const expanded = new Set<string>(JSON.parse(load('mt-expanded') ?? '[]'));
+const auto = new Set<string>();
+const hovered = new Set<string>();
+const isOpen = (p: string) => expanded.has(p) || auto.has(p) || hovered.has(p);
+let keepPath = ''; // the next prune also keeps this one's folders (#folder=…&item=…)
 let targetDir = '';
 let focused = ''; // the tree row the keys are on (outlined while the tree has focus)
 // The selected rows, drawn grey: one after a click or an arrow key, several with Ctrl or
@@ -117,9 +126,33 @@ const leaveOK = async () => !dirty() || ask({
   confirm: 'Discard', danger: true,
 });
 
+// expandParents opens p's folders as the hub's (auto).
 function expandParents(p: string) {
-  for (let d = dirName(p); d; d = dirName(d)) expanded.add(d);
-  store('mt-expanded', JSON.stringify([...expanded]));
+  for (let d = dirName(p); d; d = dirName(d)) if (!expanded.has(d)) auto.add(d);
+}
+
+// showInside opens dir itself too (the hub's), to show what goes in it.
+function showInside(dir: string) {
+  if (!dir) return;
+  expandParents(dir);
+  if (!expanded.has(dir)) auto.add(dir);
+}
+
+// pruneAuto closes the hub's folders that what the main panel now shows (path; '' for
+// something outside Files) isn't inside.
+function pruneAuto(path: string) {
+  const keep = [path, keepPath].filter(Boolean);
+  keepPath = '';
+  for (const d of [...auto]) if (!keep.some((k) => k.startsWith(d + '/'))) auto.delete(d);
+}
+
+// endHover shuts the folders a drag opened, unless what's shown is inside them.
+function endHover() {
+  if (!hovered.size) return;
+  const shown = entries.find(isActive)?.path ?? '';
+  for (const d of hovered) if (shown.startsWith(d + '/') && !expanded.has(d)) auto.add(d);
+  hovered.clear();
+  renderTree();
 }
 
 // ---- your account ----
@@ -345,6 +378,7 @@ function renderTree() {
   if ((shown?.path ?? null) !== lastActive) {
     lastActive = shown?.path ?? null;
     if (shown) select(shown);
+    pruneAuto(shown?.path ?? '');
   }
   $('target').replaceChildren(...glyphs(targetDir ? `→ ${targetDir}/` : ''));
   // A selection of several keeps to what is still there (someone may have deleted a row).
@@ -369,7 +403,7 @@ function renderTree() {
     for (const [i, e] of [...list, null].entries()) {
       if (i === boxAt) root.append(createRow(depth));
       if (!e) break;
-      const open = expanded.has(e.path);
+      const open = isOpen(e.path);
       const name = baseName(e.path);
       let cls = 'row';
       if (e.dir) cls += ' dir';
@@ -469,15 +503,23 @@ function activate(e: Entry) {
 
 function collapseAll() {
   expanded.clear();
+  auto.clear();
+  hovered.clear();
   store('mt-expanded', '[]');
   renderTree();
 }
 
 
 
+// setExpanded is opening or closing by hand: opened, it's yours; closed, it's shut whoever
+// opened it.
 function setExpanded(p: string, open: boolean) {
   if (open) expanded.add(p);
-  else expanded.delete(p);
+  else {
+    expanded.delete(p);
+    auto.delete(p);
+    hovered.delete(p);
+  }
   store('mt-expanded', JSON.stringify([...expanded]));
 }
 
@@ -518,17 +560,17 @@ function treeKey(ev: KeyboardEvent) {
     case 'Home': next = 0; break;
     case 'End': next = visible.length - 1; break;
     case 'ArrowRight':
-      if (e?.dir && !expanded.has(e.path)) setExpanded(e.path, true);
+      if (e?.dir && !isOpen(e.path)) setExpanded(e.path, true);
       else if (e?.dir) next = i + 1 < visible.length && dirName(visible[i + 1].path) === e.path ? i + 1 : i;
       break;
     case 'ArrowLeft':
-      if (e?.dir && expanded.has(e.path)) setExpanded(e.path, false);
+      if (e?.dir && isOpen(e.path)) setExpanded(e.path, false);
       else if (e && dirName(e.path)) next = visible.findIndex((v) => v.path === dirName(e.path));
       break;
     case 'Enter':
     case ' ':
       // With no chevron to click, Enter on a folder also opens/closes it.
-      if (e?.dir) setExpanded(e.path, !expanded.has(e.path));
+      if (e?.dir) setExpanded(e.path, !isOpen(e.path));
       if (e) activate(e);
       break;
     case 'F2':
@@ -639,10 +681,7 @@ async function makeEntry(p: string, folder: boolean) {
 }
 
 function startCreate(folder: boolean) {
-  if (targetDir) {
-    expandParents(targetDir);
-    setExpanded(targetDir, true);
-  }
+  showInside(targetDir);
   renaming = null;
   creating = { dir: targetDir, folder };
   renameDraft = null;
@@ -668,13 +707,15 @@ async function movePath(from: string, to: string, quiet = false): Promise<true |
     renderTree();
     return r.status;
   }
-  for (const p of [...expanded]) {
-    if (inside(p)) {
-      expanded.delete(p);
-      expanded.add(moved(p));
+  for (const set of [expanded, auto, hovered]) {
+    for (const p of [...set]) {
+      if (inside(p)) {
+        set.delete(p);
+        set.add(moved(p));
+      }
     }
   }
-  if (dirName(to)) expanded.add(dirName(to)); // show where it landed
+  showInside(dirName(to)); // show where it landed
   store('mt-expanded', JSON.stringify([...expanded]));
   if (inside(focused)) focused = moved(focused);
   if (inside(anchor)) anchor = moved(anchor);
@@ -715,13 +756,15 @@ async function moveMany(paths: string[], dir: string) {
     const from = moving.find((m) => within(p, m));
     return from === undefined ? p : inDir(dir, baseName(from)) + p.slice(from.length);
   };
-  for (const p of [...expanded]) {
-    if (moved(p) !== p) {
-      expanded.delete(p);
-      expanded.add(moved(p));
+  for (const set of [expanded, auto, hovered]) {
+    for (const p of [...set]) {
+      if (moved(p) !== p) {
+        set.delete(p);
+        set.add(moved(p));
+      }
     }
   }
-  if (dir) expanded.add(dir); // show where they landed
+  showInside(dir); // show where they landed
   store('mt-expanded', JSON.stringify([...expanded]));
   // The selection goes along. It is put back after the open file is reopened under its new
   // name, since whatever opens in the main pane becomes the one selected row.
@@ -879,10 +922,7 @@ async function copyMany(paths: string[], dir: string) {
   const r = await req('POST', '/api/batch/copy', JSON.stringify({ from, to: dir }));
   if (!r.ok) return toastError(`Couldn’t copy: ${(await r.json().catch(() => ({}))).error ?? r.status}.`);
   const made = (await json<{ paths: string[] }>(r)).paths;
-  if (dir) {
-    expandParents(dir);
-    setExpanded(dir, true);
-  }
+  showInside(dir);
   await refreshTree();
   focused = anchor = made[0];
   selected = new Set(made);
@@ -1738,6 +1778,7 @@ async function openHash() {
     const [path, item] = raw.slice(7).split('&item=').map(dec);
     if (item) {
       expandParents(path + '/' + item);
+      keepPath = path + '/' + item; // (the folder shown is its parent: keep that open too)
       focused = path + '/' + item;
     }
     targetDir = path;
@@ -2020,9 +2061,9 @@ function setup() {
     if (dir !== hoverDir) {
       hoverDir = dir;
       clearTimeout(hoverTimer);
-      if (dir && !expanded.has(dir)) {
+      if (dir && !isOpen(dir)) {
         hoverTimer = window.setTimeout(() => {
-          setExpanded(dir, true);
+          hovered.add(dir);
           renderTree();
           showDrop(dir);
         }, 600);
@@ -2038,6 +2079,10 @@ function setup() {
   tree.ondragleave = (e) => {
     if (!tree.contains(e.relatedTarget as Node)) endDrag();
   };
+  // A drag that ends (dropped anywhere, or let go) shuts the folders it opened by hovering.
+  // (Capture: before a drop handler opens the folder things land in.)
+  document.addEventListener('drop', endHover, true);
+  document.addEventListener('dragend', endHover, true);
   tree.ondrop = (e) => {
     e.preventDefault();
     const bin = onTrash(e);

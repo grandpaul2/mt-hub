@@ -492,6 +492,11 @@ separate dialogs.
     size. The copies end up selected. The fixed top-level folders can't be cut or duplicated.
   - **Clicks:** a click opens; only the chevron expands. Plain alphabetical, nothing
     pinned.
+  - **Open folders, two kinds:** yours (chevron, →, Enter) stay open until you close them
+    and are kept per browser. The hub's, opened to show where the thing in the main panel
+    is (a link, search, a folder tile, a move's landing folder), close once it shows
+    something not inside them, or a chat. Closing one of the hub's and opening it again by
+    hand makes it yours. A folder a drag opened by hovering shuts when the drag ends.
 - **Chat rows (Discord):**
   - **Size:** 34 px, 6 px radius, a big grey `#`.
   - **Unread:** bold, with a white dot.
