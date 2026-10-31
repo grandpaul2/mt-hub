@@ -758,7 +758,7 @@ func (b *Bridge) toHub(id string, opus []byte) {
 	if p == nil || !p.ready {
 		// Still joining: the first fraction of a second after they join Link. Not held for
 		// later: the hub plays the join sound as the participant connects, so what came before
-		// the sound is dropped rather than played late or sped up (maintainer, 2026-10-30).
+		// the sound is dropped rather than played late or sped up.
 		b.mu.Unlock()
 		return
 	}

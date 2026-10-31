@@ -157,7 +157,7 @@ check('Ctrl+V in another folder', [await has('docs/README.md', 'docs/c1 copy.md'
 const before = (await files()).length;
 await paste(true);
 const after = await files();
-check('a picture on the clipboard uploads, as before', [after.length - before, after.filter((p) => /^docs\/\d{4}-.*Paul\.png$/.test(p)).length], [1, 1]);
+check('a picture on the clipboard uploads, as before', [after.length - before, after.filter((p) => /^docs\/\d{4}-.*Pat\.png$/.test(p)).length], [1, 1]);
 // Cut tiles are dimmed; Esc cancels the cut first, and stays in the folder.
 await key('Escape'); // lets go of the two copies
 await click(tile('docs/c2.md'), CTRL);

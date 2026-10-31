@@ -7,7 +7,7 @@ import { api, check, done, ev, HUB, hub, send, settle, shot } from './lib.mjs';
 const msgs = async (ch) => (await (await hub(`/api/channels/${ch}/messages`)).json());
 const status = async (file) => (await hub(`/api/channels/general/media/${encodeURIComponent(file)}`)).status;
 
-await api('POST', '/api/channels', { name: 'builds' }, 'Paul');
+await api('POST', '/api/channels', { name: 'builds' }, 'Pat');
 await send('Page.navigate', { url: HUB });
 await settle(500);
 await ev(`localStorage.setItem('mt-chat-hidden','1')`);
@@ -43,7 +43,7 @@ await give('drop', ['farm.png', 'notes.txt']);
 await give('paste', ['image.png']);
 await settle(500);
 const waiting = await cards();
-check('three cards: name, state, size', [waiting.length, waiting[0], waiting[1], /^\d{4}-\d\d-\d\d \d\d\.\d\d\.\d\d Paul\.png$/.test(waiting[2][0])],
+check('three cards: name, state, size', [waiting.length, waiting[0], waiting[1], /^\d{4}-\d\d-\d\d \d\d\.\d\d\.\d\d Pat\.png$/.test(waiting[2][0])],
   [3, ['farm.png', 'ready', waiting[0][2]], ['notes.txt', 'ready', '4 B'], true]);
 check('the box has no link text', await ev(`${box}.value`), '');
 check('a picture shows from the browser, a file as its icon', await ev(`[...document.querySelectorAll('${M} .composer .pend-thumb > *')].map((e) => [e.tagName, e.src.slice(0, 5), e.classList.contains('icon')])`),

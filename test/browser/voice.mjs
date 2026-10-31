@@ -1,7 +1,7 @@
-// Voice chats, end to end: a local LiveKit (fetched/livekit-server, see support/livekit.mjs), Paul in the
+// Voice chats, end to end: a local LiveKit (fetched/livekit-server, see support/livekit.mjs), Pat in the
 // suite's page and Alex in a second browser profile (his own login). Starting from the "+"
 // menu, the other person seeing it and joining under the first name, hearing each other
-// (Alex gets Paul's audio track), the bar, leaving, a private voice chat hidden from an admin,
+// (Alex gets Pat's audio track), the bar, leaving, a private voice chat hidden from an admin,
 // and the limit of 3.
 import { spawn } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
@@ -153,37 +153,37 @@ const items = await ev(`[...document.querySelectorAll('#menu button')].map((b) =
 check('+ menu has the voice entries', items.filter((i) => /Voice/.test(i)), ['New Voice Chat', 'New Private Voice Chat…']);
 check('VOICE is there with no voice chats, under TEXT', [await ev(`document.getElementById('voice-section').hidden`), await ev(`[...document.querySelectorAll('#side .side-head')].filter((x) => x.offsetParent).map((x) => x.querySelector('span').textContent)`)], [false, ['FILES', 'TEXT', 'VOICE', 'LIVE']]);
 
-// Paul starts one: it's just his name, the bar shows, and Alex sees it.
+// Pat starts one: it's just his name, the bar shows, and Alex sees it.
 await ev(`[...document.querySelectorAll('#menu button')].find((b) => b.firstChild.textContent === 'New Voice Chat').click()`);
-await until('Paul connected', () => ev(`!document.getElementById('voice-bar').hidden`), 30000);
-await until('Paul listed', async () => JSON.stringify(await rows(ev)) === '["Paul*"]');
-check('Paul’s voice chat is just his name', await rows(ev), ['Paul*']);
+await until('Pat connected', () => ev(`!document.getElementById('voice-bar').hidden`), 30000);
+await until('Pat listed', async () => JSON.stringify(await rows(ev)) === '["Pat*"]');
+check('Pat’s voice chat is just his name', await rows(ev), ['Pat*']);
 check('it’s under VOICE, not in TEXT', [await ev(`document.getElementById('voice-section').hidden`), await ev(`!!document.querySelector('#channels .row.voice')`)], [false, false]);
 const sfx = (evaluate) => evaluate(`window.__sfx.slice()`);
-check('Paul hears the join sound', (await sfx(ev)).at(-1), 'join');
-await until('Alex sees it', async () => JSON.stringify(await rows(alex.ev)) === '["Paul"]');
-check('Alex sees it', await rows(alex.ev), ['Paul']);
+check('Pat hears the join sound', (await sfx(ev)).at(-1), 'join');
+await until('Alex sees it', async () => JSON.stringify(await rows(alex.ev)) === '["Pat"]');
+check('Alex sees it', await rows(alex.ev), ['Pat']);
 
-// Alex clicks it: he's listed under Paul, on both pages, and gets Paul's audio.
+// Alex clicks it: he's listed under Pat, on both pages, and gets Pat's audio.
 await alex.ev(`document.querySelector('#voice-list .row.voice').click()`);
-await until('Alex joined', async () => JSON.stringify(await rows(alex.ev)) === '["Paul*","Alex*"]', 30000);
-await until('Paul sees Alex', async () => JSON.stringify(await rows(ev)) === '["Paul*","Alex*"]');
-check('Alex under Paul (Paul’s page)', await rows(ev), ['Paul*', 'Alex*']);
-await until('Paul hears Alex arrive', async () => (await sfx(ev)).at(-1) === 'otherJoin');
-check('sounds: Alex hears his join, Paul hears someone arrive', [(await sfx(alex.ev)).at(-1), (await sfx(ev)).at(-1)], ['join', 'otherJoin']);
+await until('Alex joined', async () => JSON.stringify(await rows(alex.ev)) === '["Pat*","Alex*"]', 30000);
+await until('Pat sees Alex', async () => JSON.stringify(await rows(ev)) === '["Pat*","Alex*"]');
+check('Alex under Pat (Pat’s page)', await rows(ev), ['Pat*', 'Alex*']);
+await until('Pat hears Alex arrive', async () => (await sfx(ev)).at(-1) === 'otherJoin');
+check('sounds: Alex hears his join, Pat hears someone arrive', [(await sfx(alex.ev)).at(-1), (await sfx(ev)).at(-1)], ['join', 'otherJoin']);
 check('people in a voice chat are light blurple (green while talking)', await ev(`[...document.querySelectorAll('#voice-list .row.voice .name')].map((n) => getComputedStyle(n).color).every((c) => ['rgb(201, 205, 251)', 'rgb(115, 201, 145)'].includes(c))`), true);
 check('only the first has the speaker icon', await ev(`[...document.querySelectorAll('#voice-list .row.voice')].map((r) => !!r.querySelector('.hash svg'))`), [true, false]);
 // Each has a ✕ on their own row only (Leave), at the row's right end.
 const leaveX = (evaluate) => evaluate(`[...document.querySelectorAll('#voice-list .row.voice')].map((r) => r.dataset.who + (r.querySelector('.voice-leave') ? ' ✕' + (r.lastElementChild.classList.contains('voice-leave') ? '' : ' (not last)') + ' ' + r.querySelector('.voice-leave').title : ''))`);
-check('a ✕ on your own row only', [await leaveX(ev), await leaveX(alex.ev)], [['Paul ✕ Leave the voice chat', 'Alex'], ['Paul', 'Alex ✕ Leave the voice chat']]);
-await until('Alex hears Paul', () => alex.ev(`document.querySelectorAll('body > div[hidden] audio').length >= 1`), 15000);
-await until('Paul hears Alex', () => ev(`document.querySelectorAll('body > div[hidden] audio').length >= 1`), 15000);
+check('a ✕ on your own row only', [await leaveX(ev), await leaveX(alex.ev)], [['Pat ✕ Leave the voice chat', 'Alex'], ['Pat', 'Alex ✕ Leave the voice chat']]);
+await until('Alex hears Pat', () => alex.ev(`document.querySelectorAll('body > div[hidden] audio').length >= 1`), 15000);
+await until('Pat hears Alex', () => ev(`document.querySelectorAll('body > div[hidden] audio').length >= 1`), 15000);
 check('each hears the other (an audio element each)', [await alex.ev(`document.querySelectorAll('body > div[hidden] audio').length`), await ev(`document.querySelectorAll('body > div[hidden] audio').length`)], [1, 1]);
-// With speech for a microphone (FAKE_AUDIO), the gate opens and Paul's name lights up on
+// With speech for a microphone (FAKE_AUDIO), the gate opens and Pat's name lights up on
 // Alex's page. (The default fake microphone only beeps, which the gate rightly keeps shut.)
 if (process.env.FAKE_AUDIO) {
-  await until('Paul speaking, seen by Alex', () => alex.ev(`!!document.querySelector('#voice-list .row.voice.speaking[data-who="Paul"]')`), 20000)
-    .then(() => check('speech opens the gate: Paul lights up for Alex', true, true), () => check('speech opens the gate: Paul lights up for Alex', false, true));
+  await until('Pat speaking, seen by Alex', () => alex.ev(`!!document.querySelector('#voice-list .row.voice.speaking[data-who="Pat"]')`), 20000)
+    .then(() => check('speech opens the gate: Pat lights up for Alex', true, true), () => check('speech opens the gate: Pat lights up for Alex', false, true));
 }
 await shot('in-voice');
 
@@ -263,7 +263,7 @@ const menuItems = (evaluate) => evaluate(`[...document.getElementById('menu').ch
 const closeMenu = (evaluate) => evaluate(`document.getElementById('menu').hidden = true`);
 await rightClick(ev, 'Alex');
 await settle(200);
-check('Paul (owner) right-clicks Alex', await menuItems(ev), ['Leave', '-', 'Message', '-', 'User Volume 100', 'Mute', '-', 'Mute for Everyone', 'Disconnect (red)']);
+check('Pat (owner) right-clicks Alex', await menuItems(ev), ['Leave', '-', 'Message', '-', 'User Volume 100', 'Mute', '-', 'Mute for Everyone', 'Disconnect (red)']);
 await shot('person-menu');
 // User Volume: squared (50% is a quarter); above 100% a Web Audio gain plays them louder; saved.
 const setVol = (v) => ev(`(() => { const i = document.querySelector('#menu .menu-volume input'); i.value = '${v}'; i.dispatchEvent(new Event('input')); })()`);
@@ -290,25 +290,25 @@ await setVol(100);
 await closeMenu(ev);
 check('back to normal', await levels(), { el: 1, muted: false, boost: null });
 // A member sees no admin items, and the hub refuses them anyway.
-await rightClick(alex.ev, 'Paul');
+await rightClick(alex.ev, 'Pat');
 await settle(200);
-check('Alex (member) right-clicks Paul', await menuItems(alex.ev), ['Leave', '-', 'Message', '-', 'User Volume 100', 'Mute']);
+check('Alex (member) right-clicks Pat', await menuItems(alex.ev), ['Leave', '-', 'Message', '-', 'User Volume 100', 'Mute']);
 await closeMenu(alex.ev);
 const vid = await ev(`[...document.querySelectorAll('#voice-list .row.voice')][0].dataset.voice`);
-check('a member can’t mute or disconnect', [(await api('POST', `/api/voice/${vid}/mute`, { name: 'Paul' }, 'Alex')).status,
-  (await api('POST', `/api/voice/${vid}/disconnect`, { name: 'Paul' }, 'Alex')).status], [403, 403]);
+check('a member can’t mute or disconnect', [(await api('POST', `/api/voice/${vid}/mute`, { name: 'Pat' }, 'Alex')).status,
+  (await api('POST', `/api/voice/${vid}/disconnect`, { name: 'Pat' }, 'Alex')).status], [403, 403]);
 // Mute for Everyone: Alex's microphone goes quiet; his page shows him muted and says why.
 await rightClick(ev, 'Alex');
 await settle(200);
 await ev(`[...document.querySelectorAll('#menu button')].find((b) => b.firstChild.textContent === 'Mute for Everyone').click()`);
-await until('Alex muted by Paul', async () => (await bar(alex.ev))[0] === 'Unmute', 10000).catch(() => {});
+await until('Alex muted by Pat', async () => (await bar(alex.ev))[0] === 'Unmute', 10000).catch(() => {});
 check('Alex muted for everyone: his bar, and a notice', [(await bar(alex.ev))[0], await alex.ev(`document.getElementById('toast').textContent`)],
   ['Unmute', 'An admin muted you for everyone. Unmute when you’re ready.']);
 await alex.ev(`document.querySelector('#voice-bar button[title="Unmute"]').click()`);
 await settle(300);
 check('and he can unmute himself', (await bar(alex.ev))[0], 'Mute');
 
-// Paul leaves: Alex moves to the top; then Paul (an admin, not in it) disconnects Alex and it's gone.
+// Pat leaves: Alex moves to the top; then Pat (an admin, not in it) disconnects Alex and it's gone.
 // With motion on for this once (lib.mjs turns it off): the bottom of the sidebar slides shut
 // with the bar still in it (style guide 5, Motion).
 await send('Emulation.setEmulatedMedia', { features: [] });
@@ -316,15 +316,15 @@ const foot = await frames(`document.querySelector('#voice-bar button[title="Leav
   `[document.getElementById('side-foot').hidden ? 0 : document.getElementById('side-foot').getBoundingClientRect().height, document.querySelectorAll('#voice-bar .voice-buttons button').length]`, 2000);
 await send('Emulation.setEmulatedMedia', { features: STILL });
 check('leaving: the sidebar’s bottom slides shut, the bar in it to the end', [foot.some(([h]) => h > 0.5 && h < foot[0][0] - 0.5), foot.filter(([h]) => h > 0).every(([, n]) => n === 4), foot.at(-1)[0]], [true, true, 0]);
-await until('Paul gone', async () => JSON.stringify(await rows(alex.ev)) === '["Alex*"]');
-await until('Paul’s page updated', async () => JSON.stringify(await rows(ev)) === '["Alex"]').catch(() => {});
+await until('Pat gone', async () => JSON.stringify(await rows(alex.ev)) === '["Alex*"]');
+await until('Pat’s page updated', async () => JSON.stringify(await rows(ev)) === '["Alex"]').catch(() => {});
 check('Alex is now the top (Alex’s page)', await rows(alex.ev), ['Alex*']);
-await until('Alex hears Paul go', async () => (await sfx(alex.ev)).at(-1) === 'otherLeave');
-check('sounds: Paul hears his leave, Alex hears someone go', [(await sfx(ev)).at(-1), (await sfx(alex.ev)).at(-1)], ['leave', 'otherLeave']);
-check('Paul’s page: Alex only, bar hidden, no ✕', [await rows(ev), await ev(`document.getElementById('voice-bar').hidden`), await leaveX(ev)], [['Alex'], true, ['Alex']]);
+await until('Alex hears Pat go', async () => (await sfx(alex.ev)).at(-1) === 'otherLeave');
+check('sounds: Pat hears his leave, Alex hears someone go', [(await sfx(ev)).at(-1), (await sfx(alex.ev)).at(-1)], ['leave', 'otherLeave']);
+check('Pat’s page: Alex only, bar hidden, no ✕', [await rows(ev), await ev(`document.getElementById('voice-bar').hidden`), await leaveX(ev)], [['Alex'], true, ['Alex']]);
 await rightClick(ev, 'Alex');
 await settle(200);
-check('Paul right-clicks Alex, not in it', await menuItems(ev), ['Join', '-', 'Message', '-', 'Mute for Everyone', 'Disconnect (red)']);
+check('Pat right-clicks Alex, not in it', await menuItems(ev), ['Join', '-', 'Message', '-', 'Mute for Everyone', 'Disconnect (red)']);
 await ev(`[...document.querySelectorAll('#menu button')].find((b) => b.firstChild.textContent === 'Disconnect').click()`);
 await settle(100);
 check('Disconnect asks first', await menuItems(ev), ['Join', '-', 'Message', '-', 'Mute for Everyone', 'Disconnect? Click again (red)']);
@@ -333,19 +333,19 @@ await until('it ends', async () => (await rows(ev)).length === 0);
 check('the last voice chat gone: VOICE stays, empty', [await ev(`document.getElementById('voice-section').hidden`), await ev(`document.getElementById('voice-list').children.length`)], [false, 0]);
 check('the last one out (disconnected) ends it', [await rows(ev), await alex.ev(`document.getElementById('voice-bar').hidden`), await alex.ev(`document.getElementById('toast').textContent`)],
   [[], true, 'An admin disconnected you from the voice chat.']);
-check('both in the admin log', (await (await api('GET', '/api/admin/log', undefined, 'Paul')).json()).slice(0, 2).map((e) => e.action), ['voice-disconnect', 'voice-mute']);
+check('both in the admin log', (await (await api('GET', '/api/admin/log', undefined, 'Pat')).json()).slice(0, 2).map((e) => e.action), ['voice-disconnect', 'voice-mute']);
 
-// A private voice chat Alex starts with Steve: Paul (an admin) never sees it.
+// A private voice chat Alex starts with Steve: Pat (an admin) never sees it.
 await alex.ev(`(async () => { const r = await fetch('/api/voice', { method: 'POST', body: JSON.stringify({ private: true, invite: ['Steve'] }) }); return r.status; })()`);
 const listed = async (who) => (await (await api('GET', '/api/voice', undefined, who)).json()).chats.length;
-check('private: Alex and Steve see it, Paul doesn’t', [await listed('Alex'), await listed('Steve'), await listed('Paul')], [1, 1, 0]);
+check('private: Alex and Steve see it, Pat doesn’t', [await listed('Alex'), await listed('Steve'), await listed('Pat')], [1, 1, 0]);
 
 // The limit: with 3, the menu entries are greyed out.
 // (Each person can hold one empty voice chat, so it takes three people; the refusal of a
 // fourth is in the Go test.)
 await api('POST', '/api/voice', {}, 'Steve');
 await api('POST', '/api/voice', {}, 'Steve');
-await api('POST', '/api/voice', {}, 'Paul');
+await api('POST', '/api/voice', {}, 'Pat');
 check('starting again replaces your empty one: three in all', await listed('Steve'), 3);
 await ev(`document.dispatchEvent(new MouseEvent('mousedown'))`);
 await settle(300);

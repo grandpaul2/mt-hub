@@ -31,11 +31,11 @@ func TestStreams(t *testing.T) {
 	ws, _ := workspace.Open(filepath.Join(dir, "workspace"))
 	cs, _ := chat.Open(filepath.Join(dir, "chat"))
 	ls, _ := preview.Open(filepath.Join(dir, "previews"))
-	names := []string{"Paul", "Steve", "Alex", "Eve", "Ann"}
+	names := []string{"Pat", "Steve", "Alex", "Eve", "Ann"}
 	for _, n := range names {
 		us.SetPassword(n, n+"-password")
 	}
-	us.Change("Paul", func(u *auth.User) { u.Admin = true })
+	us.Change("Pat", func(u *auth.User) { u.Admin = true })
 	us.Change("Ann", func(u *auth.User) { u.Admin = true })
 	start := func() (*httptest.Server, map[string]string) {
 		srv := httptest.NewServer(New(us, ws, cs, ls, filepath.Join(dir, "thumbs"), fstest.MapFS{}, nil))
@@ -200,17 +200,17 @@ func TestStreams(t *testing.T) {
 	if got := live(); strings.Join(got, ",") != "Alex:,Steve:,Eve:" {
 		t.Errorf("three streams: %v", got)
 	}
-	if !list("Paul").Full || list("Alex").Full {
-		t.Errorf("full: Paul %v (want true), Alex %v (want false: his own doesn't count)", list("Paul").Full, list("Alex").Full)
+	if !list("Pat").Full || list("Alex").Full {
+		t.Errorf("full: Pat %v (want true), Alex %v (want false: his own doesn't count)", list("Pat").Full, list("Alex").Full)
 	}
-	c, _, _ = startStream("Paul")
+	c, _, _ = startStream("Pat")
 	want("a fourth is refused", c, 409)
 
 	// Stopping: a member can't stop someone else's; an admin can, below them, logged.
 	c, _ = call("Eve", "POST", "/api/streams/"+steve+"/stop", "")
 	want("Eve can't stop Steve's", c, 403)
-	c, _ = call("Paul", "POST", "/api/streams/"+steve+"/stop", "")
-	want("Paul (admin) stops Steve's", c, 204)
+	c, _ = call("Pat", "POST", "/api/streams/"+steve+"/stop", "")
+	want("Pat (admin) stops Steve's", c, 204)
 	c, _ = call("Ann", "POST", "/api/streams/"+eve+"/stop", "")
 	want("Ann (admin) stops Eve's", c, 204)
 	if log, _ := us.ReadLog(10); len(log) == 0 || log[0].Action != "stream-stop" || log[0].User != "Eve" {
@@ -234,14 +234,14 @@ func TestStreams(t *testing.T) {
 	if got := live(); len(got) != 0 {
 		t.Errorf("after the share closed: %v", got)
 	}
-	_, p1, _ := startStream("Paul")
-	hook("track_published", p1, "Paul", "SCREEN_SHARE")
-	hook("participant_left", p1, "Paul", "")
+	_, p1, _ := startStream("Pat")
+	hook("track_published", p1, "Pat", "SCREEN_SHARE")
+	hook("participant_left", p1, "Pat", "")
 	if got := live(); len(got) != 0 {
-		t.Errorf("after Paul left: %v", got)
+		t.Errorf("after Pat left: %v", got)
 	}
-	c, _ = call("Paul", "POST", "/api/streams/"+alex2+"/stop", "")
-	want("Paul stops his own, own", c, 204)
+	c, _ = call("Pat", "POST", "/api/streams/"+alex2+"/stop", "")
+	want("Pat stops his own, own", c, 204)
 }
 
 // Every 20 seconds the hub asks LiveKit: a stream whose picture never came ends after a

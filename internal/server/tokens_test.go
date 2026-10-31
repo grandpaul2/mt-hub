@@ -25,12 +25,12 @@ func TestTokens(t *testing.T) {
 	ws, _ := workspace.Open(filepath.Join(dir, "workspace"))
 	cs, _ := chat.Open(filepath.Join(dir, "chat"))
 	ls, _ := preview.Open(filepath.Join(dir, "previews"))
-	// Paul owns the hub; Steve and Alex are members.
-	for _, n := range []string{"Paul", "Steve", "Alex"} {
+	// Pat owns the hub; Steve and Alex are members.
+	for _, n := range []string{"Pat", "Steve", "Alex"} {
 		us.SetPassword(n, n+"-password")
 	}
-	us.Change("Paul", func(u *auth.User) { u.Owner, u.Admin = true, true })
-	a := workspace.Author{Name: "Paul"}
+	us.Change("Pat", func(u *auth.User) { u.Owner, u.Admin = true, true })
+	a := workspace.Author{Name: "Pat"}
 	ws.Write("schematics/Gold Farm/gold.litematic", []byte("schem"), "", a)
 	ws.Write("commands/botspawner.md", []byte("# Gold Farm"), "", a)
 	ws.Write("notes.md", []byte("secret plans"), "", a)
@@ -38,7 +38,7 @@ func TestTokens(t *testing.T) {
 	defer srv.Close()
 
 	cookie := map[string]string{}
-	for _, n := range []string{"Paul", "Steve", "Alex"} {
+	for _, n := range []string{"Pat", "Steve", "Alex"} {
 		cookie[n], _ = us.Login(n, n+"-password")
 	}
 	// with is "cookie:<name>" or "token:<token>".
@@ -116,22 +116,22 @@ func TestTokens(t *testing.T) {
 	// the server gives, numbered when taken; the poster must look like a Minecraft name;
 	// anything but a PNG is refused.
 	png := "\x89PNG\r\n\x1a\nfake picture"
-	code, body = call(survival, "POST", "/api/screenshots?name=2026-10-03_21.04.11.png&poster=grandpaul", strings.NewReader(png))
+	code, body = call(survival, "POST", "/api/screenshots?name=2026-10-03_21.04.11.png&poster=patmc", strings.NewReader(png))
 	want("screenshot", code, 200)
-	if !strings.Contains(body, `"screenshots/2026-10-03 21.04.11 grandpaul.png"`) {
+	if !strings.Contains(body, `"screenshots/2026-10-03 21.04.11 patmc.png"`) {
 		t.Errorf("screenshot path = %s", body)
 	}
-	code, body = call(survival, "POST", "/api/screenshots?name=2026-10-03_21.04.11_2.png&poster=grandpaul", strings.NewReader(png))
+	code, body = call(survival, "POST", "/api/screenshots?name=2026-10-03_21.04.11_2.png&poster=patmc", strings.NewReader(png))
 	want("screenshot, same second", code, 200)
-	if !strings.Contains(body, `"screenshots/2026-10-03 21.04.11 grandpaul (2).png"`) {
+	if !strings.Contains(body, `"screenshots/2026-10-03 21.04.11 patmc (2).png"`) {
 		t.Errorf("second screenshot path = %s", body)
 	}
-	if data, err := ws.Read("screenshots/2026-10-03 21.04.11 grandpaul.png", ""); err != nil || string(data) != png {
+	if data, err := ws.Read("screenshots/2026-10-03 21.04.11 patmc.png", ""); err != nil || string(data) != png {
 		t.Errorf("screenshot saved: %q %v", data, err)
 	}
 	code, _ = call(survival, "POST", "/api/screenshots?name=../../notes.png&poster=Alex", strings.NewReader(png))
 	want("screenshot with an odd name (saved under now)", code, 200)
-	for _, poster := range []string{"", "../Paul", "Steve Smith", "a_name_far_too_long"} {
+	for _, poster := range []string{"", "../Pat", "Steve Smith", "a_name_far_too_long"} {
 		code, _ = call(survival, "POST", "/api/screenshots?poster="+url.QueryEscape(poster), strings.NewReader(png))
 		want("poster "+strconv.Quote(poster), code, 400)
 	}
@@ -151,7 +151,7 @@ func TestTokens(t *testing.T) {
 	tokenShotBytes = oldDay
 
 	// From the page, the poster is you, whatever ?poster= says.
-	code, body = call("cookie:Steve", "POST", "/api/screenshots?name=2026-10-03_22.00.00.png&poster=Paul", strings.NewReader(png))
+	code, body = call("cookie:Steve", "POST", "/api/screenshots?name=2026-10-03_22.00.00.png&poster=Pat", strings.NewReader(png))
 	if code != 200 || !strings.Contains(body, `"screenshots/2026-10-03 22.00.00 Steve.png"`) {
 		t.Errorf("page screenshot = %d %s", code, body)
 	}
@@ -197,7 +197,7 @@ func TestTokens(t *testing.T) {
 	}
 	code, _ = call(survival, "GET", "/api/me", nil)
 	want("revoked", code, 401)
-	code, _ = call("cookie:Paul", "POST", "/api/tokens", strings.NewReader(`{"label":"desktop"}`))
+	code, _ = call("cookie:Pat", "POST", "/api/tokens", strings.NewReader(`{"label":"desktop"}`))
 	if code == 200 {
 		t.Error("the page can still make a token")
 	}
@@ -206,7 +206,7 @@ func TestTokens(t *testing.T) {
 	}
 }
 
-// The release token (S60): posts, edits and deletes its own messages in #mod-discussion as
+// The release token: posts, edits and deletes its own messages in #mod-discussion as
 // MacroTech, and nothing else; nobody can take the name for an account.
 func TestReleaseToken(t *testing.T) {
 	dir := t.TempDir()
@@ -214,7 +214,7 @@ func TestReleaseToken(t *testing.T) {
 	ws, _ := workspace.Open(filepath.Join(dir, "workspace"))
 	cs, _ := chat.Open(filepath.Join(dir, "chat"))
 	ls, _ := preview.Open(filepath.Join(dir, "previews"))
-	us.SetPassword("Paul", "Paul-password")
+	us.SetPassword("Pat", "Pat-password")
 	cs.CreateChannel(ReleaseChat)
 	cs.CreateChannel("general")
 	srv := httptest.NewServer(New(us, ws, cs, ls, filepath.Join(dir, "thumbs"), fstest.MapFS{}, nil))
@@ -250,15 +250,15 @@ func TestReleaseToken(t *testing.T) {
 	if code != 200 || !strings.Contains(body, "1.3.2") {
 		t.Errorf("edit = %d %s", code, body)
 	}
-	// Paul's message: the token can't touch it.
-	pm, _ := cs.Send(ReleaseChat, "Paul", chat.Draft{Text: "nice"})
+	// Pat's message: the token can't touch it.
+	pm, _ := cs.Send(ReleaseChat, "Pat", chat.Draft{Text: "nice"})
 	code, _ = call("PATCH", "/api/channels/mod-discussion/messages/"+pm.ID, `{"text":"hacked"}`)
 	if code == 200 {
-		t.Errorf("edited Paul's message")
+		t.Errorf("edited Pat's message")
 	}
 	code, _ = call("DELETE", "/api/channels/mod-discussion/messages/"+pm.ID, "")
 	if code == 200 {
-		t.Errorf("deleted Paul's message")
+		t.Errorf("deleted Pat's message")
 	}
 	code, _ = call("DELETE", "/api/channels/mod-discussion/messages/"+id, "")
 	if code != 200 {

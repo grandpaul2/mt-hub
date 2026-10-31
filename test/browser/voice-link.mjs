@@ -1,8 +1,8 @@
 // #voice-link, end to end (docs/voice/svc/hub-link-spec.md): a local LiveKit, the real relay
 // (cmd/voicelink) and the real bridge (cmd/voicebridge), both built here, and a stand-in game
-// server speaking the relay's protocol. Paul's page: the voice chat is always listed, first,
+// server speaking the relay's protocol. Pat's page: the voice chat is always listed, first,
 // with a note until the bridge is in it; a player in the group in game is listed under it
-// with their server's tag and lights up while they talk; the game is told when Paul joins;
+// with their server's tag and lights up while they talk; the game is told when Pat joins;
 // the player's menu; the player leaving; the bridge going.
 import { execFileSync, spawn } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
@@ -93,7 +93,7 @@ writeFileSync(join(DATA, 'voice.json'), JSON.stringify({ url: `ws://127.0.0.1:${
 await send('Page.reload');
 await until('the voice chat listed', async () => (await rows()).length > 0);
 check('#voice-link is listed with nobody in it, and says the game servers aren’t connected', await rows(), ['#voice-link', '(Not connected to the game servers)']);
-check('it is not one of the three', await (async () => { const v = await (await api('GET', '/api/voice', undefined, 'Paul')).json(); return [v.chats.map((c) => c.id), v.full, v.chats[0].link, v.chats[0].linked ?? false]; })(), [['voice-link'], false, true, false]);
+check('it is not one of the three', await (async () => { const v = await (await api('GET', '/api/voice', undefined, 'Pat')).json(); return [v.chats.map((c) => c.id), v.full, v.chats[0].link, v.chats[0].linked ?? false]; })(), [['voice-link'], false, true, false]);
 
 // The bridge starts: the note goes. Steve joins the group in game: listed, with his server's tag.
 const bridge = run(join(DATA, 'voicebridge'), ['-config', join(DATA, 'voicebridge.json')]);
@@ -104,13 +104,13 @@ await until('Steve listed', async () => (await rows()).length === 2, 20000);
 check('a player in the group in game is listed under it with the server’s tag', await rows(), ['#voice-link', '  Steve [SMP]']);
 check('the game is told nobody is in from the hub', game.hub, []);
 
-// Paul joins from the hub: the game is told; Steve talks: his name lights up.
+// Pat joins from the hub: the game is told; Steve talks: his name lights up.
 await ev(`document.querySelector('#voice-list .row.voice.link').click()`);
-await until('Paul in the voice chat', () => ev(`!document.getElementById('voice-bar').hidden`), 20000);
-await until('Paul listed', async () => (await rows()).includes('  Paul*'), 15000);
-check('Paul is in it, after the player', await rows(), ['#voice-link*', '  Steve [SMP]*', '  Paul*']);
+await until('Pat in the voice chat', () => ev(`!document.getElementById('voice-bar').hidden`), 20000);
+await until('Pat listed', async () => (await rows()).includes('  Pat*'), 15000);
+check('Pat is in it, after the player', await rows(), ['#voice-link*', '  Steve [SMP]*', '  Pat*']);
 await until('the game told', async () => game.hub?.length === 1);
-check('the game is told Paul joined from the hub', game.hub, ['Paul']);
+check('the game is told Pat joined from the hub', game.hub, ['Pat']);
 check('the bar names the voice chat', await ev(`document.querySelector('#voice-bar .voice-where .muted').textContent`), 'voice-link');
 const talking = talk(3000);
 const lit = await until('Steve’s name lit', async () => (await rows()).includes('  Steve [SMP]* (talking)'), 4000);
@@ -126,20 +126,20 @@ check('people under voice-link: blurple and indented; its name is not', await ev
     people.every((r) => r.querySelector('.name').getBoundingClientRect().left - head.querySelector('.name').getBoundingClientRect().left === 16)]; })()`), [true, true, false, true]);
 check('and goes out when they stop', (await rows()).includes('  Steve [SMP]*'), true);
 
-// A player is not a hub account: their volume for you, and nothing else. Paul's own row: Leave.
+// A player is not a hub account: their volume for you, and nothing else. Pat's own row: Leave.
 check('right-click on the player: Leave, User Volume, Mute', await menuOf('link:survival:Steve'), ['Leave', '-', 'User Volume', 'Mute']);
-check('an admin cannot disconnect or mute a player through the hub', [(await api('POST', '/api/voice/voice-link/disconnect', { name: 'link:survival:Steve' }, 'Paul')).status, (await api('POST', '/api/voice/voice-link/mute', { name: 'link:survival:Steve' }, 'Paul')).status], [404, 404]);
+check('an admin cannot disconnect or mute a player through the hub', [(await api('POST', '/api/voice/voice-link/disconnect', { name: 'link:survival:Steve' }, 'Pat')).status, (await api('POST', '/api/voice/voice-link/mute', { name: 'link:survival:Steve' }, 'Pat')).status], [404, 404]);
 
-// Steve leaves the group; then the bridge goes: Paul stays, the note is back.
+// Steve leaves the group; then the bridge goes: Pat stays, the note is back.
 roster(false);
 await until('Steve gone', async () => !(await rows()).some((r) => r.includes('Steve')), 20000);
-// (Paul's own talking mark is the fake microphone's beeps, lit or not by chance: not this check's.)
-check('the player leaving the group leaves the list', (await rows()).map((r) => r.replace(' (talking)', '')), ['#voice-link*', '  Paul*']);
+// (Pat's own talking mark is the fake microphone's beeps, lit or not by chance: not this check's.)
+check('the player leaving the group leaves the list', (await rows()).map((r) => r.replace(' (talking)', '')), ['#voice-link*', '  Pat*']);
 bridge.kill('SIGTERM');
 await until('the note back', async () => (await rows()).some((r) => r.startsWith('(')), 30000);
-check('the bridge gone: still a voice chat, and it says so', await rows(), ['#voice-link*', '(Not connected to the game servers)', '  Paul*']);
+check('the bridge gone: still a voice chat, and it says so', await rows(), ['#voice-link*', '(Not connected to the game servers)', '  Pat*']);
 await ev(`[...document.querySelectorAll('#voice-bar button')].at(-1).click()`);
-await until('Paul out', async () => !(await rows()).some((r) => r.includes('Paul')), 15000);
+await until('Pat out', async () => !(await rows()).some((r) => r.includes('Pat')), 15000);
 check('everyone gone: #voice-link is still listed', (await rows())[0], '#voice-link');
 
 await done();

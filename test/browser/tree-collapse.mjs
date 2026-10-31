@@ -1,4 +1,4 @@
-// The tree closes the folders it opened itself (Paul, S98). Folders opened by hand (chevron, →,
+// The tree closes the folders it opened itself. Folders opened by hand (chevron, →,
 // Enter) stay open and are kept per browser; folders the hub opened to show where the thing
 // in the main panel is close once it shows something not inside them (another file or
 // folder, a chat). Closing one of the hub's by hand and opening it again makes it yours. A
@@ -71,7 +71,7 @@ await ev(`document.getElementById('files-head').click()`);
 await settle(700);
 check('Files, the top folder: the hub\'s close', [await ev(`location.hash`), await open()], ['#folder=', []]);
 
-// Review of S98: a chat between two looks at the same open file keeps its path; two Open
+// Found in review: a chat between two looks at the same open file keeps its path; two Open
 // folder links to one folder don't hold it open after; a #folder= address (and a reload)
 // opens the path to the folder.
 await to('#' + ERC);

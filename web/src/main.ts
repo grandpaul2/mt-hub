@@ -75,7 +75,7 @@ const CHEVRON = '<svg viewBox="0 0 16 16"><path d="M6 3.5 10.5 8 6 12.5" fill="n
 
 let entries: Entry[] = [];
 let treeJSON = '';
-// Open folders, of two kinds (Paul, S98). expanded: yours, opened by hand (chevron, →, Enter),
+// Open folders, of two kinds. expanded: yours, opened by hand (chevron, →, Enter),
 // open until you close them, and the only ones kept per browser. auto: the hub's, opened to
 // show where the thing in the main panel is (expandParents); they close when it shows
 // something not inside them (pruneAuto). hovered: opened by hovering a drag over them, shut

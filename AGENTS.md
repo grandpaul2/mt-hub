@@ -122,7 +122,12 @@ PATH (`CHROMIUM=google-chrome` uses another browser).
   suites fail on anything it blocks. A new dependency is fine if it bundles into the page
   that way; mention it in the pull request.
 - **Nothing private goes in**: no tokens, addresses, home-folder paths, or real names of people
-  in code, tests, docs or commit messages. Use the stand-in names the tests use.
+  in code, tests, docs or commit messages. Use the stand-in names the tests use (Pat, Alex,
+  Steve, Peggy, Quinn ...).
+- **Write as the project, not as a person.** State a rule as the rule, with its reason in a
+  clause. No names, quotes, "X decided", decision numbers or session and date stamps, in docs,
+  code comments, test labels or commit messages; say "the maintainer" or "a member" when a role
+  matters. A comment says why, never who.
 - **No GitHub Actions or other CI.** Nothing on GitHub builds or tests a pull request; the
   maintainer does, on their own machine.
 

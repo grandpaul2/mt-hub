@@ -19,7 +19,7 @@ func TestReadRevIsNotAnOption(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := w.Write("a.md", []byte("a"), "", Author{"paul"}); err != nil {
+	if _, err := w.Write("a.md", []byte("a"), "", Author{"pat"}); err != nil {
 		t.Fatal(err)
 	}
 	for _, rev := range []string{"--output=pwn", "HEAD", "-p"} {
@@ -39,10 +39,10 @@ func TestWildcardNamesAreLiteral(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	paul := Author{"paul"}
+	pat := Author{"pat"}
 	revs := map[string]string{}
 	for _, p := range []string{"what?.md", "whatx.md", "*.md", "keep.md", "notes/a.md", "[ab].md", "a.md", "b.md"} {
-		if revs[p], err = w.Write(p, []byte(p), "", paul); err != nil {
+		if revs[p], err = w.Write(p, []byte(p), "", pat); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -53,7 +53,7 @@ func TestWildcardNamesAreLiteral(t *testing.T) {
 		if _, rev, _ := w.Stat(p); rev != revs[p] {
 			t.Errorf("rev of %s = %s, want its own %s", p, rev, revs[p])
 		}
-		if _, err := w.Delete(p, revs[p], paul); err != nil {
+		if _, err := w.Delete(p, revs[p], pat); err != nil {
 			t.Fatalf("delete %s: %v", p, err)
 		}
 	}
@@ -71,34 +71,34 @@ func TestGitignoreHasNoSay(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	paul := Author{"paul"}
+	pat := Author{"pat"}
 	for _, p := range []string{".gitignore", "proj/.gitignore"} {
-		if _, err := w.Write(p, []byte("*\n"), "", paul); err != nil {
+		if _, err := w.Write(p, []byte("*\n"), "", pat); err != nil {
 			t.Fatal(err)
 		}
 	}
 	for _, p := range []string{"proj/a.jar", "b.md", ":x.md"} {
-		rev, err := w.Write(p, []byte(p), "", paul)
+		rev, err := w.Write(p, []byte(p), "", pat)
 		if err != nil {
 			t.Fatalf("write %s: %v", p, err)
 		}
 		if h, _ := w.History(p); len(h) != 1 {
 			t.Errorf("%s: %d commits, want 1", p, len(h))
 		}
-		if _, err := w.Delete(p, rev, paul); err != nil {
+		if _, err := w.Delete(p, rev, pat); err != nil {
 			t.Errorf("delete %s: %v", p, err)
 		}
 	}
-	if _, err := w.Write("c.md", []byte("c"), "", paul); err != nil {
+	if _, err := w.Write("c.md", []byte("c"), "", pat); err != nil {
 		t.Fatal(err)
 	}
-	if err := w.Move("c.md", "proj/c.md", paul); err != nil {
+	if err := w.Move("c.md", "proj/c.md", pat); err != nil {
 		t.Fatal(err)
 	}
 	if h, _ := w.History("proj/c.md"); len(h) != 2 {
 		t.Errorf("moved under a .gitignore: %d commits, want 2 (add and move)", len(h))
 	}
-	if err := w.Move("proj/c.md", LargeDir+"/c.md", paul); err != nil {
+	if err := w.Move("proj/c.md", LargeDir+"/c.md", pat); err != nil {
 		t.Fatal(err)
 	}
 	if out, _ := w.git(nil, "ls-files", LargeDir); len(out) != 0 {
@@ -111,9 +111,9 @@ func TestWriteReadHistoryConflict(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	paul, emp := Author{"paul"}, Author{"eldridge"}
+	pat, emp := Author{"pat"}, Author{"eldridge"}
 
-	r1, err := w.Write("configs/a.json", []byte("{}"), "", paul)
+	r1, err := w.Write("configs/a.json", []byte("{}"), "", pat)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,11 +126,11 @@ func TestWriteReadHistoryConflict(t *testing.T) {
 		t.Fatal(err)
 	}
 	// A stale base is refused and reports the current revision.
-	if _, err := w.Write("configs/a.json", []byte("stale"), r1, paul); !isConflict(err, r2) {
+	if _, err := w.Write("configs/a.json", []byte("stale"), r1, pat); !isConflict(err, r2) {
 		t.Fatalf("want conflict at %s, got %v", r2, err)
 	}
 	// Saving identical content keeps the revision.
-	if r, err := w.Write("configs/a.json", []byte(`{"a":1}`), r2, paul); err != nil || r != r2 {
+	if r, err := w.Write("configs/a.json", []byte(`{"a":1}`), r2, pat); err != nil || r != r2 {
 		t.Fatalf("no-op save: rev %s err %v", r, err)
 	}
 
@@ -138,14 +138,14 @@ func TestWriteReadHistoryConflict(t *testing.T) {
 		t.Fatalf("read at r1: %q", b)
 	}
 	h, _ := w.History("configs/a.json")
-	if len(h) != 2 || h[0].Author != "eldridge" || h[1].Author != "paul" {
+	if len(h) != 2 || h[0].Author != "eldridge" || h[1].Author != "pat" {
 		t.Fatalf("history: %+v", h)
 	}
 
-	if _, err := w.Delete("configs/a.json", r1, paul); !isConflict(err, r2) {
+	if _, err := w.Delete("configs/a.json", r1, pat); !isConflict(err, r2) {
 		t.Fatalf("stale delete: %v", err)
 	}
-	if _, err := w.Delete("configs/a.json", r2, paul); err != nil {
+	if _, err := w.Delete("configs/a.json", r2, pat); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := w.Read("configs/a.json", ""); !errors.Is(err, ErrNotFound) {
@@ -183,7 +183,7 @@ func isConflict(err error, cur string) bool {
 func TestDirectEditsAreCommitted(t *testing.T) {
 	dir := t.TempDir()
 	w, _ := Open(dir)
-	r1, _ := w.Write("a.txt", []byte("v1"), "", Author{"paul"})
+	r1, _ := w.Write("a.txt", []byte("v1"), "", Author{"pat"})
 
 	// Someone edits a.txt and creates b/c.txt over ssh, without committing.
 	os.WriteFile(filepath.Join(dir, "a.txt"), []byte("edited on the box"), 0o644)
@@ -217,7 +217,7 @@ func mustRev(t *testing.T, w *Workspace, p string) string {
 
 func TestLargeFilesStayOutOfGit(t *testing.T) {
 	w, _ := Open(t.TempDir())
-	r1, err := w.Write("large/world.zip", []byte("v1"), "", Author{"paul"})
+	r1, err := w.Write("large/world.zip", []byte("v1"), "", Author{"pat"})
 	if err != nil || !strings.HasPrefix(r1, "L") {
 		t.Fatalf("write: %q %v", r1, err)
 	}
@@ -237,14 +237,14 @@ func TestLargeFilesStayOutOfGit(t *testing.T) {
 		t.Fatalf("replace: %q %v", r2, err)
 	}
 	// A normal file next to it still commits, and large/ never shows up in git.
-	w.Write("notes.txt", []byte("hi"), "", Author{"paul"})
+	w.Write("notes.txt", []byte("hi"), "", Author{"pat"})
 	if out, _ := w.git(nil, "ls-files"); string(out) != "notes.txt\n" {
 		t.Fatalf("tracked: %q", out)
 	}
-	if _, err := w.Delete("large/world.zip", r1, Author{"paul"}); !isConflict(err, r2) {
+	if _, err := w.Delete("large/world.zip", r1, Author{"pat"}); !isConflict(err, r2) {
 		t.Fatalf("stale delete: %v", err)
 	}
-	if _, err := w.Delete("large/world.zip", r2, Author{"paul"}); err != nil {
+	if _, err := w.Delete("large/world.zip", r2, Author{"pat"}); err != nil {
 		t.Fatal(err)
 	}
 	tree, _ := w.Tree()
@@ -257,12 +257,12 @@ func TestLargeFilesStayOutOfGit(t *testing.T) {
 
 func TestMoveAndDeleteDir(t *testing.T) {
 	w, _ := Open(t.TempDir())
-	paul := Author{"paul"}
-	w.Write("docs/a.md", []byte("a"), "", paul)
+	pat := Author{"pat"}
+	w.Write("docs/a.md", []byte("a"), "", pat)
 	w.Write("docs/sub/b.md", []byte("b"), "", Author{"eldridge"})
 
 	// A file rename keeps its history (git follows it).
-	if err := w.Move("docs/a.md", "docs/renamed.md", paul); err != nil {
+	if err := w.Move("docs/a.md", "docs/renamed.md", pat); err != nil {
 		t.Fatal(err)
 	}
 	h, _ := w.History("docs/renamed.md")
@@ -274,7 +274,7 @@ func TestMoveAndDeleteDir(t *testing.T) {
 		t.Fatalf("old version: %q %v", b, err)
 	}
 	// Folder move; the emptied parent goes away, like git rm.
-	if err := w.Move("docs/sub", "notes/sub", paul); err != nil {
+	if err := w.Move("docs/sub", "notes/sub", pat); err != nil {
 		t.Fatal(err)
 	}
 	if b, err := w.Read("notes/sub/b.md", ""); err != nil || string(b) != "b" {
@@ -283,18 +283,18 @@ func TestMoveAndDeleteDir(t *testing.T) {
 	if out, _ := w.git(nil, "ls-files"); string(out) != "docs/renamed.md\nnotes/sub/b.md\n" {
 		t.Fatalf("tracked: %q", out)
 	}
-	if err := w.Move("notes/sub/b.md", "docs/renamed.md", paul); !errors.Is(err, ErrExists) {
+	if err := w.Move("notes/sub/b.md", "docs/renamed.md", pat); !errors.Is(err, ErrExists) {
 		t.Fatalf("move onto existing: %v", err)
 	}
-	if err := w.Move("notes", "notes/sub/x", paul); !errors.Is(err, ErrBadPath) {
+	if err := w.Move("notes", "notes/sub/x", pat); !errors.Is(err, ErrBadPath) {
 		t.Fatalf("move into itself: %v", err)
 	}
-	if err := w.Move("large", "big", paul); !errors.Is(err, ErrBadPath) {
+	if err := w.Move("large", "big", pat); !errors.Is(err, ErrBadPath) {
 		t.Fatalf("move large/: %v", err)
 	}
 
 	// Into large/ leaves git; back out returns to it, unless a file is over the limit.
-	if err := w.Move("docs/renamed.md", "large/renamed.md", paul); err != nil {
+	if err := w.Move("docs/renamed.md", "large/renamed.md", pat); err != nil {
 		t.Fatal(err)
 	}
 	if out, _ := w.git(nil, "ls-files"); string(out) != "notes/sub/b.md\n" {
@@ -305,32 +305,32 @@ func TestMoveAndDeleteDir(t *testing.T) {
 	}
 	os.WriteFile(w.abs("large/huge.bin"), make([]byte, MaxVersioned+1), 0o644)
 	var refused *RefusedError
-	if err := w.Move("large/huge.bin", "huge.bin", paul); !errors.As(err, &refused) {
+	if err := w.Move("large/huge.bin", "huge.bin", pat); !errors.As(err, &refused) {
 		t.Fatalf("huge file out of large/: %v", err)
 	}
-	if err := w.Move("large/renamed.md", "back.md", paul); err != nil {
+	if err := w.Move("large/renamed.md", "back.md", pat); err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := w.DeleteDir("notes", paul); err != nil {
+	if _, err := w.DeleteDir("notes", pat); err != nil {
 		t.Fatal(err)
 	}
 	if out, _ := w.git(nil, "ls-files"); string(out) != "back.md\n" {
 		t.Fatalf("tracked after folder delete: %q", out)
 	}
-	if _, err := w.DeleteDir("large", paul); !errors.Is(err, ErrBadPath) {
+	if _, err := w.DeleteDir("large", pat); !errors.Is(err, ErrBadPath) {
 		t.Fatalf("delete large/: %v", err)
 	}
 }
 
 func TestMovesMkdirZip(t *testing.T) {
 	w, _ := Open(t.TempDir())
-	paul := Author{"paul"}
-	w.Write("notes/empty.md", nil, "", paul) // git can't see renames of empty files; we still can
-	w.Write("large/world.zip", []byte("w"), "", paul)
+	pat := Author{"pat"}
+	w.Write("notes/empty.md", nil, "", pat) // git can't see renames of empty files; we still can
+	w.Write("large/world.zip", []byte("w"), "", pat)
 	steps := [][2]string{{"notes/empty.md", "notes/todo.md"}, {"notes", "docs/notes"}, {"large/world.zip", "large/old/world.zip"}}
 	for _, s := range steps {
-		if err := w.Move(s[0], s[1], paul); err != nil {
+		if err := w.Move(s[0], s[1], pat); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -339,7 +339,7 @@ func TestMovesMkdirZip(t *testing.T) {
 		t.Fatalf("moves: %+v %v", moves, err)
 	}
 	for i, s := range steps {
-		if moves[i].From != s[0] || moves[i].To != s[1] || moves[i].Author != "paul" {
+		if moves[i].From != s[0] || moves[i].To != s[1] || moves[i].Author != "pat" {
 			t.Fatalf("move %d: %+v", i, moves[i])
 		}
 	}
@@ -386,7 +386,7 @@ func TestMediaReserved(t *testing.T) {
 	if _, err := os.Stat(w.abs("media")); err == nil {
 		t.Fatal("Open made media/")
 	}
-	a := Author{"paul"}
+	a := Author{"pat"}
 	var refused *RefusedError
 	if _, err := w.Write("media/general/farm.png", []byte("png"), "", a); !errors.As(err, &refused) {
 		t.Fatalf("write: %v", err)
@@ -410,15 +410,15 @@ func TestMoveRecordAnyName(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	paul := Author{"paul"}
-	if _, err := w.Write("x → y.md", []byte("x"), "", paul); err != nil {
+	pat := Author{"pat"}
+	if _, err := w.Write("x → y.md", []byte("x"), "", pat); err != nil {
 		t.Fatal(err)
 	}
-	if err := w.Move("x → y.md", "p → q.md", paul); err != nil {
+	if err := w.Move("x → y.md", "p → q.md", pat); err != nil {
 		t.Fatal(err)
 	}
 	moves, _ := w.Moves()
-	if len(moves) != 1 || moves[0] != (Moved{"x → y.md", "p → q.md", "paul"}) {
+	if len(moves) != 1 || moves[0] != (Moved{"x → y.md", "p → q.md", "pat"}) {
 		t.Errorf("moves: %+v", moves)
 	}
 	for _, bad := range []string{"a\nb.md", "tab\there.md", "nul\x00.md"} {

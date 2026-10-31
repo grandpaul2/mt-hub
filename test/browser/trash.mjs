@@ -8,7 +8,7 @@ import { answerDialogs, api, as, asked, check, done, ev, HUB, hub, key, send, se
 const put = (p, body = p, base = '') => hub(`/api/file/${encodeURIComponent(p).replace(/%2F/g, '/')}?base=${base}`, { method: 'PUT', body });
 const files = async () => (await (await hub('/api/tree')).json()).filter((e) => !e.dir).map((e) => e.path);
 const has = async (...paths) => { const all = await files(); return paths.map((p) => all.includes(p)); };
-const paul = (method, path, body) => api(method, path, body, 'Paul');
+const pat = (method, path, body) => api(method, path, body, 'Pat');
 for (const p of ['t1.md', 't2.md', 't3.md', 'docs/keep.md', 'docs/sub/deep.md']) await put(p);
 
 await send('Page.navigate', { url: HUB });
@@ -75,7 +75,7 @@ await key('Delete');
 await settle(900);
 check('several: one toast', [await toastText(), await has('t1.md', 't2.md', 'docs/sub/deep.md')], ['Moved 2 items to Trash', [false, false, false]]);
 await click(bin);
-check('the Trash lists them, newest first', await listed(), ['t2.md | from Files · Paul · 5 B · 30 days left', 't1.md | from Files · Paul · 5 B · 30 days left', 'sub/ | from docs/ · Paul · 30 days left']);
+check('the Trash lists them, newest first', await listed(), ['t2.md | from Files · Pat · 5 B · 30 days left', 't1.md | from Files · Pat · 5 B · 30 days left', 'sub/ | from docs/ · Pat · 30 days left']);
 check('an admin has Delete Forever and Empty Trash', await ev(`[[...(${item('t1.md')}).querySelectorAll('button')].filter((b) => !b.hidden).map((b) => b.textContent), document.querySelector('#main-trash .shot-bar button').hidden]`), [['Restore', 'Delete Forever'], false]);
 await shot('trash');
 
@@ -107,16 +107,16 @@ check('the open file goes to Trash; its folder shows', [await has('docs/keep.md'
 const stat = await (await hub('/api/stat/large/world.zip')).json();
 await put('large/world.zip', 'a newer world', stat.rev);
 // Files posted in chats: a public chat's shows, and Restore asks for a folder; a private chat's never shows.
-await paul('POST', '/api/channels', { name: 'staff', kind: 'private', members: ['Alex'] });
+await pat('POST', '/api/channels', { name: 'staff', kind: 'private', members: ['Alex'] });
 for (const [chat, file] of [['general', 'plan.txt'], ['staff', 'secret.txt']]) {
   await hub(`/api/channels/${chat}/media?name=${file}`, { method: 'POST', body: file });
-  const m = await (await paul('POST', `/api/channels/${chat}/messages`, { text: `#media/${chat}/${file}` })).json();
-  await paul('DELETE', `/api/channels/${chat}/messages/${m.id}?files=1`);
+  const m = await (await pat('POST', `/api/channels/${chat}/messages`, { text: `#media/${chat}/${file}` })).json();
+  await pat('DELETE', `/api/channels/${chat}/messages/${m.id}?files=1`);
 }
 await settle(1000);
 await click(bin);
 check('a public chat’s file and a replaced copy show; a private chat’s does not', await listed(),
-  ['plan.txt | from #general · Paul · 8 B · 30 days left', 'world.zipreplaced | from large/ · Paul · 1 B · 30 days left', 'keep.md | from docs/ · Paul · 12 B · 30 days left', 't3.md | from Files · Paul · 5 B · 30 days left', 't2.md | from notes/ · Paul · 5 B · 30 days left']);
+  ['plan.txt | from #general · Pat · 8 B · 30 days left', 'world.zipreplaced | from large/ · Pat · 1 B · 30 days left', 'keep.md | from docs/ · Pat · 12 B · 30 days left', 't3.md | from Files · Pat · 5 B · 30 days left', 't2.md | from notes/ · Pat · 5 B · 30 days left']);
 await press('plan.txt', 'Restore');
 check('a chat file asks for a folder', await ev(`[document.querySelector('#dialog h2')?.textContent, document.querySelector('#dialog .actions button:last-child')?.textContent]`), ['Restore plan.txt to Files', 'Restore']);
 await ev(`(() => { const b = document.querySelector('#dialog input[type=text]'); b.value = 'saved'; b.dispatchEvent(new Event('input')); document.querySelector('#dialog .actions button:last-child').click(); })()`);

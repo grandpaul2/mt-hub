@@ -4,7 +4,7 @@
 import { api, check, done, ev, frames, HUB, send, settle, STILL, until } from './lib.mjs';
 
 const farm = await (await api('POST', '/api/channels/general/messages', { text: 'farm is up' })).json();
-await api('POST', '/api/channels', { name: 'builds' }, 'Paul');
+await api('POST', '/api/channels', { name: 'builds' }, 'Pat');
 await send('Page.navigate', { url: HUB });
 await settle(500);
 await ev(`localStorage.setItem('mt-chat-hidden','1')`);

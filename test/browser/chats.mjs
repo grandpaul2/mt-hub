@@ -112,7 +112,7 @@ const barEnds = () => ev(`['#side > .side-head', '#main > :not([hidden]) .chat-h
 // (In a window wide enough for each bar to be one line; a narrow panel's bar wraps to two.)
 await send('Emulation.setDeviceMetricsOverride', { width: 1800, height: 900, deviceScaleFactor: 1, mobile: false });
 const ends = {};
-for (const hash of ['#chan=general', '#folder=docs', '#docs/guide.md', '#screenshots/2026-09-01 15.00.01 Paul.png', '#schems', '#schem=Build 2']) {
+for (const hash of ['#chan=general', '#folder=docs', '#docs/guide.md', '#screenshots/2026-09-01 15.00.01 Pat.png', '#schems', '#schem=Build 2']) {
   await ev(`location.hash = ${JSON.stringify(hash)}`);
   await settle(900);
   ends[hash] = await barEnds();

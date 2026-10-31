@@ -1,6 +1,6 @@
 // make firefox-check: does a real screen show what Firefox meant to draw?
 //
-// Runs a real Firefox (about a minute and a half) with a throwaway profile using Paul's
+// Runs a real Firefox (about a minute and a half) with a throwaway profile using Pat's
 // graphics settings (GPU WebRender over EGL/DMA-BUF), against a throwaway hub. For each main
 // view it compares the real screen pixels with Firefox's own capture of the same page. Those
 // differ only where the GPU path drew something other than the page: the bug that cut the
@@ -67,16 +67,16 @@ function png(w, h, [r, g, b]) {
 
 // The hub, seeded with text that has tails (g, p, y, j) in every kind of place.
 const data = join(tmp, 'data');
-for (const [n, admin] of [['Paul', 'true'], ['Peggy', 'false']]) execFileSync(BIN, ['passwd', '-data', data, `-admin=${admin}`, n], { input: `${n}-password\n` });
-// #voice-link, with no LiveKit behind it: the lock is drawn from what the hub lists (S84).
+for (const [n, admin] of [['Pat', 'true'], ['Peggy', 'false']]) execFileSync(BIN, ['passwd', '-data', data, `-admin=${admin}`, n], { input: `${n}-password\n` });
+// #voice-link, with no LiveKit behind it: the lock is drawn from what the hub lists.
 writeFileSync(join(data, 'voice.json'), JSON.stringify({ url: 'ws://127.0.0.1:1', api: 'http://127.0.0.1:1', key: 'k', secret: 'check-secret-0123456789', link_voice: true }));
 const port = await freePort(), HUB = `http://127.0.0.1:${port}`;
 hub = spawn(BIN, ['-addr', `127.0.0.1:${port}`, '-data', data, '-min-free', '0'], { stdio: 'ignore' }); // /tmp is small
 await sleep(800);
 const login = async (n) => (await fetch(`${HUB}/api/login`, { method: 'POST', body: JSON.stringify({ name: n, password: `${n}-password` }) })).headers.getSetCookie()[0].split(';')[0];
-const paul = await login('Paul'), peggy = await login('Peggy');
+const pat = await login('Pat'), peggy = await login('Peggy');
 // Seeding fails loudly: a refused upload would leave the views checking empty pages.
-const put = async (p, body) => { const r = await fetch(`${HUB}/api/file/${p.split('/').map(encodeURIComponent).join('/')}?base=`, { method: 'PUT', headers: { cookie: paul }, body }); if (!r.ok) throw new Error(`seeding ${p}: ${r.status}`); return r; };
+const put = async (p, body) => { const r = await fetch(`${HUB}/api/file/${p.split('/').map(encodeURIComponent).join('/')}?base=`, { method: 'PUT', headers: { cookie: pat }, body }); if (!r.ok) throw new Error(`seeding ${p}: ${r.status}`); return r; };
 await put('boards/Playground juggling glyphs query.md', '# Piggy jig\n\nGypsy jiggly query: `typography` and *quipping*.\n');
 await put('gyp/jiggly.md', 'x');
 await put('screenshots/2026-09-01 15.00.01 Peggy.png', png(160, 90, [40, 120, 200]));
@@ -85,22 +85,22 @@ await put('schematics/Piggy gyp jig/piggy jig gyp.litematic', 'schem');
 await put('schematics/Piggy gyp jig/README.md', '# Piggy gyp jig\n\nDesign by Peggy · posted 2026-07-06\n\nHow to use it.\n');
 const say = (cookie, body) => fetch(`${HUB}/api/channels/general/messages`, { method: 'POST', headers: { cookie }, body: JSON.stringify(body) }).then((r) => r.json());
 const m = await say(peggy, { text: 'gypsy jiggly query piggy: typography quipping' });
-await say(paul, { text: 'replying, gauging the jig', reply_to: m.id });
-await say(paul, { text: 'grouped: piggyback jogging' });
+await say(pat, { text: 'replying, gauging the jig', reply_to: m.id });
+await say(pat, { text: 'grouped: piggyback jogging' });
 await say(peggy, { text: '**jiggy** *gyp* __pig__ ~~quip~~ `gyp jig` ||spy||\n> quoting a piggy\n- jig\n```\ngypsy query = jig;\n```' });
-// A message meant for Paul (who looks at the page): its whole row is tinted.
-await say(peggy, { text: 'hey @Paul, jiggy gyp query for you' });
+// A message meant for Pat (who looks at the page): its whole row is tinted.
+await say(peggy, { text: 'hey @Pat, jiggy gyp query for you' });
 // Files posted in chat: a file card (a name with tails) and a picture.
 const posted = async (name, body) => { const r = await fetch(`${HUB}/api/channels/general/media?name=${encodeURIComponent(name)}`, { method: 'POST', headers: { cookie: peggy }, body }); if (!r.ok) throw new Error(`seeding ${name}: ${r.status}`); return (await r.json()).path; };
 await say(peggy, { text: `jiggy gyp files #[${await posted('piggy jig gyp.litematic', 'schem')}] #${await posted('gyp.png', png(160, 90, [200, 120, 40]))}` });
-// A mod release card (S60): tags, a Note and a jar's Download.
+// A mod release card: tags, a Note and a jar's Download.
 await put('mods/client/piggy-jig-1.2.3.jar', 'jar');
 await put('mods/mod info/Piggy Jig.md', '# Piggy Jig\n');
-await say(paul, { text: '## Piggy Jig 1.2.3-gyp\n-# Client + Server · Required\n#mods/client/piggy-jig-1.2.3.jar\n- Gypsy jiggly query, quipping typography\n**Note:** jog the piggy `gyp` setting.' });
-await fetch(`${HUB}/api/channels`, { method: 'POST', headers: { cookie: paul }, body: JSON.stringify({ name: 'piggy-jig' }) });
+await say(pat, { text: '## Piggy Jig 1.2.3-gyp\n-# Client + Server · Required\n#mods/client/piggy-jig-1.2.3.jar\n- Gypsy jiggly query, quipping typography\n**Note:** jog the piggy `gyp` setting.' });
+await fetch(`${HUB}/api/channels`, { method: 'POST', headers: { cookie: pat }, body: JSON.stringify({ name: 'piggy-jig' }) });
 // jig-staff: a private chat (lock, privacy line), and a DM in the sidebar.
-await fetch(`${HUB}/api/channels`, { method: 'POST', headers: { cookie: paul }, body: JSON.stringify({ name: 'jig-staff', kind: 'private', members: ['Peggy'] }) });
-await fetch(`${HUB}/api/dms`, { method: 'POST', headers: { cookie: paul }, body: JSON.stringify({ members: ['Peggy'] }) });
+await fetch(`${HUB}/api/channels`, { method: 'POST', headers: { cookie: pat }, body: JSON.stringify({ name: 'jig-staff', kind: 'private', members: ['Peggy'] }) });
+await fetch(`${HUB}/api/dms`, { method: 'POST', headers: { cookie: pat }, body: JSON.stringify({ members: ['Peggy'] }) });
 // piggy-jig: a long chat with a NEW line part way down (read up to `readTo`, set in the view).
 const sayIn = (body) => fetch(`${HUB}/api/channels/piggy-jig/messages`, { method: 'POST', headers: { cookie: peggy }, body: JSON.stringify(body) }).then((r) => r.json());
 let readTo = '';
@@ -122,8 +122,8 @@ await linkSay(survival, 'Peggy_jig', 'jiggy gyp query');
 await linkSay(creative, 'gypsy_jay', 'piggy jig');
 await fetch(`${HUB}/api/channels/text-link/messages`, { method: 'POST', headers: { cookie: peggy }, body: JSON.stringify({ text: 'gyp typed on the hub' }) });
 
-// #voice-link: the bridge in it and Paul's player in the group in game (as LiveKit's signed
-// webhooks would say), and Paul's Minecraft name, so his player's row has his lock.
+// #voice-link: the bridge in it and Pat's player in the group in game (as LiveKit's signed
+// webhooks would say), and Pat's Minecraft name, so his player's row has his lock.
 const webhook = async (id, identity, event = 'participant_joined') => {
   const body = JSON.stringify({ id, event, room: { name: 'voice-link' }, participant: { identity, joinedAt: '1' } });
   const enc = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
@@ -131,10 +131,10 @@ const webhook = async (id, identity, event = 'participant_joined') => {
   const r = await fetch(`${HUB}/api/voice/webhook`, { method: 'POST', headers: { authorization: `Bearer ${msg}.${createHmac('sha256', 'check-secret-0123456789').update(msg).digest('base64url')}` }, body });
   if (!r.ok) throw new Error(`seeding #voice-link: ${r.status}`);
 };
-if (!(await fetch(`${HUB}/api/mc`, { method: 'POST', headers: { cookie: paul }, body: JSON.stringify({ mc: 'Gypsy_Paul' }) })).ok) throw new Error('seeding the Minecraft name');
+if (!(await fetch(`${HUB}/api/mc`, { method: 'POST', headers: { cookie: pat }, body: JSON.stringify({ mc: 'Pat_mc' }) })).ok) throw new Error('seeding the Minecraft name');
 await webhook('w1', 'link:listener');
-await webhook('w2', 'link:survival:Gypsy_Paul');
-const setLock = async (on) => { const r = await fetch(`${HUB}/api/voice/voice-link/lock`, { method: 'POST', headers: { cookie: paul }, body: JSON.stringify({ on }) }); if (!r.ok) throw new Error(`the lock: ${r.status}`); };
+await webhook('w2', 'link:survival:Pat_mc');
+const setLock = async (on) => { const r = await fetch(`${HUB}/api/voice/voice-link/lock`, { method: 'POST', headers: { cookie: pat }, body: JSON.stringify({ on }) }); if (!r.ok) throw new Error(`the lock: ${r.status}`); };
 
 // Firefox: no extensions (their welcome tabs would cover the page), one tab, in front.
 const prof = join(tmp, 'profile');
@@ -208,7 +208,7 @@ await sleep(1500);
 const tabs = (await cmd('browsingContext.getTree', {})).result.contexts;
 const ctx = tabs[0].context;
 for (const t of tabs.slice(1)) await cmd('browsingContext.close', { context: t.context });
-await cmd('storage.setCookie', { cookie: { name: 'mt_session', value: { type: 'string', value: paul.split('=')[1] }, domain: '127.0.0.1', path: '/' } });
+await cmd('storage.setCookie', { cookie: { name: 'mt_session', value: { type: 'string', value: pat.split('=')[1] }, domain: '127.0.0.1', path: '/' } });
 // KWin (the check's own headless one, so nothing else is on it): a throwaway script focuses
 // and sizes the window, found by Firefox's pid. It can't report back; the page's size says
 // whether it worked.
@@ -274,7 +274,7 @@ for (const [name, hash] of VIEWS) {
   if (name === 'voice-link locked') await shown(name, 'the closed lock, holding the microphone', `!!document.querySelector('#voice-list .voice-lock.on:not(.lost)')`);
   if (name === 'voice-link no microphone') { // locked, the microphone refused, his player leaves the game: the take-over can't run
     await shown(name, 'the red lock', `!!document.querySelector('#voice-list .voice-lock.lost')`);
-    await webhook('w3', 'link:survival:Gypsy_Paul', 'participant_left');
+    await webhook('w3', 'link:survival:Pat_mc', 'participant_left');
     await shown(name, 'the voice bar saying so', `document.querySelector('#voice-bar .voice-bad')?.textContent === 'Couldn’t rejoin voice-link: microphone unavailable'`);
     await idle(600);
   }

@@ -86,7 +86,7 @@ await ev(`document.querySelector('#main-chat .only-you button').click()`);
 await settle(150);
 check('Dismiss removes that card', await cards(), 1);
 check('the side chat never showed one', await cards('#chat'), 0);
-await api('POST', '/api/channels', { name: 'other' }, 'Paul');
+await api('POST', '/api/channels', { name: 'other' }, 'Pat');
 await send('Page.navigate', { url: HUB + '/#chan=other' });
 await settle(800);
 await send('Page.navigate', { url: HUB + '/#chan=general' });

@@ -3,14 +3,14 @@
 // and schematic posts in from the tree and folder views to link them.
 import { answerDialogs, api, check, done, ev, HUB, hub, key, send, settle, shot, typeText } from './lib.mjs';
 
-const paul = (method, path, body) => api(method, path, body, 'Paul');
+const pat = (method, path, body) => api(method, path, body, 'Pat');
 const msgs = async (ch) => (await (await hub(`/api/channels/${ch}/messages`)).json());
 // The oldest message, then enough filler that it's off the first page (100) of history.
-const oldest = await (await paul('POST', '/api/channels/general/messages', { text: 'the very first message' })).json();
+const oldest = await (await pat('POST', '/api/channels/general/messages', { text: 'the very first message' })).json();
 for (let i = 0; i < 110; i++) await api('POST', '/api/channels/general/messages', { text: `filler ${i}` });
 const farm = await (await api('POST', '/api/channels/general/messages', { text: 'farm is up' })).json();
-const hello = await (await paul('POST', '/api/channels/general/messages', { text: 'hello' })).json();
-await paul('POST', '/api/channels', { name: 'builds' });
+const hello = await (await pat('POST', '/api/channels/general/messages', { text: 'hello' })).json();
+await pat('POST', '/api/channels', { name: 'builds' });
 
 await send('Page.navigate', { url: HUB });
 await settle(500);
@@ -46,7 +46,7 @@ check('reacted', [await chips(), await ev(`!!document.querySelector('.emoji-pop'
 await api('PUT', `/api/channels/general/messages/${farm.id}/reactions/${encodeURIComponent('🔥')}`);
 await settle(600);
 check('someone else’s arrives live', await chips(), ['🔥2*']);
-check('chip names who', await ev(`${msgEl(farm.id)}.querySelector('.reaction').title`), 'Paul, Alex reacted with 🔥');
+check('chip names who', await ev(`${msgEl(farm.id)}.querySelector('.reaction').title`), 'Pat, Alex reacted with 🔥');
 await ev(`${msgEl(farm.id)}.querySelector('.reaction').click()`);
 await settle(600);
 check('click takes yours back', await chips(), ['🔥1']);
@@ -82,7 +82,7 @@ await shot('forward');
 await ev(`document.querySelector('#dialog .actions .primary').click()`);
 await settle(800);
 const fw = (await msgs('builds')).pop();
-check('forwarded copy', [fw.text, fw.fwd?.text, fw.fwd?.user, fw.fwd?.channel], ['look at this', 'hello', 'Paul', 'general']);
+check('forwarded copy', [fw.text, fw.fwd?.text, fw.fwd?.user, fw.fwd?.channel], ['look at this', 'hello', 'Pat', 'general']);
 await send('Page.navigate', { url: `${HUB}/?r=2#chan=builds` });
 await settle(2000);
 check('forward box', await ev(`[document.querySelector('${M} .fwd .fwd-label').textContent, document.querySelector('${M} .fwd .msg-body').textContent]`), ['Forwarded', 'hello']);
@@ -203,8 +203,8 @@ check('card opens the post', await ev(`decodeURIComponent(location.hash)`), '#sc
 
 // The delete question shows the message as the chat draws it: name, time, text and picture,
 // with nothing to click; a long one is capped and scrolls.
-const pic = await (await paul('POST', '/api/channels/general/messages', { text: 'look at this #[map art/MA-001 Logo.png]' })).json();
-const long = await (await paul('POST', '/api/channels/general/messages', { text: Array.from({ length: 40 }, (_, i) => `line ${i}`).join('\n') })).json();
+const pic = await (await pat('POST', '/api/channels/general/messages', { text: 'look at this #[map art/MA-001 Logo.png]' })).json();
+const long = await (await pat('POST', '/api/channels/general/messages', { text: Array.from({ length: 40 }, (_, i) => `line ${i}`).join('\n') })).json();
 await send('Page.navigate', { url: `${HUB}/?r=7#chan=general` });
 await settle(2000);
 await answerDialogs(null);
@@ -213,7 +213,7 @@ await tool(pic.id, 'trash');
 await settle(600);
 check('delete question shows the message', await ev(`(() => { const p = ${P}; return [document.querySelector('#dialog h2').textContent, p.querySelector('.msg-head .who').textContent,
   !!p.querySelector('.msg-head .when').textContent, p.querySelector('.msg-body').textContent.trim(), !!p.querySelector('.refs img'), !!p.querySelector('.msg-tools'), p.querySelector('.msg').inert]; })()`),
-  ['Delete this message?', 'Paul', true, 'look at this', true, false, true]);
+  ['Delete this message?', 'Pat', true, 'look at this', true, false, true]);
 await shot('delete-preview');
 await ev(`document.querySelector('#dialog .actions button:first-child').click()`);
 await settle(300);

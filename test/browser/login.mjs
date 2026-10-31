@@ -27,11 +27,11 @@ check('logged in', [await dialogShown(), await ev(`document.getElementById('user
 check('tree loaded', await ev(`document.querySelectorAll('#tree .row').length > 0`), true);
 
 // The name on your changes comes from the session; a header can't claim someone else.
-await fetch(`${HUB}/api/channels/general/messages`, { method: 'POST', body: JSON.stringify({ text: 'who am i' }), headers: { cookie: COOKIE.Steve, 'X-MT-User': 'Paul' } });
+await fetch(`${HUB}/api/channels/general/messages`, { method: 'POST', body: JSON.stringify({ text: 'who am i' }), headers: { cookie: COOKIE.Steve, 'X-MT-User': 'Pat' } });
 const last = (await (await api('GET', '/api/channels/general/messages')).json()).pop();
 check('message author is the session', [last.text, last.user], ['who am i', 'Steve']);
 check('accounts and roles', await (await api('GET', '/api/users')).json(),
-  [{ name: 'Alex', admin: false }, { name: 'Paul', admin: true, tag: 'gold' }, { name: 'Steve', admin: false }]);
+  [{ name: 'Alex', admin: false }, { name: 'Pat', admin: true, tag: 'gold' }, { name: 'Steve', admin: false }]);
 check('non-admin refused', (await api('DELETE', '/api/channels/general', undefined, 'Steve')).status, 403);
 
 // Change password from the menu on your name: other sessions end, this one carries on.

@@ -2,7 +2,7 @@
 // guide 3.3 and 14).
 import { api, check, done, ev, HUB, key, send, settle, shot, typeText } from './lib.mjs';
 
-await api('POST', '/api/channels', { name: 'builds' }, 'Paul');
+await api('POST', '/api/channels', { name: 'builds' }, 'Pat');
 for (let i = 1; i <= 5; i++) await api('POST', '/api/channels/general/messages', { text: `old ${i}` }, 'Steve');
 await send('Page.navigate', { url: HUB + '/#chan=builds' });
 await settle(2500);
@@ -24,7 +24,7 @@ await open('general');
 check('never opened here before: no line', await line(), null);
 await open('builds');
 
-// Steve keeps talking: 80 messages while Paul is in builds.
+// Steve keeps talking: 80 messages while Pat is in builds.
 for (let i = 1; i <= 80; i++) await api('POST', '/api/channels/general/messages', { text: `new ${i}` }, 'Steve');
 await settle(500);
 await open('general');

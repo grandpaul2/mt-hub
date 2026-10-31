@@ -30,15 +30,15 @@ func TestPrivateChats(t *testing.T) {
 	ws, _ := workspace.Open(filepath.Join(dir, "workspace"))
 	cs, _ := chat.Open(filepath.Join(dir, "chat"))
 	ls, _ := preview.Open(filepath.Join(dir, "previews"))
-	// Paul is an admin; Steve, Alex and Eve are members.
-	for _, n := range []string{"Paul", "Steve", "Alex", "Eve"} {
+	// Pat is an admin; Steve, Alex and Eve are members.
+	for _, n := range []string{"Pat", "Steve", "Alex", "Eve"} {
 		us.SetPassword(n, n+"-password")
 	}
-	us.Change("Paul", func(u *auth.User) { u.Admin = true })
+	us.Change("Pat", func(u *auth.User) { u.Admin = true })
 	srv := httptest.NewServer(New(us, ws, cs, ls, filepath.Join(dir, "thumbs"), fstest.MapFS{}, nil))
 	defer srv.Close()
 	cookie := map[string]string{}
-	for _, n := range []string{"Paul", "Steve", "Alex", "Eve"} {
+	for _, n := range []string{"Pat", "Steve", "Alex", "Eve"} {
 		cookie[n], _ = us.Login(n, n+"-password")
 	}
 	call := func(who, method, path, body string) (int, string) {
@@ -95,7 +95,7 @@ func TestPrivateChats(t *testing.T) {
 	// Only admins make private chats.
 	code, _ := call("Steve", "POST", "/api/channels", `{"name":"staff","kind":"private","members":["Steve"]}`)
 	want("member makes a private chat", code, 403)
-	code, _ = call("Paul", "POST", "/api/channels", `{"name":"staff","kind":"private","members":["Steve"]}`)
+	code, _ = call("Pat", "POST", "/api/channels", `{"name":"staff","kind":"private","members":["Steve"]}`)
 	want("admin makes a private chat", code, 200)
 	code, b := call("Steve", "POST", "/api/dms", `{"members":["Alex"]}`)
 	want("open a DM", code, 200)
@@ -115,7 +115,7 @@ func TestPrivateChats(t *testing.T) {
 	if got := chats("Eve"); !slices.Equal(got, []string{"general"}) {
 		t.Errorf("Eve's chats: %v", got)
 	}
-	if got := chats("Paul"); !slices.Equal(got, []string{"general", "staff"}) {
+	if got := chats("Pat"); !slices.Equal(got, []string{"general", "staff"}) {
 		t.Errorf("an admin sees private chats, not others' DMs: %v", got)
 	}
 	if got := chats("Steve"); !slices.Equal(got, []string{"general", "staff", dm.Name}) {
@@ -127,12 +127,12 @@ func TestPrivateChats(t *testing.T) {
 	}
 	code, _ = call("Eve", "POST", "/api/channels/staff/messages", `{"text":"let me in"}`)
 	want("Eve posts in staff", code, 404)
-	code, _ = call("Paul", "GET", "/api/channels/"+dm.Name+"/messages", "")
+	code, _ = call("Pat", "GET", "/api/channels/"+dm.Name+"/messages", "")
 	want("an admin reads someone's DM", code, 404)
-	code, _ = call("Paul", "GET", "/api/channels/staff/messages", "")
+	code, _ = call("Pat", "GET", "/api/channels/staff/messages", "")
 	want("an admin reads a private chat", code, 200)
 
-	for _, who := range []string{"Eve", "Paul"} {
+	for _, who := range []string{"Eve", "Pat"} {
 		_, b = call(who, "GET", "/api/search?q="+url.QueryEscape("secret"), "")
 		if strings.Contains(b, "dm secret") || (who == "Eve" && strings.Contains(b, "staff secret")) {
 			t.Errorf("%s's search finds what they can't see: %s", who, b)
@@ -192,14 +192,14 @@ func TestPrivateChats(t *testing.T) {
 	if log, _ := os.ReadFile(filepath.Join(dir, "trash", "log.jsonl")); !strings.Contains(string(log), "chat/staff/media/plan.png") {
 		t.Errorf("the staff file isn't in the trash log: %s", log)
 	}
-	for _, who := range []string{"Steve", "Eve", "Paul"} {
+	for _, who := range []string{"Steve", "Eve", "Pat"} {
 		if _, b = call(who, "GET", "/api/trash", ""); strings.Contains(b, "plan.png") || strings.Contains(b, "staff") {
 			t.Errorf("the Trash shows %s a private chat's file: %s", who, b)
 		}
 	}
 
 	// Renames of a private chat aren't told to outsiders.
-	call("Paul", "PATCH", "/api/channels/staff", `{"name":"staff-room"}`)
+	call("Pat", "PATCH", "/api/channels/staff", `{"name":"staff-room"}`)
 	_, b = call("Eve", "GET", "/api/channel-renames", "")
 	if strings.Contains(b, "staff") {
 		t.Errorf("Eve sees a private rename: %s", b)
@@ -220,13 +220,13 @@ func TestPrivateChats(t *testing.T) {
 	if !slices.Contains(chats("Steve"), dm.Name) {
 		t.Error("a new message brings the DM back")
 	}
-	code, _ = call("Paul", "DELETE", "/api/channels/"+dm.Name, "")
+	code, _ = call("Pat", "DELETE", "/api/channels/"+dm.Name, "")
 	want("an admin deletes a DM they can't see", code, 404)
 	code, _ = call("Steve", "PUT", "/api/channels/"+dm.Name+"/kind", `{"kind":""}`)
 	want("a member makes a DM public", code, 403)
 
 	// Making staff-room public: Eve sees it and its messages now.
-	code, _ = call("Paul", "PUT", "/api/channels/staff-room/kind", `{"kind":""}`)
+	code, _ = call("Pat", "PUT", "/api/channels/staff-room/kind", `{"kind":""}`)
 	want("make public", code, 200)
 	if !slices.Contains(chats("Eve"), "staff-room") {
 		t.Error("public again: Eve should see it")
@@ -235,8 +235,8 @@ func TestPrivateChats(t *testing.T) {
 	// The chat order: admins only, and a private chat's name in it reaches nobody else.
 	code, _ = call("Steve", "PUT", "/api/channel-order", `{"names":["general"]}`)
 	want("a member reorders", code, 403)
-	call("Paul", "POST", "/api/channels", `{"name":"secret-room","kind":"private"}`)
-	code, _ = call("Paul", "PUT", "/api/channel-order", `{"names":["secret-room","staff-room","general"]}`)
+	call("Pat", "POST", "/api/channels", `{"name":"secret-room","kind":"private"}`)
+	code, _ = call("Pat", "PUT", "/api/channel-order", `{"names":["secret-room","staff-room","general"]}`)
 	want("an admin reorders", code, 200)
 	if got := chats("Eve"); !slices.Equal(got, []string{"staff-room", "general"}) {
 		t.Errorf("Eve's list in the set order, without the private chat: %v", got)

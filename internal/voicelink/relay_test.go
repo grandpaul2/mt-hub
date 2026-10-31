@@ -253,8 +253,8 @@ func rosterMsg(members string) []byte {
 }
 
 const (
-	emptropy  = `{"uuid":"05cd3a62-a9bc-4909-b941-cbc9ba1430d7","name":"Emptropy"}`
-	grandpaul = `{"uuid":"3b1c0000-0000-0000-0000-000000000000","name":"grandpaul","mc":"Grandpaul2"}`
+	quinn  = `{"uuid":"05cd3a62-a9bc-4909-b941-cbc9ba1430d7","name":"Quinn"}`
+	patmc = `{"uuid":"3b1c0000-0000-0000-0000-000000000000","name":"patmc","mc":"PatMC2"}`
 )
 
 func TestJournalRosterChanges(t *testing.T) {
@@ -262,45 +262,45 @@ func TestJournalRosterChanges(t *testing.T) {
 	a := dial(t, url, tokA)
 	status(t, a, "survival")
 
-	send(t, a, rosterMsg(emptropy))
-	logged(t, lines, "survival roster: +Emptropy (05cd3a62); now Emptropy (05cd3a62)")
+	send(t, a, rosterMsg(quinn))
+	logged(t, lines, "survival roster: +Quinn (05cd3a62); now Quinn (05cd3a62)")
 
 	// A hub member carries the Minecraft name it plays as.
-	send(t, a, rosterMsg(emptropy+","+grandpaul))
-	logged(t, lines, "survival roster: +grandpaul (mc Grandpaul2) (3b1c0000); now Emptropy (05cd3a62), grandpaul (mc Grandpaul2) (3b1c0000)")
+	send(t, a, rosterMsg(quinn+","+patmc))
+	logged(t, lines, "survival roster: +patmc (mc PatMC2) (3b1c0000); now Quinn (05cd3a62), patmc (mc PatMC2) (3b1c0000)")
 
 	// The same roster again says nothing; one leaving says who.
 	before := lines()
-	send(t, a, rosterMsg(emptropy+","+grandpaul))
-	send(t, a, rosterMsg(grandpaul))
-	logged(t, lines, "survival roster: -Emptropy (05cd3a62); now grandpaul (mc Grandpaul2) (3b1c0000)")
+	send(t, a, rosterMsg(quinn+","+patmc))
+	send(t, a, rosterMsg(patmc))
+	logged(t, lines, "survival roster: -Quinn (05cd3a62); now patmc (mc PatMC2) (3b1c0000)")
 	if n := strings.Count(lines(), "roster:") - strings.Count(before, "roster:"); n != 1 {
 		t.Fatalf("an unchanged roster logged a line:\n%s", lines())
 	}
 
 	// A member whose name changed is reported too; a name off the wire can't break a line.
-	send(t, a, rosterMsg(`{"uuid":"3b1c0000-0000-0000-0000-000000000000","name":"grand\npaul","mc":"Grandpaul2"}`))
-	logged(t, lines, "survival roster: ~grandpaul (mc Grandpaul2) (3b1c0000) is now grand?paul (mc Grandpaul2); now grand?paul (mc Grandpaul2) (3b1c0000)")
+	send(t, a, rosterMsg(`{"uuid":"3b1c0000-0000-0000-0000-000000000000","name":"pat\nmc","mc":"PatMC2"}`))
+	logged(t, lines, "survival roster: ~patmc (mc PatMC2) (3b1c0000) is now pat?mc (mc PatMC2); now pat?mc (mc PatMC2) (3b1c0000)")
 
 	send(t, a, append([]byte{msgRoster}, `not json`...))
 	logged(t, lines, "survival roster: unreadable (8 bytes)")
 
 	// An entry without a usable uuid is counted, not silently dropped; a long name is cut.
-	send(t, a, rosterMsg(grandpaul+`,{"uuid":"x","name":"Eldridge"},{"uuid":"7e000000-0000-0000-0000-000000000000","name":"`+strings.Repeat("a", 60)+`"}`))
+	send(t, a, rosterMsg(patmc+`,{"uuid":"x","name":"Eldridge"},{"uuid":"7e000000-0000-0000-0000-000000000000","name":"`+strings.Repeat("a", 60)+`"}`))
 	logged(t, lines, "survival roster: 1 entry skipped (no uuid)")
-	logged(t, lines, "survival roster: +"+strings.Repeat("a", 48)+"… (7e000000) ~grand?paul (mc Grandpaul2) (3b1c0000) is now grandpaul (mc Grandpaul2); now")
-	send(t, a, rosterMsg(grandpaul))
-	logged(t, lines, "survival roster: -"+strings.Repeat("a", 48)+"… (7e000000); now grandpaul (mc Grandpaul2) (3b1c0000)")
+	logged(t, lines, "survival roster: +"+strings.Repeat("a", 48)+"… (7e000000) ~pat?mc (mc PatMC2) (3b1c0000) is now patmc (mc PatMC2); now")
+	send(t, a, rosterMsg(patmc))
+	logged(t, lines, "survival roster: -"+strings.Repeat("a", 48)+"… (7e000000); now patmc (mc PatMC2) (3b1c0000)")
 
 	// Another source's roster is its own story.
 	b := dial(t, url, tokB)
 	status(t, b, "creative,survival")
-	send(t, b, rosterMsg(emptropy))
-	logged(t, lines, "creative roster: +Emptropy (05cd3a62); now Emptropy (05cd3a62)")
+	send(t, b, rosterMsg(quinn))
+	logged(t, lines, "creative roster: +Quinn (05cd3a62); now Quinn (05cd3a62)")
 
 	// The source disconnecting drops its roster; the other's stays.
 	a.Close(websocket.StatusNormalClosure, "")
-	logged(t, lines, "survival roster dropped with it: had grandpaul (mc Grandpaul2) (3b1c0000)")
+	logged(t, lines, "survival roster dropped with it: had patmc (mc PatMC2) (3b1c0000)")
 	if strings.Contains(lines(), "creative roster dropped") {
 		t.Fatalf("creative's roster went with survival:\n%s", lines())
 	}
@@ -311,8 +311,8 @@ func TestJournalTalkSpurts(t *testing.T) {
 	url, lines := journal(t, 400*time.Millisecond)
 	a := dial(t, url, tokA)
 	status(t, a, "survival")
-	send(t, a, rosterMsg(emptropy))
-	logged(t, lines, "survival roster: +Emptropy")
+	send(t, a, rosterMsg(quinn))
+	logged(t, lines, "survival roster: +Quinn")
 
 	speaker := []byte{0x05, 0xcd, 0x3a, 0x62, 0xa9, 0xbc, 0x49, 0x09, 0xb9, 0x41, 0xcb, 0xc9, 0xba, 0x14, 0x30, 0xd7}
 	frame := append(append([]byte{msgAudio}, speaker...), 1, 2, 3)
@@ -323,7 +323,7 @@ func TestJournalTalkSpurts(t *testing.T) {
 		send(t, a, frame)
 	}
 	send(t, a, stop)
-	line := logged(t, lines, "survival: Emptropy (05cd3a62) talked", "3 frames, stop packet")
+	line := logged(t, lines, "survival: Quinn (05cd3a62) talked", "3 frames, stop packet")
 	if ok, _ := regexp.MatchString(`talked 0\.[0-9] s from [0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}, 3 frames`, line); !ok {
 		t.Fatalf("time and duration: %q", line)
 	}
@@ -331,7 +331,7 @@ func TestJournalTalkSpurts(t *testing.T) {
 	// Two frames and silence: the line says no stop packet came.
 	send(t, a, frame)
 	send(t, a, frame)
-	logged(t, lines, "survival: Emptropy (05cd3a62) talked", "2 frames, no stop packet, quiet since")
+	logged(t, lines, "survival: Quinn (05cd3a62) talked", "2 frames, no stop packet, quiet since")
 
 	// A stop packet with no spurt before it says nothing.
 	before := lines()
@@ -350,7 +350,7 @@ func TestJournalTalkSpurts(t *testing.T) {
 	// A spurt open when the source disconnects is ended by that.
 	send(t, a, frame)
 	a.Close(websocket.StatusNormalClosure, "")
-	logged(t, lines, "survival: Emptropy (05cd3a62) talked", "1 frame, cut off with the connection")
+	logged(t, lines, "survival: Quinn (05cd3a62) talked", "1 frame, cut off with the connection")
 	t.Log("\n" + lines())
 }
 
@@ -358,8 +358,8 @@ func TestJournalReconnect(t *testing.T) {
 	url, lines := journal(t, time.Second)
 	old := dial(t, url, tokA)
 	status(t, old, "survival")
-	send(t, old, rosterMsg(emptropy))
-	logged(t, lines, "survival roster: +Emptropy")
+	send(t, old, rosterMsg(quinn))
+	logged(t, lines, "survival roster: +Quinn")
 	speaker := []byte{0x05, 0xcd, 0x3a, 0x62, 0xa9, 0xbc, 0x49, 0x09, 0xb9, 0x41, 0xcb, 0xc9, 0xba, 0x14, 0x30, 0xd7}
 	send(t, old, append(append([]byte{msgAudio}, speaker...), 1))
 	time.Sleep(50 * time.Millisecond)
@@ -367,15 +367,15 @@ func TestJournalReconnect(t *testing.T) {
 	// The server connects again: its open spurt is ended, and its roster is kept, so the roster
 	// the new connection sends is reported against it.
 	nu := dial(t, url, tokA)
-	logged(t, lines, "survival: Emptropy (05cd3a62) talked", "1 frame, cut off: the server connected again")
+	logged(t, lines, "survival: Quinn (05cd3a62) talked", "1 frame, cut off: the server connected again")
 	before := storyLines(lines())
-	send(t, nu, rosterMsg(emptropy))
+	send(t, nu, rosterMsg(quinn))
 	time.Sleep(200 * time.Millisecond)
 	if got := storyLines(lines()); got != before {
 		t.Fatalf("an unchanged roster logged after the reconnect:\n%s", strings.TrimPrefix(got, before))
 	}
 	send(t, nu, rosterMsg(""))
-	logged(t, lines, "survival roster: -Emptropy (05cd3a62); now nobody")
+	logged(t, lines, "survival roster: -Quinn (05cd3a62); now nobody")
 	t.Log("\n" + lines())
 }
 

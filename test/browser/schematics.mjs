@@ -22,7 +22,7 @@ const fileInto = (sel, name, bytes, type) => ev(`(() => { const dt = new DataTra
 const titles = SEED.schems.map((s) => s[0]);
 
 check('top level in name order, schematics a real folder', await rows(), ['boards', 'docs', 'large', 'map art', 'notes', 'schematics', 'screenshots', 'README.md']);
-// The Manager's button is in schematics/' folder bar (Paul, S56), not in the sidebar or
+// The Manager's button is in schematics/' folder bar, not in the sidebar or
 // other folders.
 const manager = () => ev(`(() => { const b = [...document.querySelectorAll('#main-folder .shot-bar button')].find((b) => b.textContent === 'Schematic Manager'); return b ? b.checkVisibility() : null; })()`);
 await ev(`location.hash = '#folder=screenshots'`);
@@ -38,7 +38,7 @@ await settle(600);
 check('board', [await hash(), await cards()], ['#schems', [...titles].reverse()]);
 check('card: credit, description, date and file, render', await ev(`(() => { const c = document.querySelector('#main-schems .schem-card');
   return [c.querySelector('.schem-credit')?.textContent, c.querySelector('.schem-desc')?.textContent, c.querySelector('.schem-meta').textContent, !!c.querySelector('.schem-thumb img')]; })()`),
-  ['Design by Paul', 'How to use Build 6.', '2026-07-06 · tnt duper.litematic', true]);
+  ['Design by Pat', 'How to use Build 6.', '2026-07-06 · tnt duper.litematic', true]);
 check('dragging a card links its folder', await ev(`(() => { const dt = new DataTransfer();
   document.querySelector('#main-schems .schem-card').dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
   return dt.getData('text/x-mt-path'); })()`), 'schematics/Build 6');
@@ -77,7 +77,7 @@ check('Open post', await hash(), '#schem=Build 2');
 
 // Editing the README in Files changes the card.
 const rev = (await (await hub(`/api/stat/schematics/Build%202/README.md`)).json()).rev;
-await fetch(`${HUB}/api/file/schematics/Build%202/README.md?base=${rev}`, { method: 'PUT', headers: { cookie: COOKIE.Paul }, body: '# Item Sorter\n\nDesign by Lennox · posted 2026-07-02\n\nSorts.\n' });
+await fetch(`${HUB}/api/file/schematics/Build%202/README.md?base=${rev}`, { method: 'PUT', headers: { cookie: COOKIE.Pat }, body: '# Item Sorter\n\nDesign by Lennox · posted 2026-07-02\n\nSorts.\n' });
 await settle(1500);
 check('README edit shows on the post', [await ev(`document.querySelector('.schem-post h1').textContent`), await ev(`document.querySelector('.schem-post .schem-credit').textContent`)], ['Item Sorter', 'Design by Lennox']);
 
@@ -154,7 +154,7 @@ await settle(300);
 check('Back asks too', await question(), 'Discard your changes to “Build 6”?');
 await answer(1);
 await settle(400);
-check('discarding goes to the board, nothing written', [await hash(), await readme('Build 6')], ['#schems', '# Build 6\n\nDesign by Paul · posted 2026-07-06\n\nHow to use Build 6.\n']);
+check('discarding goes to the board, nothing written', [await hash(), await readme('Build 6')], ['#schems', '# Build 6\n\nDesign by Pat · posted 2026-07-06\n\nHow to use Build 6.\n']);
 await answerDialogs(true);
 await ev(`document.querySelector('.schem-card[data-dir="Build 6"]').click()`);
 await settle(300);
@@ -167,13 +167,13 @@ await ev(`(() => { const dt = new DataTransfer();
   document.querySelector('.schem-edit').dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt })); })()`);
 await settle(200);
 await ev(`document.querySelectorAll('.schem-edit-img')[1].querySelector('button').click()`);
-await typeInto('.schem-edit-credit', 'Paul and Alex');
+await typeInto('.schem-edit-credit', 'Pat and Alex');
 await barButton('Save');
 await settle(2500);
 const b6 = (await (await hub(`/api/schematics`)).json()).find((p) => p.dir === 'Build 6');
 check('edit reorders the renders', b6.images.map((i) => [i.name, i.size]).map(([n, s]) => n + (s > 0)), ['1.pngtrue', '2.pngtrue']);
 check('new picture is first', (await (await hub(`/api/file/schematics/Build%206/1.png`)).arrayBuffer()).byteLength, png(30, 30, [0, 200, 0]).length);
-check('README keeps the date', await readme('Build 6'), '# Build 6\n\nDesign by Paul and Alex · posted 2026-07-06\n\nHow to use Build 6.\n');
+check('README keeps the date', await readme('Build 6'), '# Build 6\n\nDesign by Pat and Alex · posted 2026-07-06\n\nHow to use Build 6.\n');
 
 // Move to Trash: the folder goes, with nothing asked.
 await ev(`[...document.querySelectorAll('#main-schems .single-bar .vtool')].find((v) => v.title === 'Move to Trash').click()`);
@@ -187,7 +187,7 @@ await ev(`document.querySelector('.schem-bar > button').click()`);
 await settle(1200);
 check('Back opens the schematics folder', [await hash(), await ev(`document.getElementById('main-schems').hidden`)], ['#folder=schematics', true]);
 // schematics/ has Upload Schematic too, right of Schematic Manager, on the same spot as the
-// Manager's (Paul, S98), whichever way the folder is sorted (Sort has a fixed width that fits
+// Manager's, whichever way the folder is sorted (Sort has a fixed width that fits
 // both), at any window width: it starts a group held to the right in both bars, so it can
 // land a row lower in one, never sideways.
 const where = (sel) => ev(`(() => { const b = [...document.querySelectorAll('${sel} button')].find((b) => b.textContent === 'Upload Schematic'); const r = b.getBoundingClientRect(); return [Math.round(r.left * 2) / 2, Math.round(r.right * 2) / 2]; })()`);

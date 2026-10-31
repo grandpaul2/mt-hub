@@ -3,7 +3,7 @@
 // with unsaved changes asks first, and keeping the file puts its address back.
 import { answerDialogs, asked, check, COOKIE, done, ev, HUB, send, settle, ws } from './lib.mjs';
 
-await fetch(`${HUB}/api/file/notes/edit-me.txt?base=`, { method: 'PUT', headers: { cookie: COOKIE.Paul }, body: 'line one\n' });
+await fetch(`${HUB}/api/file/notes/edit-me.txt?base=`, { method: 'PUT', headers: { cookie: COOKIE.Pat }, body: 'line one\n' });
 await send('Page.navigate', { url: HUB });
 await settle(2500);
 await answerDialogs(false);

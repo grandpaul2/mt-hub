@@ -45,8 +45,8 @@ await typeText('**storage** hall');
 await key('Enter');
 await settle(500);
 const feed = async (tok) => (await (await asServer(tok, 'GET', '?after=' + start.last)).json()).messages.map((m) => `[${m.tag}] ${m.user}: ${m.text}`);
-check('survival reads', await feed(survival), ['[CMP] Steve: yep, over here', '[CMP] gypsy_jay: hi', '[HUB] Steve: on in ten', '[HUB] Paul: storage hall']);
-check('creative reads', await feed(creative), ['[SMP] Steve: anyone on creative?', '[SMP] Steve: hello?', '[HUB] Steve: on in ten', '[HUB] Paul: storage hall']);
+check('survival reads', await feed(survival), ['[CMP] Steve: yep, over here', '[CMP] gypsy_jay: hi', '[HUB] Steve: on in ten', '[HUB] Pat: storage hall']);
+check('creative reads', await feed(creative), ['[SMP] Steve: anyone on creative?', '[SMP] Steve: hello?', '[HUB] Steve: on in ten', '[HUB] Pat: storage hall']);
 
 // What a server reports by itself (a bot died) is a message from MacroTech with that server's
 // tag, a row like any other; the other server prints it without a name. Seen from another
@@ -76,6 +76,6 @@ const chatMenu = async (name) => { await ev(`(() => { const r = [...document.que
 const fixed = await chatMenu('text-link');
 const plain = await chatMenu('#general');
 check('no Rename or Delete on the link chat; both on another', [fixed.includes('Rename…'), fixed.includes('Delete'), plain.includes('Rename…'), plain.includes('Delete')], [false, false, true, true]);
-check('the hub refuses to rename or delete it', [(await api('PATCH', '/api/channels/text-link', { name: 'elsewhere' }, 'Paul')).status, (await api('DELETE', '/api/channels/text-link', undefined, 'Paul')).status, (await chats()).includes('text-link')], [400, 400, true]);
+check('the hub refuses to rename or delete it', [(await api('PATCH', '/api/channels/text-link', { name: 'elsewhere' }, 'Pat')).status, (await api('DELETE', '/api/channels/text-link', undefined, 'Pat')).status, (await chats()).includes('text-link')], [400, 400, true]);
 
 await done();

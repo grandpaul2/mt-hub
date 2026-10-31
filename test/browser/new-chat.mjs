@@ -8,7 +8,7 @@ await settle(2000);
 const chans = () => ev(`[...document.querySelectorAll('#channels .row')].map((r) => r.querySelector('.name')?.textContent ?? '[box]')`);
 const boxState = () => ev(`(() => { const b = document.querySelector('#channels input.rename'); return b ? [b.value, document.activeElement === b, document.querySelector('#channels .chan-error')?.textContent ?? ''] : null; })()`);
 
-// Paul is an admin: + offers New Chat or New Private Chat.
+// Pat is an admin: + offers New Chat or New Private Chat.
 const newChat = async () => {
   await ev(`document.getElementById('new-channel').click()`);
   await settle(100);

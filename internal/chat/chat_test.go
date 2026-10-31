@@ -18,25 +18,25 @@ func TestChatSurvivesRestart(t *testing.T) {
 	if got := s.Channels(); len(got) != 1 || got[0].Name != "general" {
 		t.Fatalf("default channels: %+v", got)
 	}
-	a, _ := s.Post("general", "paul", "  hello  ")
+	a, _ := s.Post("general", "pat", "  hello  ")
 	b, _ := s.Post("general", "eldridge", "hi #schematics/farm.litematic")
-	c, _ := s.Post("general", "paul", "typo")
+	c, _ := s.Post("general", "pat", "typo")
 	if !(a.ID < b.ID && b.ID < c.ID) || a.Text != "hello" {
 		t.Fatalf("ids/text: %+v %+v %+v", a, b, c)
 	}
 	if _, err := s.Edit("general", c.ID, "eldridge", "not mine"); !errors.Is(err, ErrNotYours) {
 		t.Fatalf("edit someone else's: %v", err)
 	}
-	s.Edit("general", c.ID, "paul", "fixed")
-	s.Delete("general", a.ID, "paul", false)
+	s.Edit("general", c.ID, "pat", "fixed")
+	s.Delete("general", a.ID, "pat", false)
 	spam, _ := s.Post("general", "eldridge", "spam")
-	if _, err := s.Delete("general", spam.ID, "paul", false); !errors.Is(err, ErrNotYours) {
+	if _, err := s.Delete("general", spam.ID, "pat", false); !errors.Is(err, ErrNotYours) {
 		t.Fatalf("delete someone else's: %v", err)
 	}
-	if _, err := s.Delete("general", spam.ID, "paul", true); err != nil {
+	if _, err := s.Delete("general", spam.ID, "pat", true); err != nil {
 		t.Fatalf("admin delete: %v", err)
 	}
-	if _, err := s.Post("general", "paul", "   "); !errors.Is(err, ErrEmpty) {
+	if _, err := s.Post("general", "pat", "   "); !errors.Is(err, ErrEmpty) {
 		t.Fatalf("empty: %v", err)
 	}
 	if err := s.CreateChannel("Bad Name"); !errors.Is(err, ErrBadChannel) {
@@ -62,7 +62,7 @@ func TestChatSurvivesRestart(t *testing.T) {
 		t.Fatalf("channels after restart: %+v", got)
 	}
 	// New IDs keep increasing after a restart.
-	d, _ := s2.Post("general", "paul", "later")
+	d, _ := s2.Post("general", "pat", "later")
 	if d.ID <= c.ID {
 		t.Fatalf("id went backwards: %s <= %s", d.ID, c.ID)
 	}
@@ -87,20 +87,20 @@ func TestRenameAndDeleteChannel(t *testing.T) {
 	dir := t.TempDir()
 	s, _ := Open(dir) // creates #general
 	s.CreateChannel("builds")
-	m, _ := s.Post("builds", "paul", "hi")
+	m, _ := s.Post("builds", "pat", "hi")
 
-	if err := s.RenameChannel("builds", "general", "paul"); !errors.Is(err, ErrExists) {
+	if err := s.RenameChannel("builds", "general", "pat"); !errors.Is(err, ErrExists) {
 		t.Fatalf("rename onto existing: %v", err)
 	}
-	if err := s.RenameChannel("builds", "Bad Name", "paul"); !errors.Is(err, ErrBadChannel) {
+	if err := s.RenameChannel("builds", "Bad Name", "pat"); !errors.Is(err, ErrBadChannel) {
 		t.Fatalf("bad name: %v", err)
 	}
-	if err := s.RenameChannel("builds", "projects", "paul"); err != nil {
+	if err := s.RenameChannel("builds", "projects", "pat"); err != nil {
 		t.Fatal(err)
 	}
 	// The rename survives a restart, messages and all, and is on record for old links.
 	s, _ = Open(dir)
-	if rn := s.Renames(); len(rn) != 1 || rn[0].From != "builds" || rn[0].To != "projects" || rn[0].User != "paul" {
+	if rn := s.Renames(); len(rn) != 1 || rn[0].From != "builds" || rn[0].To != "projects" || rn[0].User != "pat" {
 		t.Fatalf("renames: %+v", rn)
 	}
 	msgs, err := s.Messages("projects", "", 10)
@@ -132,9 +132,9 @@ func TestReactionsPinsRepliesForwards(t *testing.T) {
 	dir := t.TempDir()
 	s, _ := Open(dir)
 	s.CreateChannel("builds")
-	a, _ := s.Post("general", "paul", "farm is up")
+	a, _ := s.Post("general", "pat", "farm is up")
 	b, err := s.Send("general", "alex", Draft{Text: "nice", ReplyTo: a.ID})
-	if err != nil || b.Reply == nil || b.Reply.User != "paul" || b.Reply.Text != "farm is up" {
+	if err != nil || b.Reply == nil || b.Reply.User != "pat" || b.Reply.Text != "farm is up" {
 		t.Fatalf("reply: %+v %v", b, err)
 	}
 	if _, err := s.Send("builds", "alex", Draft{Text: "x", ReplyTo: a.ID}); !errors.Is(err, ErrBadReply) {
@@ -143,27 +143,27 @@ func TestReactionsPinsRepliesForwards(t *testing.T) {
 
 	s.React("general", a.ID, "alex", "👍", true)
 	s.React("general", a.ID, "alex", "👍", true) // again: no change
-	s.React("general", a.ID, "paul", "👍", true)
-	s.React("general", a.ID, "paul", "🔥", true)
-	m, _ := s.React("general", a.ID, "paul", "🔥", false)
-	if len(m.Reactions) != 1 || m.Reactions[0].Emoji != "👍" || strings.Join(m.Reactions[0].Users, ",") != "alex,paul" {
+	s.React("general", a.ID, "pat", "👍", true)
+	s.React("general", a.ID, "pat", "🔥", true)
+	m, _ := s.React("general", a.ID, "pat", "🔥", false)
+	if len(m.Reactions) != 1 || m.Reactions[0].Emoji != "👍" || strings.Join(m.Reactions[0].Users, ",") != "alex,pat" {
 		t.Fatalf("reactions: %+v", m.Reactions)
 	}
 	for _, bad := range []string{"", "a", "👍 ", ":+1:", strings.Repeat("👍", 9)} {
-		if _, err := s.React("general", a.ID, "paul", bad, true); !errors.Is(err, ErrBadEmoji) {
+		if _, err := s.React("general", a.ID, "pat", bad, true); !errors.Is(err, ErrBadEmoji) {
 			t.Fatalf("emoji %q: %v", bad, err)
 		}
 	}
-	if _, err := s.React("general", a.ID, "paul", "👍🏽", true); err != nil {
+	if _, err := s.React("general", a.ID, "pat", "👍🏽", true); err != nil {
 		t.Fatalf("skin tone: %v", err)
 	}
 
-	s.SetPinned("general", a.ID, "paul", true)
-	s.SetPinned("general", b.ID, "paul", true)
+	s.SetPinned("general", a.ID, "pat", true)
+	s.SetPinned("general", b.ID, "pat", true)
 	if pins, _ := s.Pins("general"); len(pins) != 2 || pins[0].ID != b.ID {
 		t.Fatalf("pins, newest first: %+v", pins)
 	}
-	s.SetPinned("general", b.ID, "paul", false)
+	s.SetPinned("general", b.ID, "pat", false)
 
 	f, _ := s.Forwarded("general", a.ID)
 	fw, err := s.Send("builds", "alex", Draft{Forward: f})
@@ -174,8 +174,8 @@ func TestReactionsPinsRepliesForwards(t *testing.T) {
 	if f2.ID != a.ID {
 		t.Fatalf("forwarding a forward passes on the original: %+v", f2)
 	}
-	s.Edit("general", a.ID, "paul", "farm is down")
-	s.Delete("general", a.ID, "paul", false)
+	s.Edit("general", a.ID, "pat", "farm is down")
+	s.Delete("general", a.ID, "pat", false)
 
 	// All of it survives a restart: the forward keeps its copy, the reply sees the delete.
 	s2, _ := Open(dir)
@@ -195,12 +195,12 @@ func TestReactionsPinsRepliesForwards(t *testing.T) {
 func TestReactionsSurviveRestart(t *testing.T) {
 	dir := t.TempDir()
 	s, _ := Open(dir)
-	a, _ := s.Post("general", "paul", "hi")
+	a, _ := s.Post("general", "pat", "hi")
 	s.React("general", a.ID, "alex", "👍", true)
-	s.SetPinned("general", a.ID, "paul", true)
+	s.SetPinned("general", a.ID, "pat", true)
 	s2, _ := Open(dir)
 	m, _ := s2.Get("general", a.ID)
-	if len(m.Reactions) != 1 || m.Pinned == nil || m.Pinned.By != "paul" {
+	if len(m.Reactions) != 1 || m.Pinned == nil || m.Pinned.By != "pat" {
 		t.Fatalf("%+v", m)
 	}
 }
@@ -210,32 +210,32 @@ func TestReactionsSurviveRestart(t *testing.T) {
 func TestPrivateAndDM(t *testing.T) {
 	dir := t.TempDir()
 	s, _ := Open(dir)
-	if err := s.Create("staff", Meta{Kind: Private, Members: []string{"paul", "alex", "paul"}}); err != nil {
+	if err := s.Create("staff", Meta{Kind: Private, Members: []string{"pat", "alex", "pat"}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.CreateChannel("dm-mine"); !errors.Is(err, ErrReserved) {
 		t.Fatalf("dm- name: %v", err)
 	}
-	dm, err := s.OpenDM([]string{"steve", "paul"}, "paul")
+	dm, err := s.OpenDM([]string{"steve", "pat"}, "pat")
 	if err != nil || !strings.HasPrefix(dm, "dm-") {
 		t.Fatalf("open dm: %q %v", dm, err)
 	}
-	if again, _ := s.OpenDM([]string{"paul", "steve"}, "steve"); again != dm {
+	if again, _ := s.OpenDM([]string{"pat", "steve"}, "steve"); again != dm {
 		t.Fatalf("same people, new DM: %q vs %q", again, dm)
 	}
-	if _, err := s.OpenDM([]string{"paul"}, "paul"); !errors.Is(err, ErrMembers) {
+	if _, err := s.OpenDM([]string{"pat"}, "pat"); !errors.Is(err, ErrMembers) {
 		t.Fatalf("DM alone: %v", err)
 	}
-	if _, err := s.OpenDM([]string{"alex", "steve"}, "paul"); !errors.Is(err, ErrMembers) {
+	if _, err := s.OpenDM([]string{"alex", "steve"}, "pat"); !errors.Is(err, ErrMembers) {
 		t.Fatalf("DM without the opener: %v", err)
 	}
-	if err := s.RenameChannel(dm, "chat", "paul"); !errors.Is(err, ErrDMFixed) {
+	if err := s.RenameChannel(dm, "chat", "pat"); !errors.Is(err, ErrDMFixed) {
 		t.Fatalf("rename DM: %v", err)
 	}
 	if err := s.DeleteChannel(dm); !errors.Is(err, ErrDMFixed) {
 		t.Fatalf("delete DM: %v", err)
 	}
-	if err := s.Hide(dm, "paul"); err != nil {
+	if err := s.Hide(dm, "pat"); err != nil {
 		t.Fatal(err)
 	}
 	if m, _ := s.MetaOf(dm); len(m.Hidden) != 1 {
@@ -245,7 +245,7 @@ func TestPrivateAndDM(t *testing.T) {
 	if m, _ := s.MetaOf(dm); len(m.Hidden) != 0 {
 		t.Fatalf("a message should unhide: %+v", m)
 	}
-	if err := s.Hide("staff", "paul"); !errors.Is(err, ErrNotDM) {
+	if err := s.Hide("staff", "pat"); !errors.Is(err, ErrNotDM) {
 		t.Fatalf("hide a private chat: %v", err)
 	}
 
@@ -255,7 +255,7 @@ func TestPrivateAndDM(t *testing.T) {
 	}
 	staff, _ := s2.MetaOf("staff")
 	d, _ := s2.MetaOf(dm)
-	if staff.Kind != Private || strings.Join(staff.Members, ",") != "alex,paul" || d.Kind != DM || strings.Join(d.Members, ",") != "paul,steve" {
+	if staff.Kind != Private || strings.Join(staff.Members, ",") != "alex,pat" || d.Kind != DM || strings.Join(d.Members, ",") != "pat,steve" {
 		t.Fatalf("after restart: %+v %+v", staff, d)
 	}
 	if !staff.CanSee("steve", true) || staff.CanSee("steve", false) || d.CanSee("alex", true) || !d.CanSee("steve", false) {
@@ -296,7 +296,7 @@ func TestOrder(t *testing.T) {
 	if got := strings.Join(names(s), ","); got != "music,general,builds,zeta,"+dm {
 		t.Fatalf("set order: %s", got)
 	}
-	s.RenameChannel("general", "lobby", "paul")
+	s.RenameChannel("general", "lobby", "pat")
 	s2, _ := Open(dir)
 	if got := strings.Join(names(s2), ","); got != "music,lobby,builds,zeta,"+dm {
 		t.Fatalf("after rename and restart: %s", got)
@@ -311,7 +311,7 @@ func TestTextLimitCountsCharacters(t *testing.T) {
 	}
 	for text, want := range map[string]error{strings.Repeat("字", 4000): nil, strings.Repeat("😀", 4000): nil,
 		strings.Repeat("a", 4001): ErrTooLong, strings.Repeat("字", 4001): ErrTooLong} {
-		if _, err := s.Post("general", "paul", text); !errors.Is(err, want) {
+		if _, err := s.Post("general", "pat", text); !errors.Is(err, want) {
 			t.Errorf("%d characters: %v, want %v", utf8.RuneCountInString(text), err, want)
 		}
 	}
@@ -325,11 +325,11 @@ func TestInvisibleTextReactionsAndQuickDeletes(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, text := range []string{"\u200b", "\ufeff\u200b", "\u2800\u2800", "\u3164", " \u200b "} {
-		if _, err := s.Post("general", "paul", text); !errors.Is(err, ErrEmpty) {
+		if _, err := s.Post("general", "pat", text); !errors.Is(err, ErrEmpty) {
 			t.Errorf("%q: %v, want empty", text, err)
 		}
 	}
-	if _, err := s.Post("general", "paul", "\u200bhi"); err != nil {
+	if _, err := s.Post("general", "pat", "\u200bhi"); err != nil {
 		t.Errorf("text with a zero-width space in it: %v", err)
 	}
 	for e, want := range map[string]bool{"👍": true, "#️⃣": true, "1️⃣": true, "🇬🇧": true, "‼️": true,

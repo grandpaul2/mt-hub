@@ -6,7 +6,7 @@ import { api, check, done, ev, frames, HUB, send, settle, STILL } from './lib.mj
 const words = 'the restock line runs from the crafters to the bulk and then the list maker unlocks each slice in turn'.split(' ');
 for (let i = 0; i < 120; i++) {
   const n = 3 + ((i * 7) % 40);
-  await api('POST', '/api/channels/general/messages', { text: `m${i} ` + Array.from({ length: n }, (_, k) => words[(i + k) % words.length]).join(' ') }, i % 3 ? 'Paul' : 'Alex');
+  await api('POST', '/api/channels/general/messages', { text: `m${i} ` + Array.from({ length: n }, (_, k) => words[(i + k) % words.length]).join(' ') }, i % 3 ? 'Pat' : 'Alex');
 }
 const L = `document.querySelector('#chat .messages')`;
 // setWidth changes the side panel's width as dragging its edge does, then waits for two drawn

@@ -1,4 +1,4 @@
-// The folder view as a list: the Size slider's last stop on the left (Paul, S98). A row each:
+// The folder view as a list: the Size slider's last stop on the left. A row each:
 // the picture small (32px high) or the icon at 16px in the same slot, then name, date and
 // size, the columns lined up. A folder row always has its date (a tile only when sorted by
 // date). Kept per browser like the tile size; one stop right is tiles again. Picking works

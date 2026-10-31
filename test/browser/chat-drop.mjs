@@ -9,11 +9,11 @@ import { api, check, done, ev, HUB, hub, png, SEED, send, settle, shot } from '.
 const M = '#main-chat';
 const msgs = async (ch) => (await (await hub(`/api/channels/${ch}/messages`)).json());
 const postFile = (ch, name, body) => hub(`/api/channels/${ch}/media?name=${encodeURIComponent(name)}`, { method: 'POST', body });
-const say = async (ch, text, who = 'Paul') => (await (await api('POST', `/api/channels/${ch}/messages`, { text }, who)).json());
+const say = async (ch, text, who = 'Pat') => (await (await api('POST', `/api/channels/${ch}/messages`, { text }, who)).json());
 const msgEl = (id) => `document.querySelector('${M} .msg[data-id="${id}"]')`;
 
-await api('POST', '/api/channels', { name: 'shapes' }, 'Paul');
-await api('POST', '/api/channels', { name: 'staff', kind: 'private', members: ['Alex'] }, 'Paul');
+await api('POST', '/api/channels', { name: 'shapes' }, 'Pat');
+await api('POST', '/api/channels', { name: 'staff', kind: 'private', members: ['Alex'] }, 'Pat');
 await postFile('shapes', 'a.png', png(120, 80, [200, 40, 40]));
 await postFile('shapes', 'big.png', png(1600, 1000, [40, 40, 200]));
 await postFile('staff', 'secret.png', png(120, 80, [40, 200, 40]));

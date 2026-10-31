@@ -15,7 +15,7 @@ import { api, done, ev, HUB, send, sleep } from '../browser/lib.mjs';
 
 const RUNS = 5;
 
-for (let i = 0; i < 30; i++) await api('POST', '/api/channels/general/messages', { text: `message ${i}` }, i % 2 ? 'Paul' : 'Alex');
+for (let i = 0; i < 30; i++) await api('POST', '/api/channels/general/messages', { text: `message ${i}` }, i % 2 ? 'Pat' : 'Alex');
 
 await send('Network.enable');
 await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 3, mobile: true });

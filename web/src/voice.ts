@@ -995,7 +995,7 @@ async function buildChain(fresh = false, forLink = false): Promise<Chain> {
 // ---- settings ---------------------------------------------------------------------------
 
 // A setting moved off its default in a way that makes you sound worse to others is shown in red
-// with a line saying why, as Simple Voice Chat does (Paul; style guide 3.3).
+// with a line saying why, as Simple Voice Chat does (style guide 3.3).
 const GAIN_WARN = 10; // dB of Microphone Gain
 const THRESHOLD_WARN = -10; // dB of Voice Activation Threshold
 

@@ -31,7 +31,7 @@ check('+ offers a DM (no private chat for members)', await (async () => {
 await ev(`[...document.querySelectorAll('#menu button')].find((b) => b.firstChild.textContent === 'New Direct Message…').click()`);
 await settle(200);
 check('DM picker: everyone but you', await ev(`[document.querySelector('#dialog h2').textContent, [...document.querySelectorAll('#dialog label.member')].map((l) => l.textContent)]`),
-  ['New direct message', ['Alex', 'Paul']]);
+  ['New direct message', ['Alex', 'Pat']]);
 check('Message waits for someone', await ev(`[...document.querySelectorAll('#dialog .actions button')].pop().disabled`), true);
 await tick('Alex');
 await shot('dm-picker');
@@ -79,8 +79,8 @@ await settle(600);
 check('too big for chat: Files warns from a DM', await ev(`document.querySelector('#dialog .warn-line')?.textContent ?? null`), 'This is a private conversation, but Files is visible to everyone in the hub.');
 await key('Escape');
 
-// Paul (an admin) doesn't see it; he makes a private chat with Steve.
-await as('Paul');
+// Pat (an admin) doesn't see it; he makes a private chat with Steve.
+await as('Pat');
 await reload('#chan=general');
 check('an admin sees no one else’s DMs', await rows('channels'), ['#general']);
 await ev(`document.getElementById('new-channel').click()`);
@@ -95,7 +95,7 @@ check('private chat: a lock in the list and the title', [await rows('channels'),
 check('its note', await ev(`document.querySelector('${M} .chat-privacy').textContent.startsWith('Private: only its members and the admins')`), true);
 check('admin menu on a private chat', await rowMenu('channels', 'staff'), ['Open', 'Open in Side Panel', 'Copy Link', 'Move Up', 'Members…', 'Make Public', 'Rename…', 'Delete']);
 await key('Escape');
-await api('POST', '/api/channels/staff/messages', { text: 'staff only' }, 'Paul');
+await api('POST', '/api/channels/staff/messages', { text: 'staff only' }, 'Pat');
 
 // Alex sees neither the private chat nor anything from it; the DM is his.
 await as('Alex');
@@ -110,8 +110,8 @@ await api('POST', `/api/channels/${dm}/messages`, { text: 'still there?' }, 'Ste
 await settle(1000);
 check('back on its next message', await rows('channels'), ['#general', '@Steve']);
 
-// Paul makes staff public: Alex's list gets it live.
-await api('PUT', '/api/channels/staff/kind', { kind: '' }, 'Paul');
+// Pat makes staff public: Alex's list gets it live.
+await api('PUT', '/api/channels/staff/kind', { kind: '' }, 'Pat');
 await settle(1000);
 check('made public: it appears for Alex', await rows('channels'), ['#general', '#staff', '@Steve']);
 

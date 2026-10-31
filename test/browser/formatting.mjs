@@ -10,9 +10,9 @@ const plain = await post('snake_case_name and <https://example.com/a_b_c> and \\
 const code = await post('look:\n```js\nconst a = **1**; // https://example.com/x\n```\nafter');
 const blocks = await post('# Title\n> quoted **b**\n- one\n- two\n1. first\n-# small print');
 const rest = await post('>>> all\nof this');
-const masked = await post('[the docs](https://example.com/docs) and @Paul 🔥');
-await post('replying', { reply_to: marks }, 'Paul');
-await api('PUT', `/api/channels/general/messages/${blocks}/pin`, undefined, 'Paul');
+const masked = await post('[the docs](https://example.com/docs) and @Pat 🔥');
+await post('replying', { reply_to: marks }, 'Pat');
+await api('PUT', `/api/channels/general/messages/${blocks}/pin`, undefined, 'Pat');
 
 await send('Page.navigate', { url: HUB + '/#chan=general' });
 await settle(2500);
@@ -33,7 +33,7 @@ check('blocks', await msg(blocks, `[...m.children].map((e) => e.tagName.toLowerC
 check('bold inside a quote', await msg(blocks, `m.querySelector('blockquote strong')?.textContent`), 'b');
 check('>>> quotes the rest', await msg(rest, `m.querySelector('blockquote')?.textContent`), 'all\nof this');
 check('masked link, mention, emoji', [await msg(masked, `[m.querySelector('a').textContent, m.querySelector('a').title]`), await msg(masked, `m.querySelector('.mention')?.textContent`), await msg(masked, `m.querySelector('img.emoji')?.alt`)],
-  [['the docs', 'https://example.com/docs'], '@Paul', '🔥']);
+  [['the docs', 'https://example.com/docs'], '@Pat', '🔥']);
 
 await ev(`document.querySelector('#main-chat .msg[data-id="${code}"] .md-copy').click()`);
 await settle(300);
