@@ -59,6 +59,8 @@ await ev(`${L}.scrollTop = ${L}.scrollHeight / 2`);
 await settle(300);
 const edgeNow = `(() => { const r = ${L}.getBoundingClientRect(); const e = document.elementFromPoint(r.left + 120, r.bottom - 12).closest('.msg');
   return e.querySelector('.msg-body').textContent.split(' ')[0] + ' ' + Math.round(r.bottom - e.getBoundingClientRect().bottom); })()`;
+// (This check once failed beside something heavy, and then passed three full runs of every suite
+// at once, 2026-10-30. If it fails again, the failing frame's numbers are in its message.)
 run = await frames(replyTo(''), edgeNow, 400, true);
 const [id0, off0] = run[0].split(' ');
 check('scrolled up: the bottom message holds its place on every frame (to a whole pixel, as above)',

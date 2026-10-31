@@ -22,13 +22,6 @@ Last reconciled: **2026-10-30** (items 7 and 1 built, item 2 won't-fix: see `doc
    found. *Next:* time the joins on the relay (`journalctl -u voicebridge`) and, if the 1 s is
    there too, find what it waits for.
 
-### Tests
-
-6. **`chat-scroll.mjs` and `relay.mjs` can fail under load.** `chat-scroll`'s "the bottom message
-   holds its place on every frame" check (to a whole pixel), and `relay`'s "timed out waiting
-   for LIVE", when something heavy runs beside the suites; alone both pass. *Next:* make each
-   wait for the state it checks instead of a fixed time, and rerun beside a busy machine.
-
 (`relay.mjs` needs an ffmpeg with libx264; some distributions' default builds, such as
 Fedora's `ffmpeg-free`, have none. That is a requirement, listed in `AGENTS.md`, not an open
 item.)
